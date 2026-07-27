@@ -2,6 +2,7 @@ const { describe, expect, test } = require('bun:test');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const vm = require('node:vm');
+const { calculateStageStatus } = require('../logic.js');
 
 function loadBrowserData() {
   const context = vm.createContext({
@@ -110,6 +111,14 @@ describe('Phase 1C study content', () => {
     expect(bodies).toContain('def box_iou');
     expect(bodies).toContain('def nms');
     expect(`${module.summary} ${module.invariant} ${module.template.join(' ')}`).toMatch(/shape/i);
+    const geometryTemplate = module.code.find(({ label }) => label.toLowerCase().includes('iou'))?.body || '';
+    const floatCastIndex = geometryTemplate.indexOf('is_floating_point');
+    const finfoIndex = geometryTemplate.indexOf('torch.finfo');
+    expect(floatCastIndex).toBeGreaterThanOrEqual(0);
+    expect(geometryTemplate).toContain('dtype=torch.float32');
+    expect(finfoIndex).toBeGreaterThan(floatCastIndex);
+    expect(geometryTemplate).toContain('device=boxes.device');
+    expect(geometryTemplate).toContain('scores = scores.to(device=boxes.device)');
   });
 
   test('adds classical ML plus the prerequisite CV foundation sequence', () => {
@@ -650,86 +659,164 @@ describe('Phase 1C scheduling and remediation graph', () => {
     });
   });
 
-  test('assigns the complete problem bank and uses semantically split pattern keys', () => {
+  test('assigns all 60 unique problems, including every audited orphan, and splits pattern keys', () => {
     const referenced = new Set(Object.values(sessionGuides).flatMap((guide) =>
       guide.stages.flatMap((stage) => stage.reference.type === 'problem-set'
         ? stage.reference.problemIds
         : [])
     ));
     const bankIds = data.problems.map((problem) => problem.id);
+    const auditedIds = [
+      '3sum',
+      'container-with-most-water',
+      'permutation-in-string',
+      'minimum-window-substring',
+      'car-fleet',
+      'find-minimum-in-rotated-sorted-array',
+      'search-in-rotated-sorted-array',
+      'reorder-list',
+      'remove-nth-node-from-end-of-list',
+      'linked-list-cycle',
+      'kth-largest-element-in-an-array',
+      'task-scheduler',
+      'coin-change'
+    ];
+
+    expect(data.problems).toHaveLength(60);
+    expect(new Set(bankIds).size).toBe(60);
     expect(bankIds.filter((id) => !referenced.has(id))).toEqual([]);
+    expect(auditedIds.every((id) => bankIds.includes(id) && referenced.has(id))).toBe(true);
     expect(data.optionalProblems || []).toEqual([]);
 
     const patterns = new Set(data.problems.map((problem) => problem.pattern));
     expect(patterns.has('Arrays & hashing')).toBe(false);
     expect(patterns.has('Heap & intervals')).toBe(false);
-    expect(patterns).toEqual(expect.objectContaining(new Set([
-      'Hashing', 'Arrays: prefix/suffix', 'Heaps', 'Intervals'
-    ])));
+    expect(patterns.has('Hashing')).toBe(true);
+    expect(patterns.has('Arrays: prefix/suffix')).toBe(true);
+    expect(patterns.has('Heaps')).toBe(true);
+    expect(patterns.has('Intervals')).toBe(true);
     expect(data.codingPatternConcepts.Hashing).toEqual(['hashing']);
     expect(data.codingPatternConcepts['Arrays: prefix/suffix']).toEqual(['hashing']);
     expect(data.codingPatternConcepts.Heaps).toEqual(['heaps']);
     expect(data.codingPatternConcepts.Intervals).toEqual(['intervals']);
   });
 
-  test('derives concrete recall, quiz, problem, and design repair targets from misses', () => {
-    expect(typeof data.buildSessionGuides).toBe('function');
-    const at = '2026-09-01T10:00:00.000Z';
-    const base = {
-      completedTasks: {},
-      quizAttempts: [],
-      problemAttempts: [],
-      designAttempts: [],
-      studyProgress: { reviews: {}, studied: {}, activeFocus: null },
-      remediationAssignments: {}
+  test('gives every concrete problem set enough honest interview time', () => {
+    const problemById = new Map(data.problems.map((problem) => [problem.id, problem]));
+    const minimumMinutes = { Easy: 7, Medium: 18, Hard: 30 };
+    const expectedLaterSets = {
+      'w4-timed-a': ['3sum', 'container-with-most-water', 'permutation-in-string'],
+      'w5-timed-a': ['longest-repeating-character-replacement', 'car-fleet', 'find-minimum-in-rotated-sorted-array'],
+      'w6-timed-a': ['search-in-rotated-sorted-array', 'reorder-list', 'remove-nth-node-from-end-of-list'],
+      'w6-weak-problems': ['kth-smallest-element-in-a-bst', 'lowest-common-ancestor-of-a-binary-search-tree'],
+      'w7-timed-a': ['linked-list-cycle', 'kth-largest-element-in-an-array', 'task-scheduler', 'coin-change']
     };
 
-    const recallGuides = data.buildSessionGuides({
-      ...base,
-      studyProgress: {
-        ...base.studyProgress,
-        reviews: {
-          'recall:hashing:1': {
-            kind: 'recall', sourceId: 'hashing', promptIndex: 1,
-            lastResult: 'again', lastReviewedAt: at
-          }
-        }
+    for (const [taskId, problemIds] of Object.entries(expectedLaterSets)) {
+      const { guide, stage } = stageForTaskIn(sessionGuides, taskId);
+      expect(stage.reference).toEqual({ type: 'problem-set', problemIds });
+      const task = sessions.find((session) => session.id === guide.sessionId)
+        .tasks.find((candidate) => candidate.id === taskId);
+      for (const problemId of problemIds) {
+        expect(task.detail.toLowerCase()).toContain(problemById.get(problemId).title.toLowerCase());
       }
+    }
+
+    for (const guide of Object.values(sessionGuides)) {
+      for (const stage of guide.stages.filter((candidate) => candidate.reference.type === 'problem-set')) {
+        const requiredMinutes = stage.reference.problemIds.reduce((total, problemId) => (
+          total + minimumMinutes[problemById.get(problemId).difficulty]
+        ), 0);
+        expect(stage.minutes).toBeGreaterThanOrEqual(requiredMinutes);
+      }
+    }
+  });
+
+  const emptyRemediationState = () => ({
+    completedTasks: {},
+    quizAttempts: [],
+    problemAttempts: [],
+    designAttempts: [],
+    studyProgress: { reviews: {}, studied: {}, activeFocus: null },
+    remediationAssignments: {}
+  });
+
+  test('keeps remediation workspaces inactive until a target is explicitly persisted', () => {
+    expect(typeof data.isRemediationStageActivated).toBe('function');
+    if (typeof data.isRemediationStageActivated !== 'function') return;
+    const state = emptyRemediationState();
+    state.quizAttempts.push({
+      quizId: 'rapid-fire-readiness', score: 55, attemptedAt: '2026-09-01T10:00:00.000Z'
     });
-    const recall = stageForTaskIn(recallGuides, 'w8-coding-recall').stage;
+    const stageId = 'stage-w8-theory-fix-a';
+
+    expect(data.isRemediationStageActivated(state, stageId)).toBe(false);
+    expect(stageForTaskIn(data.buildSessionGuides(state), 'w8-theory-fix-a').stage.reference.target.isCalibration).toBe(true);
+
+    const activated = data.activateRemediationStage(state, stageId, '2026-09-16T10:00:00.000Z');
+    expect(data.isRemediationStageActivated(activated, stageId)).toBe(true);
+    expect(activated.remediationAssignments[stageId].assignedAt).toBe('2026-09-16T10:00:00.000Z');
+
+    const stage = stageForTaskIn(data.buildSessionGuides(activated), 'w8-theory-fix-a').stage;
+    expect(stage.instructions).toContain('2026-09-01T10:00:00.000Z');
+    expect(stage.instructions).not.toContain('after 2026-09-16T10:00:00.000Z');
+    const alreadyRepaired = {
+      ...activated,
+      quizAttempts: [...activated.quizAttempts, {
+        quizId: 'rapid-fire-readiness', score: 90, attemptedAt: '2026-09-02T10:00:00.000Z'
+      }]
+    };
+    expect(calculateStageStatus(stage, alreadyRepaired, data).complete).toBe(true);
+
+    const rebuilt = data.buildSessionGuides(alreadyRepaired);
+    const stableStage = stageForTaskIn(rebuilt, 'w8-theory-fix-a').stage;
+    expect(stableStage.reference.target).toEqual(activated.remediationAssignments[stageId]);
+    expect(calculateStageStatus(stableStage, alreadyRepaired, data).complete).toBe(true);
+  });
+
+  test('activates concrete recall, quiz, problem, and design targets only for the focused stage', () => {
+    expect(typeof data.buildSessionGuides).toBe('function');
+    expect(typeof data.activateRemediationStage).toBe('function');
+    if (typeof data.activateRemediationStage !== 'function') return;
+    const at = '2026-09-01T10:00:00.000Z';
+
+    const recallState = emptyRemediationState();
+    recallState.studyProgress.reviews['recall:hashing:1'] = {
+      kind: 'recall', sourceId: 'hashing', promptIndex: 1,
+      lastResult: 'again', lastReviewedAt: at
+    };
+    const recallActivated = data.activateRemediationStage(recallState, 'stage-w8-coding-recall');
+    const recall = stageForTaskIn(data.buildSessionGuides(recallActivated), 'w8-coding-recall').stage;
     expect(recall.reference.target).toMatchObject({
       kind: 'recall', sourceId: 'hashing', promptIndex: 1, failedAt: at, isCalibration: false
     });
     expect(recall.instructions).toMatch(/hashing.*prompt 2.*hard or got-it.*after/i);
 
-    const quizGuides = data.buildSessionGuides({
-      ...base,
-      quizAttempts: [{ quizId: 'rapid-fire-readiness', score: 65, attemptedAt: at }]
-    });
-    const quiz = stageForTaskIn(quizGuides, 'w8-theory-fix-a').stage;
+    const quizState = emptyRemediationState();
+    quizState.quizAttempts.push({ quizId: 'rapid-fire-readiness', score: 65, attemptedAt: at });
+    const quizActivated = data.activateRemediationStage(quizState, 'stage-w8-theory-fix-a');
+    const quiz = stageForTaskIn(data.buildSessionGuides(quizActivated), 'w8-theory-fix-a').stage;
     expect(quiz.reference.target).toMatchObject({
       kind: 'quiz', sourceId: 'rapid-fire-readiness', quizId: 'rapid-fire-readiness', failedAt: at, isCalibration: false
     });
     expect(quiz.instructions).toMatch(/rapid-fire.*80.*after/i);
 
-    const problemGuides = data.buildSessionGuides({
-      ...base,
-      problemAttempts: [{ problemId: 'coin-change', usedHint: true, attemptedAt: at }]
-    });
-    const problem = stageForTaskIn(problemGuides, 'w10-gap-work').stage;
+    const problemState = emptyRemediationState();
+    problemState.problemAttempts.push({ problemId: 'coin-change', usedHint: true, attemptedAt: at });
+    const problemActivated = data.activateRemediationStage(problemState, 'stage-w10-gap-work');
+    const problem = stageForTaskIn(data.buildSessionGuides(problemActivated), 'w10-gap-work').stage;
     expect(problem.reference.target).toMatchObject({
       kind: 'problem', sourceId: 'coin-change', problemId: 'coin-change', failedAt: at, isCalibration: false
     });
     expect(problem.instructions).toMatch(/coin-change.*independent.*explain.*complexity.*after/i);
 
-    const designGuides = data.buildSessionGuides({
-      ...base,
-      designAttempts: [{
-        caseId: 'image-search', phase: 'attempt', durationMinutes: 40,
-        scores: { requirements: 4, metrics: 2, serving: 3 }, attemptedAt: at
-      }]
+    const designState = emptyRemediationState();
+    designState.designAttempts.push({
+      caseId: 'image-search', phase: 'attempt', durationMinutes: 40,
+      scores: { requirements: 4, metrics: 2, serving: 3 }, attemptedAt: at
     });
-    const design = stageForTaskIn(designGuides, 'w9-design-fix-b').stage;
+    const designActivated = data.activateRemediationStage(designState, 'stage-w9-design-fix-b');
+    const design = stageForTaskIn(data.buildSessionGuides(designActivated), 'w9-design-fix-b').stage;
     expect(design.reference.target).toMatchObject({
       kind: 'design', sourceId: 'image-search', caseId: 'image-search',
       dimension: 'metrics', failedAt: at, isCalibration: false
@@ -737,41 +824,83 @@ describe('Phase 1C scheduling and remediation graph', () => {
     expect(design.instructions).toMatch(/image-search.*metrics.*4.*timed.*after/i);
   });
 
-  test('uses explicit fresh-state calibration targets and preserves a selected miss', () => {
-    const empty = {
-      completedTasks: {}, quizAttempts: [], problemAttempts: [], designAttempts: [],
-      studyProgress: { reviews: {}, studied: {}, activeFocus: null }, remediationAssignments: {}
-    };
-    const freshGuides = data.buildSessionGuides(empty);
-    const taskIds = [
+  test('does not let one early miss preassign or complete later remediation stages', () => {
+    if (typeof data.activateRemediationStage !== 'function') return;
+    const failedAt = '2026-09-01T10:00:00.000Z';
+    const passedAt = '2026-09-02T10:00:01.000Z';
+    const failed = emptyRemediationState();
+    failed.quizAttempts.push({ quizId: 'rapid-fire-readiness', score: 55, attemptedAt: failedAt });
+
+    const unactivatedGuides = data.buildSessionGuides(failed);
+    for (const taskId of [
       'w8-theory-fix-a', 'w8-coding-recall', 'w8-ml-repair', 'w9-design-fix-b',
       'w9-theory-fix-b', 'w9-design-repair', 'w10-gap-work'
-    ];
-    for (const taskId of taskIds) {
-      const stage = stageForTaskIn(freshGuides, taskId).stage;
-      expect(stage.reference.type).toBe('remediation');
-      expect(stage.reference.target.isCalibration).toBe(true);
-      expect(stage.instructions).toMatch(/calibration/i);
-      expect(stage.instructions).toMatch(/after/i);
+    ]) {
+      expect(stageForTaskIn(unactivatedGuides, taskId).stage.reference.target.isCalibration).toBe(true);
     }
+    expect(failed.remediationAssignments).toEqual({});
 
-    const failed = {
-      ...empty,
-      quizAttempts: [{
-        quizId: 'rapid-fire-readiness', score: 55,
-        attemptedAt: '2026-09-01T10:00:00.000Z'
-      }]
-    };
-    const selected = data.buildSessionGuides(failed);
-    const selectedTarget = stageForTaskIn(selected, 'w8-theory-fix-a').stage.reference.target;
+    const activated = data.activateRemediationStage(failed, 'stage-w8-theory-fix-a', '2026-09-02T10:00:00.000Z');
+    expect(Object.keys(activated.remediationAssignments)).toEqual(['stage-w8-theory-fix-a']);
+    const selectedTarget = activated.remediationAssignments['stage-w8-theory-fix-a'];
+    expect(selectedTarget).toMatchObject({
+      kind: 'quiz', quizId: 'rapid-fire-readiness', failedAt, isCalibration: false
+    });
+
     const repaired = {
-      ...failed,
-      quizAttempts: [...failed.quizAttempts, {
-        quizId: 'rapid-fire-readiness', score: 90,
-        attemptedAt: '2026-09-02T10:00:00.000Z'
+      ...activated,
+      quizAttempts: [...activated.quizAttempts, {
+        quizId: 'rapid-fire-readiness', score: 90, attemptedAt: passedAt
       }]
     };
-    const stable = data.buildSessionGuides(repaired, selected);
-    expect(stageForTaskIn(stable, 'w8-theory-fix-a').stage.reference.target).toEqual(selectedTarget);
+    const repairedGuides = data.buildSessionGuides(repaired);
+    const repairedStage = stageForTaskIn(repairedGuides, 'w8-theory-fix-a').stage;
+    const futureStage = stageForTaskIn(repairedGuides, 'w9-theory-fix-b').stage;
+    expect(calculateStageStatus(repairedStage, repaired, data).complete).toBe(true);
+    expect(futureStage.reference.target.isCalibration).toBe(true);
+    expect(calculateStageStatus(futureStage, repaired, data).complete).toBe(false);
+  });
+
+  test('locks the miss present at activation and ignores later unrelated misses', () => {
+    if (typeof data.activateRemediationStage !== 'function') return;
+    const firstAt = '2026-09-01T10:00:00.000Z';
+    const laterAt = '2026-09-20T10:00:00.000Z';
+    const state = emptyRemediationState();
+    state.quizAttempts.push({ quizId: 'rapid-fire-readiness', score: 55, attemptedAt: firstAt });
+    const firstActivated = data.activateRemediationStage(state, 'stage-w8-theory-fix-a', '2026-09-02T10:00:00.000Z');
+    const firstTarget = firstActivated.remediationAssignments['stage-w8-theory-fix-a'];
+
+    const withLaterMisses = {
+      ...firstActivated,
+      quizAttempts: [...firstActivated.quizAttempts, {
+        quizId: 'task-loss-metric', score: 60, attemptedAt: laterAt
+      }],
+      problemAttempts: [{ problemId: 'coin-change', usedHint: true, attemptedAt: laterAt }]
+    };
+    const reactivated = data.activateRemediationStage(withLaterMisses, 'stage-w8-theory-fix-a');
+    expect(reactivated.remediationAssignments['stage-w8-theory-fix-a']).toEqual(firstTarget);
+
+    const laterStage = data.activateRemediationStage(reactivated, 'stage-w9-theory-fix-b', '2026-09-21T10:00:00.000Z');
+    expect(laterStage.remediationAssignments['stage-w9-theory-fix-b']).toMatchObject({
+      kind: 'quiz', quizId: 'task-loss-metric', failedAt: laterAt, isCalibration: false
+    });
+    expect(laterStage.remediationAssignments['stage-w8-theory-fix-a']).toEqual(firstTarget);
+  });
+
+  test('uses fresh calibration guides when reset or import has no assignments', () => {
+    if (typeof data.activateRemediationStage !== 'function') return;
+    const oldState = emptyRemediationState();
+    oldState.quizAttempts.push({
+      quizId: 'rapid-fire-readiness', score: 55, attemptedAt: '2026-09-01T10:00:00.000Z'
+    });
+    const activated = data.activateRemediationStage(oldState, 'stage-w8-theory-fix-a');
+    const oldGuides = data.buildSessionGuides(activated);
+
+    const resetOrImported = emptyRemediationState();
+    const cleanGuides = data.buildSessionGuides(resetOrImported, oldGuides);
+    const cleanStage = stageForTaskIn(cleanGuides, 'w8-theory-fix-a').stage;
+    expect(cleanStage.reference.target.isCalibration).toBe(true);
+    expect(cleanStage.reference.target.failedAt).toBeNull();
+    expect(resetOrImported.remediationAssignments).toEqual({});
   });
 });

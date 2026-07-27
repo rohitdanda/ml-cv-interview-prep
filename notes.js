@@ -1297,6 +1297,11 @@ assert loss.ndim == 0 and logits.shape == targets.shape` },
 
 def box_iou(box, boxes):
     # box: [4], boxes: [N, 4], coordinates are (x1, y1, x2, y2)
+    if box.shape != (4,) or boxes.ndim != 2 or boxes.shape[1] != 4:
+        raise ValueError("expected box [4] and boxes [N, 4]")
+    if not boxes.is_floating_point():
+        boxes = boxes.to(dtype=torch.float32)
+    box = box.to(device=boxes.device, dtype=boxes.dtype)
     top_left = torch.maximum(box[:2], boxes[:, :2])
     bottom_right = torch.minimum(box[2:], boxes[:, 2:])
     intersection = (bottom_right - top_left).clamp(min=0).prod(dim=1)
@@ -1306,6 +1311,11 @@ def box_iou(box, boxes):
     return intersection / union.clamp(min=torch.finfo(boxes.dtype).eps)
 
 def nms(boxes, scores, iou_threshold):
+    if boxes.ndim != 2 or boxes.shape[1] != 4 or scores.ndim != 1 or len(scores) != len(boxes):
+        raise ValueError("expected boxes [N, 4] and aligned scores [N]")
+    if not boxes.is_floating_point():
+        boxes = boxes.to(dtype=torch.float32)
+    scores = scores.to(device=boxes.device)
     # boxes: [N, 4], scores: [N]; returns kept original indices
     order = scores.argsort(descending=True)
     keep = []
@@ -1691,7 +1701,7 @@ assert kept.tolist() == [0, 2]` }
       solutionOutline: ['Annotation guidelines, agreement, adjudication, and grouped split', 'Pretrained encoder plus task head and simple U-Net-style baseline', 'CE/BCE plus Dice or IoU-aware objective with empty-mask policy', 'Dice/IoU, boundary F1, object sensitivity, calibration, and slice review', 'Human-in-the-loop correction, versioned evidence, and rollback'],
       modernCv: 'Evaluate SAM2 as annotation accelerator or promptable component. Use a domain model for automated inference unless validated evidence supports direct use.',
       pressureTest: 'Aggregate Dice improves while small critical defects are missed more often. Which metric and sampling changes expose and correct this?',
-      pressureTestAnswer: 'Decision: promote small-object sensitivity and boundary or object-level recall to release gates, oversample the critical slice, and inspect loss/assignment behavior. The alternative of optimizing aggregate Dice fails because background and large masks dominate. Verify by size-stratified holdout, site review, calibration, and prospective workflow impact.'
+      pressureTestAnswer: 'Decision: promote small-object sensitivity and boundary or object-level recall to release gates, oversample the critical slice, and inspect loss/assignment behavior. The alternative of optimizing aggregate Dice fails because large masks or easy images can dominate a micro/global aggregate, while empty-mask policy can skew macro results. Verify by size-stratified holdout, site review, calibration, and prospective workflow impact.'
     },
     {
       id: 'ocr-documents', order: 6, title: 'OCR and document understanding',

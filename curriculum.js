@@ -104,7 +104,7 @@
         ]),
         session('w1-thu', '2026-07-30', 'Hashing and two pointers', 'coding', 'Recognize state lookup versus ordered convergence', 'Solve first, then compare your invariant with the reference pattern.', 90, [
           task('w1-problems-b', 'Arrays set B', 'Group Anagrams, Top K Frequent Elements, Product Except Self.', 55, 'coding'),
-          task('w1-problems-c', 'Two-pointer set', 'Valid Palindrome, Two Sum II, 3Sum, and Container With Most Water.', 25, 'coding'),
+          task('w1-problems-c', 'Two-pointer foundations', 'Valid Palindrome and Two Sum II.', 25, 'coding'),
           task('w1-pattern-log', 'Pattern journal', 'Write one sentence describing the invariant for hashing and two pointers.', 10, 'coding')
         ]),
         session('w1-sat', '2026-08-01', 'Task, loss, and metric map', 'foundations', 'Choose defensible losses and metrics by task', 'Build the classification, regression, detection, and segmentation cheat sheet.', 180, [
@@ -126,8 +126,8 @@
       goal: 'Restore probabilistic reasoning while making sliding-window, stack, search, and linked-list patterns automatic.',
       sessions: [
         session('w2-mon', '2026-08-03', 'Sliding windows', 'coding', 'Maintain a valid window with explicit state', 'State what expands, what invalidates, and what shrinks before writing code.', 90, [
-          task('w2-window-a', 'Fixed and variable windows', 'Best Time to Buy/Sell Stock, Longest Substring Without Repeats, and Permutation in String.', 50, 'coding'),
-          task('w2-window-b', 'Constraint-driven window', 'Longest Repeating Character Replacement and Minimum Window Substring.', 30, 'coding'),
+          task('w2-window-a', 'Window foundations', 'Best Time to Buy/Sell Stock and Longest Substring Without Repeating Characters.', 50, 'coding'),
+          task('w2-window-b', 'Constraint-driven window', 'Solve Minimum Window Substring with a 30-minute interview cap.', 30, 'coding'),
           task('w2-window-recall', 'Window invariant', 'Explain why each pointer only moves forward.', 10, 'coding')
         ]),
         session('w2-tue', '2026-08-04', 'Probability foundations', 'foundations', 'Use conditional probability and Bayes correctly', 'Translate natural-language events before touching formulas.', 90, [
@@ -137,12 +137,12 @@
         ]),
         session('w2-wed', '2026-08-05', 'Stacks and monotonic state', 'coding', 'Recognize deferred work and next-greater-element patterns', 'Use the stack as an explicit record of unresolved items.', 90, [
           task('w2-stack-a', 'Stack basics', 'Valid Parentheses, Min Stack, Evaluate Reverse Polish Notation.', 50, 'coding'),
-          task('w2-stack-b', 'Monotonic and ordered stacks', 'Daily Temperatures and Car Fleet.', 30, 'coding'),
+          task('w2-stack-b', 'Monotonic stack', 'Solve Daily Temperatures and explain why each index enters and leaves the stack once.', 30, 'coding'),
           task('w2-stack-recall', 'Complexity explanation', 'Explain amortized O(n) for a monotonic stack.', 10, 'coding')
         ]),
         session('w2-thu', '2026-08-06', 'Binary search and linked lists', 'coding', 'Search monotonic spaces and manipulate pointers safely', 'Write loop invariants before updating bounds or links.', 90, [
-          task('w2-binary', 'Binary-search core', 'Binary Search, Search a 2D Matrix, Koko Eating Bananas, Find Minimum, and Search in Rotated Array.', 50, 'coding'),
-          task('w2-linked', 'Linked-list core', 'Reverse, Merge, Reorder, Remove Nth, and Cycle detection.', 30, 'coding'),
+          task('w2-binary', 'Binary-search foundations', 'Binary Search, Search a 2D Matrix, and Koko Eating Bananas.', 50, 'coding'),
+          task('w2-linked', 'Linked-list foundations', 'Reverse Linked List and Merge Two Sorted Lists.', 30, 'coding'),
           task('w2-pointer-check', 'Pointer dry run', 'Trace one odd-length and one two-node case by hand.', 10, 'coding')
         ]),
         session('w2-sat', '2026-08-08', 'Statistics and validation', 'foundations', 'Reason about estimates, uncertainty, and leakage', 'Use validation design that matches the deployment distribution.', 180, [
@@ -174,8 +174,8 @@
           task('w3-gradient-recall', 'Gradient failure recall', 'Explain vanishing, exploding, clipping, and normalization.', 15, 'foundations')
         ]),
         session('w3-wed', '2026-08-12', 'Trees II and heaps', 'coding', 'Use ordering and priority structures intentionally', 'Separate traversal order from the information being aggregated.', 90, [
-          task('w3-trees-c', 'BST and breadth-first', 'Level Order, Validate BST, Kth Smallest, LCA in BST.', 55, 'coding'),
-          task('w3-heaps-a', 'Heap selection drills', 'Last Stone Weight, K Closest, Kth Largest, and Task Scheduler.', 25, 'coding'),
+          task('w3-trees-c', 'BST and breadth-first', 'Binary Tree Level Order Traversal and Validate Binary Search Tree.', 55, 'coding'),
+          task('w3-heaps-a', 'Heap foundations', 'Last Stone Weight and K Closest Points to Origin.', 25, 'coding'),
           task('w3-heap-recall', 'Heap selection rule', 'Explain when heapq beats sorting and when it does not.', 10, 'coding')
         ]),
         session('w3-thu', '2026-08-13', 'Graphs I', 'coding', 'Traverse components without revisiting state', 'Choose BFS versus DFS based on output and memory needs, not habit.', 90, [
@@ -202,16 +202,16 @@
       theme: 'Vision transformers and retrieval systems',
       goal: 'Shift emphasis to timed coding and current-looking ML system designs.',
       sessions: [
-        session('w4-mon', '2026-08-17', 'Timed mixed coding I', 'coding', 'Solve mediums under 30 minutes', 'Select one window, one tree, and one graph problem at random.', 90, [
-          task('w4-timed-a', 'Three timed problems', 'Thirty minutes each including verbal explanation and complexity.', 90, 'coding')
+        session('w4-mon', '2026-08-17', 'Timed two-pointer and window set', 'coding', 'Solve three assigned mediums under interview limits', 'Use 30 minutes per problem, including verbal explanation and complexity.', 90, [
+          task('w4-timed-a', 'Three timed mediums', '3Sum, Container With Most Water, and Permutation in String; cap each at 30 minutes.', 90, 'coding')
         ]),
         session('w4-tue', '2026-08-18', 'ViT and DETR', 'modern-cv', 'Explain transformer changes to vision modeling', 'Focus on tokens, positional information, data needs, matching, and production cost.', 90, [
           task('w4-vit', 'Vision Transformer', 'Patch embeddings, class token, attention complexity, inductive bias, pretraining.', 45, 'modern-cv'),
           task('w4-detr', 'DETR family', 'Set prediction, Hungarian matching, object queries, NMS tradeoff, convergence.', 45, 'modern-cv')
         ]),
         session('w4-wed', '2026-08-19', 'Intervals, heaps, and backtracking', 'coding', 'Recognize ordering, priority, and search-tree state', 'Make pruning and ordering decisions explicit.', 90, [
-          task('w4-intervals', 'Interval set', 'Merge Intervals, Insert Interval, Non-overlapping Intervals.', 45, 'coding'),
-          task('w4-backtrack-a', 'Backtracking start', 'Subsets and Permutations.', 35, 'coding'),
+          task('w4-intervals', 'Interval set', 'Merge Intervals and Insert Interval.', 40, 'coding'),
+          task('w4-backtrack-a', 'Backtracking start', 'Subsets and Permutations.', 40, 'coding'),
           task('w4-state-recall', 'State template', 'Define choose, explore, and unchoose in one example.', 10, 'coding')
         ]),
         session('w4-thu', '2026-08-20', 'Image-search design', 'system-design', 'Design two-stage visual retrieval', 'Separate candidate generation from reranking and offline metrics from online outcomes.', 90, [
@@ -228,7 +228,7 @@
         session('w4-sun', '2026-08-23', 'Foundations consolidation I', 'foundations', 'Answer core theory without notes', 'Use mistakes to create retrieval prompts, not more reading.', 180, [
           task('w4-theory-bank', 'ML interview question bank', 'Complete 20 questions across data, training, evaluation, and deployment.', 70, 'foundations'),
           task('w4-task-metric-repeat', 'Task-metric repeat', 'Complete 10 questions on task/loss/metric choices; then vary class imbalance and business costs aloud.', 40, 'foundations'),
-          task('w4-coding-repeat', 'Spaced coding repeats', 'Repeat three previously missed problems cold.', 45, 'coding'),
+          task('w4-coding-repeat', 'Interval consolidation', 'Solve Non-overlapping Intervals cold, then compare its greedy invariant with the prior interval set.', 45, 'coding'),
           task('w4-retro', 'Week 4 retrospective', 'Update weak patterns and design-rubric gaps.', 25, 'behavioral')
         ])
       ]
@@ -239,14 +239,14 @@
       theme: 'Detection, video, CLIP, and self-supervision',
       goal: 'Build production judgment around real-time vision, video pipelines, and reusable representations.',
       sessions: [
-        session('w5-mon', '2026-08-24', 'Timed mixed coding II', 'coding', 'Increase medium consistency', 'Randomize patterns and stop at 30 minutes for an honest signal.', 90, [task('w5-timed-a', 'Three timed mediums', 'Log each attempt and compare the invariant, not code style.', 90, 'coding')]),
+        session('w5-mon', '2026-08-24', 'Timed window, stack, and search set', 'coding', 'Increase medium consistency across three patterns', 'Use the assigned set and stop at 30 minutes per problem for an honest signal.', 90, [task('w5-timed-a', 'Three timed mediums', 'Longest Repeating Character Replacement, Car Fleet, and Find Minimum in Rotated Sorted Array.', 90, 'coding')]),
         session('w5-tue', '2026-08-25', 'CLIP and DINOv2', 'modern-cv', 'Compare language-aligned and self-supervised representations', 'Know what supervision each objective provides and where transfer breaks.', 90, [
           task('w5-clip', 'CLIP', 'Contrastive objective, zero-shot classifiers, prompt sensitivity, embedding retrieval.', 45, 'modern-cv'),
           task('w5-dinov2', 'DINOv2', 'Teacher-student self-distillation, general features, dense-task transfer, limitations.', 45, 'modern-cv')
         ]),
         session('w5-wed', '2026-08-26', 'Backtracking and DP essentials', 'coding', 'Frame state transitions explicitly', 'Avoid memorizing DP tables; state the recurrence and base cases.', 90, [
           task('w5-backtrack-b', 'Backtracking set', 'Combination Sum and Word Search.', 45, 'coding'),
-          task('w5-dp-a', 'DP problem set', 'Climbing Stairs, House Robber, and Coin Change.', 35, 'coding'),
+          task('w5-dp-a', 'DP foundations', 'Climbing Stairs and House Robber.', 35, 'coding'),
           task('w5-dp-recall', 'Recurrence recall', 'Explain state, transition, base, order, and answer.', 10, 'coding')
         ]),
         session('w5-thu', '2026-08-27', 'Real-time detection design', 'system-design', 'Balance accuracy, latency, throughput, and cost', 'Use cascades, batching, compression, and fallbacks as explicit tradeoffs.', 90, [
@@ -274,14 +274,14 @@
       theme: 'Segmentation, grounding, and first live mock',
       goal: 'Use promptable/open-vocabulary models responsibly and obtain the first external interview signal.',
       sessions: [
-        session('w6-mon', '2026-08-31', 'Timed mixed coding III', 'coding', 'Reach four-of-five medium consistency', 'Use one problem from a known weak pattern and two random patterns.', 90, [task('w6-timed-a', 'Three timed mediums', 'Log random flag only when the problem was genuinely unseen.', 90, 'coding')]),
+        session('w6-mon', '2026-08-31', 'Timed search and linked-list set', 'coding', 'Reach four-of-five medium consistency', 'Use the assigned cross-pattern set and preserve the 30-minute interview cap.', 90, [task('w6-timed-a', 'Three timed mediums', 'Search in Rotated Sorted Array, Reorder List, and Remove Nth Node From End of List.', 90, 'coding')]),
         session('w6-tue', '2026-09-01', 'SAM2 and Grounding DINO', 'modern-cv', 'Compose grounding and segmentation without hand-waving', 'Know prompt types, open-set behavior, temporal memory, latency, and failure modes.', 90, [
           task('w6-sam2', 'SAM and SAM2', 'Promptable masks, image encoder amortization, video memory, domain shift.', 45, 'modern-cv'),
           task('w6-grounding-dino', 'Grounding DINO', 'Text-conditioned open-set detection, phrase grounding, thresholds, calibration.', 45, 'modern-cv')
         ]),
-        session('w6-wed', '2026-09-02', 'Coding weak-pattern repair', 'coding', 'Close one repeated failure mode', 'Choose from the dashboard evidence, not intuition.', 90, [
-          task('w6-weak-pattern', 'Targeted concept repair', 'Re-derive the pattern template and solve one easy warmup.', 30, 'coding'),
-          task('w6-weak-problems', 'Two cold mediums', 'No solution access before 30 minutes.', 60, 'coding')
+        session('w6-wed', '2026-09-02', 'Tree and BST consolidation', 'coding', 'Close advanced tree traversal and ordering gaps', 'Re-derive the BST inorder/rank contract, then solve the two named tree mediums cold.', 90, [
+          task('w6-weak-pattern', 'BST rank and ancestor contracts', 'Review inorder rank selection and the BST ordering rule for ancestor search; write each invariant before coding.', 30, 'coding'),
+          task('w6-weak-problems', 'Two cold tree mediums', 'Kth Smallest Element in a BST and Lowest Common Ancestor of a BST; use 30 minutes each.', 60, 'coding')
         ]),
         session('w6-thu', '2026-09-03', 'Segmentation-system design', 'system-design', 'Choose metrics and architecture by error cost', 'Include annotation cost, boundaries, small objects, review, and drift.', 90, [
           task('w6-seg-design', 'Segmentation outline', 'Defect or medical-image segmentation from ingest to review.', 55, 'system-design'),
@@ -308,7 +308,7 @@
       theme: 'OCR, active learning, multimodal systems',
       goal: 'Complete all eight system-design cases and convert the story inventory into interview answers.',
       sessions: [
-        session('w7-mon', '2026-09-07', 'Timed mixed coding IV', 'coding', 'Hold the 30-minute medium bar', 'Random problems only; log explanation and complexity evidence.', 90, [task('w7-timed-a', 'Three random mediums', 'Stop, debrief, and classify any failure by pattern or execution.', 90, 'coding')]),
+        session('w7-mon', '2026-09-07', 'Timed heap and DP set', 'coding', 'Hold the medium interview bar across priority and recurrence problems', 'Cap Linked List Cycle at 15 minutes, then use 25 minutes per medium.', 90, [task('w7-timed-a', 'One warmup and three timed mediums', 'Linked List Cycle, Kth Largest Element in an Array, Task Scheduler, and Coin Change.', 90, 'coding')]),
         session('w7-tue', '2026-09-08', 'Vision-language models and diffusion', 'modern-cv', 'Explain capability without treating models as magic', 'Separate perception, grounding, language generation, and generative priors.', 90, [
           task('w7-vlm', 'Vision-language models', 'Projector/fusion patterns, instruction tuning, grounding limits, hallucination, evaluation.', 50, 'modern-cv'),
           task('w7-diffusion', 'Diffusion concepts', 'Forward noise, denoising objective, latent diffusion, conditioning, sampling cost.', 40, 'modern-cv')
@@ -470,7 +470,7 @@
     'w1-linear-recall': stageSpec('recall', references.module('linear-algebra')),
     'w1-linear-quiz': stageSpec('verify', references.quiz('linear-algebra-basics')),
     'w1-problems-b': stageSpec('practice', references.problems('group-anagrams', 'top-k-frequent-elements', 'product-of-array-except-self')),
-    'w1-problems-c': stageSpec('practice', references.problems('valid-palindrome', 'two-sum-ii-input-array-is-sorted', '3sum', 'container-with-most-water')),
+    'w1-problems-c': stageSpec('practice', references.problems('valid-palindrome', 'two-sum-ii-input-array-is-sorted')),
     'w1-pattern-log': stageSpec('reflect', references.module('hashing', 'two-pointers')),
     'w1-losses': stageSpec('learn', references.module('losses')),
     'w1-metrics': stageSpec('learn', references.module('metrics')),
@@ -479,17 +479,17 @@
     'w1-design-rework': stageSpec('practice', references.instruction('cs329s')),
     'w1-retro': stageSpec('reflect', references.instruction()),
 
-    'w2-window-a': stageSpec('practice', references.problems('best-time-to-buy-and-sell-stock', 'longest-substring-without-repeating-characters', 'permutation-in-string')),
-    'w2-window-b': stageSpec('practice', references.problems('longest-repeating-character-replacement', 'minimum-window-substring')),
+    'w2-window-a': stageSpec('practice', references.problems('best-time-to-buy-and-sell-stock', 'longest-substring-without-repeating-characters')),
+    'w2-window-b': stageSpec('practice', references.problems('minimum-window-substring')),
     'w2-window-recall': stageSpec('recall', references.module('sliding-window')),
     'w2-probability': stageSpec('learn', references.module('probability')),
     'w2-distributions': stageSpec('learn', references.module('probability')),
     'w2-prob-recall': stageSpec('recall', references.module('probability')),
     'w2-stack-a': stageSpec('practice', references.problems('valid-parentheses', 'min-stack', 'evaluate-reverse-polish-notation')),
-    'w2-stack-b': stageSpec('practice', references.problems('daily-temperatures', 'car-fleet')),
+    'w2-stack-b': stageSpec('practice', references.problems('daily-temperatures')),
     'w2-stack-recall': stageSpec('recall', references.module('stack-monotonic')),
-    'w2-binary': stageSpec('practice', references.problems('binary-search', 'search-a-2d-matrix', 'koko-eating-bananas', 'find-minimum-in-rotated-sorted-array', 'search-in-rotated-sorted-array')),
-    'w2-linked': stageSpec('practice', references.problems('reverse-linked-list', 'merge-two-sorted-lists', 'reorder-list', 'remove-nth-node-from-end-of-list', 'linked-list-cycle')),
+    'w2-binary': stageSpec('practice', references.problems('binary-search', 'search-a-2d-matrix', 'koko-eating-bananas')),
+    'w2-linked': stageSpec('practice', references.problems('reverse-linked-list', 'merge-two-sorted-lists')),
     'w2-pointer-check': stageSpec('recall', references.module('binary-search', 'linked-lists')),
     'w2-statistics': stageSpec('learn', references.module('statistics-validation')),
     'w2-validation': stageSpec('learn', references.module('statistics-validation')),
@@ -504,8 +504,8 @@
     'w3-calculus': stageSpec('learn', references.module('calculus-backprop')),
     'w3-backprop': stageSpec('learn', references.module('calculus-backprop')),
     'w3-gradient-recall': stageSpec('recall', references.module('calculus-backprop')),
-    'w3-trees-c': stageSpec('practice', references.problems('binary-tree-level-order-traversal', 'validate-binary-search-tree', 'kth-smallest-element-in-a-bst', 'lowest-common-ancestor-of-a-binary-search-tree')),
-    'w3-heaps-a': stageSpec('practice', references.problems('last-stone-weight', 'k-closest-points-to-origin', 'kth-largest-element-in-an-array', 'task-scheduler')),
+    'w3-trees-c': stageSpec('practice', references.problems('binary-tree-level-order-traversal', 'validate-binary-search-tree')),
+    'w3-heaps-a': stageSpec('practice', references.problems('last-stone-weight', 'k-closest-points-to-origin')),
     'w3-heap-recall': stageSpec('recall', references.module('heaps')),
     'w3-graphs-a': stageSpec('practice', references.problems('number-of-islands', 'max-area-of-island')),
     'w3-graphs-b': stageSpec('practice', references.problems('clone-graph', 'rotting-oranges')),
@@ -518,10 +518,10 @@
     'w3-checkpoint': stageSpec('learn', references.module('cnn-foundations', 'detection-segmentation-foundations')),
     'w3-retro': stageSpec('reflect', references.instruction()),
 
-    'w4-timed-a': stageSpec('verify', references.instruction('leetcode')),
+    'w4-timed-a': stageSpec('practice', references.problems('3sum', 'container-with-most-water', 'permutation-in-string')),
     'w4-vit': stageSpec('learn', references.module('cnn-vs-transformer', 'vit')),
     'w4-detr': stageSpec('learn', references.module('detr')),
-    'w4-intervals': stageSpec('practice', references.problems('merge-intervals', 'insert-interval', 'non-overlapping-intervals')),
+    'w4-intervals': stageSpec('practice', references.problems('merge-intervals', 'insert-interval')),
     'w4-backtrack-a': stageSpec('practice', references.problems('subsets', 'permutations')),
     'w4-state-recall': stageSpec('recall', references.module('intervals', 'backtracking')),
     'w4-search-requirements': stageSpec('learn', references.design('image-search', 'requirements')),
@@ -533,14 +533,14 @@
     'w4-story-a': stageSpec('practice', references.story({ savedStoryCount: 2 })),
     'w4-theory-bank': stageSpec('verify', references.quiz('rapid-fire-readiness')),
     'w4-task-metric-repeat': stageSpec('verify', references.quiz('task-loss-metric')),
-    'w4-coding-repeat': stageSpec('practice', references.instruction('leetcode')),
+    'w4-coding-repeat': stageSpec('practice', references.problems('non-overlapping-intervals')),
     'w4-retro': stageSpec('reflect', references.instruction()),
 
-    'w5-timed-a': stageSpec('verify', references.instruction('leetcode')),
+    'w5-timed-a': stageSpec('practice', references.problems('longest-repeating-character-replacement', 'car-fleet', 'find-minimum-in-rotated-sorted-array')),
     'w5-clip': stageSpec('learn', references.module('clip')),
     'w5-dinov2': stageSpec('learn', references.module('dinov2')),
     'w5-backtrack-b': stageSpec('practice', references.problems('combination-sum', 'word-search')),
-    'w5-dp-a': stageSpec('practice', references.problems('climbing-stairs', 'house-robber', 'coin-change')),
+    'w5-dp-a': stageSpec('practice', references.problems('climbing-stairs', 'house-robber')),
     'w5-dp-recall': stageSpec('recall', references.module('dynamic-programming')),
     'w5-detection-design': stageSpec('practice', references.design('detection-service', 'attempt')),
     'w5-detection-metrics': stageSpec('learn', references.design('detection-service', 'requirements')),
@@ -554,11 +554,11 @@
     'w5-active-learning': stageSpec('learn', references.design('active-learning', 'requirements')),
     'w5-retro': stageSpec('reflect', references.instruction()),
 
-    'w6-timed-a': stageSpec('verify', references.instruction('leetcode')),
+    'w6-timed-a': stageSpec('practice', references.problems('search-in-rotated-sorted-array', 'reorder-list', 'remove-nth-node-from-end-of-list')),
     'w6-sam2': stageSpec('learn', references.module('sam2')),
     'w6-grounding-dino': stageSpec('learn', references.module('grounding-dino')),
     'w6-weak-pattern': stageSpec('learn', references.instruction('neetcode-roadmap')),
-    'w6-weak-problems': stageSpec('practice', references.instruction('leetcode')),
+    'w6-weak-problems': stageSpec('practice', references.problems('kth-smallest-element-in-a-bst', 'lowest-common-ancestor-of-a-binary-search-tree')),
     'w6-seg-design': stageSpec('practice', references.design('segmentation', 'attempt')),
     'w6-seg-metrics': stageSpec('learn', references.design('segmentation', 'requirements')),
     'w6-seg-modern': stageSpec('reflect', references.module('sam2')),
@@ -571,7 +571,7 @@
     'w6-design-aloud': stageSpec('verify', references.story({ rehearsalCount: 1, rehearsalKind: 'project-deep-dive', withoutNotes: true, refIds: ['segmentation'] })),
     'w6-retro': stageSpec('reflect', references.instruction()),
 
-    'w7-timed-a': stageSpec('verify', references.instruction('leetcode')),
+    'w7-timed-a': stageSpec('practice', references.problems('linked-list-cycle', 'kth-largest-element-in-an-array', 'task-scheduler', 'coin-change')),
     'w7-vlm': stageSpec('learn', references.module('vlm')),
     'w7-diffusion': stageSpec('learn', references.module('diffusion')),
     'w7-ocr-design': stageSpec('practice', references.design('ocr-documents', 'attempt')),
@@ -806,6 +806,13 @@
       && target.sourceId.length > 0;
   }
 
+  function isRemediationStageActivated(state, stageId) {
+    if (!isRecord(state) || typeof stageId !== 'string') return false;
+    const taskId = stageId.startsWith('stage-') ? stageId.slice('stage-'.length) : '';
+    return stageSpecs[taskId]?.reference?.type === 'remediation-policy'
+      && isRemediationTarget(state.remediationAssignments?.[stageId]);
+  }
+
   function decorateTarget(target, isCalibration, assignedAt) {
     const label = contentTitle(target.kind, target.sourceId);
     const decorated = {
@@ -827,28 +834,40 @@
     return decorated;
   }
 
-  function previousRemediationTarget(previousGuides, stageId) {
-    for (const guide of Object.values(previousGuides || {})) {
-      const stage = (guide.stages || []).find((candidate) => candidate.id === stageId);
-      if (isRemediationTarget(stage?.reference?.target)) return stage.reference.target;
-    }
-    return null;
-  }
 
-  function selectRemediationTarget(policyId, state, previousGuides, stageId) {
+  function selectedRemediationTarget(policyId, state, stageId) {
     const policy = remediationPolicies[policyId];
-    const historical = historicalMisses(state, policy)[0] || null;
-    const assigned = state?.remediationAssignments?.[stageId]
-      || state?.remediationAssignments?.[policyId]
-      || previousRemediationTarget(previousGuides, stageId);
-    if (isRemediationTarget(assigned) && (!assigned.isCalibration || !historical)) return { ...assigned };
-    if (historical) return decorateTarget(historical, false, historical.failedAt);
+    const assigned = state?.remediationAssignments?.[stageId];
     if (isRemediationTarget(assigned)) return { ...assigned };
     return decorateTarget(policy.fallback, true, latestEvidenceTime(state));
   }
 
+  function activateRemediationStage(state, stageId, activatedAt = new Date().toISOString()) {
+    if (!isRecord(state) || typeof stageId !== 'string') return state;
+    const taskId = stageId.startsWith('stage-') ? stageId.slice('stage-'.length) : '';
+    const spec = stageSpecs[taskId];
+    if (spec?.reference?.type !== 'remediation-policy') return state;
+    const assignments = isRecord(state.remediationAssignments) ? state.remediationAssignments : {};
+    if (isRemediationTarget(assignments[stageId])) return state;
+
+    const assignedAt = isValidDate(activatedAt)
+      ? new Date(Date.parse(activatedAt)).toISOString()
+      : new Date().toISOString();
+    const policy = remediationPolicies[spec.reference.policyId];
+    const historical = historicalMisses(state, policy)[0] || null;
+    const target = historical
+      ? decorateTarget(historical, false, assignedAt)
+      : decorateTarget(policy.fallback, true, assignedAt);
+    return {
+      ...state,
+      remediationAssignments: { ...assignments, [stageId]: target }
+    };
+  }
+
   function remediationInstruction(target) {
-    const timing = target.failedAt || target.assignedAt || 'this calibration assignment';
+    const timing = target.isCalibration
+      ? (isValidDate(target.assignedAt) ? target.assignedAt : 'this calibration assignment')
+      : (isValidDate(target.failedAt) ? target.failedAt : 'the selected miss');
     const prefix = target.isCalibration ? 'Calibration target. ' : '';
     if (target.kind === 'recall') {
       return `${prefix}Re-attempt ${target.sourceId} recall prompt ${target.promptIndex + 1} without notes. Complete only when you rate it hard or got-it after ${timing}. Save the rerating as evidence.`;
@@ -862,7 +881,7 @@
     return `${prefix}Re-attempt ${target.sourceId}. Raise ${target.dimension} to 4 or higher in a valid timed rubric saved after ${timing}. Save the rubric as evidence.`;
   }
 
-  function buildSessionGuides(state = {}, previousGuides = null) {
+  function buildSessionGuides(state = {}) {
     return Object.fromEntries(scheduledSessions.map((item) => [
       item.id,
       {
@@ -873,7 +892,7 @@
           const stageId = `stage-${itemTask.id}`;
           const isRemediation = spec.reference.type === 'remediation-policy';
           const target = isRemediation
-            ? selectRemediationTarget(spec.reference.policyId, state, previousGuides, stageId)
+            ? selectedRemediationTarget(spec.reference.policyId, state, stageId)
             : null;
           const reference = isRemediation ? { type: 'remediation', target } : spec.reference;
           const requiresSavedEvidence = spec.type === 'reflect' || reference.type === 'instruction';
@@ -924,6 +943,8 @@
     codingPatternConcepts,
     weeks,
     sessionGuides,
-    buildSessionGuides
+    buildSessionGuides,
+    activateRemediationStage,
+    isRemediationStageActivated
   };
 })();

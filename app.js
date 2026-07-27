@@ -111,35 +111,15 @@
     ];
   }
 
-  function buildGuides(candidate, previousGuides = null) {
+  function buildGuides(candidate) {
     return typeof data.buildSessionGuides === 'function'
-      ? data.buildSessionGuides(candidate, previousGuides)
+      ? data.buildSessionGuides(candidate)
       : data.sessionGuides || {};
   }
 
   function refreshSessionGuides(candidate) {
-    const derived = buildGuides(candidate, currentSessionGuides);
-    const assignmentsValid = candidate?.remediationAssignments
-      && typeof candidate.remediationAssignments === 'object'
-      && !Array.isArray(candidate.remediationAssignments);
-    const currentAssignments = assignmentsValid ? candidate.remediationAssignments : {};
-    const remediationAssignments = { ...currentAssignments };
-    let changed = !assignmentsValid;
-
-    Object.values(derived).forEach((guide) => {
-      (guide.stages || []).forEach((stage) => {
-        if (stage.reference?.type !== 'remediation') return;
-        const current = remediationAssignments[stage.id];
-        const selected = stage.reference.target;
-        if (current && !(current.isCalibration && selected && !selected.isCalibration)) return;
-        remediationAssignments[stage.id] = selected;
-        changed = true;
-      });
-    });
-
-    const prepared = changed ? { ...candidate, remediationAssignments } : candidate;
-    currentSessionGuides = buildGuides(prepared, derived);
-    return prepared;
+    currentSessionGuides = buildGuides(candidate);
+    return candidate;
   }
 
   function learningModuleGroups() {
@@ -243,6 +223,7 @@
   }
 
   function commitState(candidate, message, options = {}) {
+    const previousSessionGuides = currentSessionGuides;
     const prepared = refreshSessionGuides(candidate);
     const nextState = options.syncGuided === false
       ? prepared
@@ -251,6 +232,7 @@
     try {
       localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(nextState));
     } catch (_error) {
+      currentSessionGuides = previousSessionGuides;
       toast('Progress could not be saved. This change was not applied.');
       return false;
     }
@@ -766,8 +748,7 @@
 
   function renderPressureTest(item) {
     const hasRecordedAnswer = state.designAttempts.some((attempt) => (
-      attempt?.caseId === item.id
-      && (typeof attempt.note === 'string' ? attempt.note.trim().length > 0 : Boolean(attempt.scores))
+      logic.isValidDesignAnswerAttempt(attempt, item.id)
     ));
     return `
       <div class="recall-card pressure-test">
@@ -872,8 +853,25 @@
       </article>`;
   }
 
-  function renderInlineRemediation(stage, status) {
-    const target = stage.reference.target || {};
+  function renderInlineRemediation(stage, session, status) {
+    const preview = stage.reference.target || {};
+    const isActivated = typeof data.isRemediationStageActivated === 'function'
+      && data.isRemediationStageActivated(state, stage.id);
+
+    if (!isActivated) {
+      return `
+        <article class="inline-reference remediation-reference">
+          <div class="card-header">
+            <div><p class="eyebrow">Activation required</p><h3>${escapeHtml(preview.label || preview.sourceId || 'Select a repair target')}</h3></div>
+            <span class="status-badge status-amber">Not active</span>
+          </div>
+          <p class="formula">Focus this stage first. That action locks one recorded miss and timestamps the assignment before any new evidence can be submitted.</p>
+          <p class="subtle">The re-attempt workspace stays unavailable until the assignment is saved.</p>
+          <button class="button button-primary" type="button" data-action="focus-stage" data-session-id="${escapeHtml(session.id)}" data-stage-id="${escapeHtml(stage.id)}">Focus and activate re-attempt</button>
+        </article>`;
+    }
+
+    const target = state.remediationAssignments[stage.id];
     const heading = target.isCalibration ? 'Calibration re-attempt' : 'Targeted re-attempt';
     let workspace = '<p class="pitfall">The selected remediation target is unavailable.</p>';
 
@@ -954,7 +952,7 @@
       case 'design-case': return renderInlineDesign(stage);
       case 'story': return renderInlineStory(stage, status);
       case 'mock': return renderInlineMock(stage, status);
-      case 'remediation': return renderInlineRemediation(stage, status);
+      case 'remediation': return renderInlineRemediation(stage, session, status);
       case 'instruction': return renderInlineInstruction(stage, session, status);
       default: return '<p class="pitfall">This stage has no usable content reference.</p>';
     }
@@ -1900,7 +1898,7 @@
         targetMinutes: found.stage.minutes
       }
     );
-    const nextState = {
+    let nextState = {
       ...state,
       activeTimer,
       studyProgress: {
@@ -1908,6 +1906,9 @@
         activeFocus: { sessionId, stageId, startedAt: focusStartedAt }
       }
     };
+    if (found.stage.reference?.type === 'remediation' && typeof data.activateRemediationStage === 'function') {
+      nextState = data.activateRemediationStage(nextState, stageId);
+    }
     const current = currentRoute();
     if (!commitState(nextState, `Focused: ${found.stage.title}`, {
       syncGuided: false,

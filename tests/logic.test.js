@@ -16,6 +16,7 @@ const {
   getLearningProgress,
   getWeakAreaRecommendation,
   isApplicationUnlocked,
+  isValidDesignAnswerAttempt,
   isTaskComplete,
   markStudied,
   scheduleProblemReview,
@@ -133,6 +134,7 @@ describe('progress import validation', () => {
       starStories: [{ ...legacy.starStories[0], promptId: null }],
       rehearsals: [{ ...legacy.rehearsals[0], kind: 'story' }],
       mocks: [{ ...legacy.mocks[0], debrief: null }],
+      remediationAssignments: {},
       studyProgress: { activeFocus: null, reviews: {}, studied: {} }
     });
     expect(legacy).toEqual(before);
@@ -178,6 +180,7 @@ describe('progress import validation', () => {
         ...state,
         schemaVersion: 3,
         storyInventory: [],
+        remediationAssignments: {},
         studyProgress: { ...state.studyProgress, studied: {} }
       }
     });
@@ -201,6 +204,7 @@ describe('progress import validation', () => {
         designAttempts: [{ ...state.designAttempts[0], phase: 'attempt' }],
         starStories: [{ ...state.starStories[0], promptId: null }],
         rehearsals: [{ ...state.rehearsals[0], kind: 'story' }],
+        remediationAssignments: {},
         mocks: [{ ...state.mocks[0], debrief: null }]
       }
     });
@@ -242,6 +246,65 @@ describe('progress import validation', () => {
     expect(result.value.rehearsals[0]).toMatchObject({ kind: 'intro', refId: 'career-intro' });
     expect(result.value.mocks[0].debrief).toEqual(debrief);
     expect(state).toEqual(before);
+  });
+
+  test('rebuilds imported remediation assignments from the backup only', () => {
+    const validAssignment = {
+      kind: 'quiz',
+      sourceId: 'rapid-fire-readiness',
+      quizId: 'rapid-fire-readiness',
+      failedAt: '2026-09-01T10:00:00.000Z',
+      assignedAt: '2026-09-01T10:00:00.000Z',
+      isCalibration: false,
+      label: 'Readiness rapid fire',
+      completionCriterion: 'Score at least 80% after the selected miss.'
+    };
+    const imported = makeV3State({
+      remediationAssignments: {
+        'stage-w8-theory-fix-a': validAssignment,
+        'stage-w9-theory-fix-b': { ...validAssignment, sourceId: '', quizId: '' },
+        'not-a-stage': validAssignment
+      }
+    });
+
+    const result = validateImportedState(imported);
+
+    expect(result.ok).toBe(true);
+    expect(result.value.remediationAssignments).toEqual({
+      'stage-w8-theory-fix-a': validAssignment
+    });
+
+    const withoutAssignments = structuredClone(imported);
+    delete withoutAssignments.remediationAssignments;
+    const clean = validateImportedState(withoutAssignments);
+    expect(clean.ok).toBe(true);
+    expect(clean.value.remediationAssignments).toEqual({});
+  });
+
+  test('reveals pressure answers only for a valid matching timed answer attempt', () => {
+    expect(typeof isValidDesignAnswerAttempt).toBe('function');
+    if (typeof isValidDesignAnswerAttempt !== 'function') return;
+
+    const note = 'Version the index and canary the alias switch.';
+    const scores = { requirements: 4, metrics: 4 };
+    expect(isValidDesignAnswerAttempt({
+      caseId: 'image-search', phase: 'requirements', note
+    }, 'image-search')).toBe(false);
+    expect(isValidDesignAnswerAttempt({
+      caseId: 'image-search', phase: 'debrief', note
+    }, 'image-search')).toBe(false);
+    expect(isValidDesignAnswerAttempt({
+      caseId: 'image-search', phase: 'attempt', durationMinutes: 0, note, scores
+    }, 'image-search')).toBe(false);
+    expect(isValidDesignAnswerAttempt({
+      caseId: 'other-case', phase: 'attempt', durationMinutes: 40, note, scores
+    }, 'image-search')).toBe(false);
+    expect(isValidDesignAnswerAttempt({
+      caseId: 'image-search', phase: 'attempt', durationMinutes: 40, note
+    }, 'image-search')).toBe(true);
+    expect(isValidDesignAnswerAttempt({
+      caseId: 'image-search', phase: 'attempt', durationMinutes: 40, scores
+    }, 'image-search')).toBe(true);
   });
 
   test('sanitizes malformed inventory and debrief data instead of rejecting the backup', () => {
@@ -1373,6 +1436,21 @@ describe('remediation evidence', () => {
     expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
   });
 
+  test('accepts a historical repair after the miss even when activation happens later', () => {
+    const stage = stageFor({
+      kind: 'quiz', sourceId: 'quiz-a', quizId: 'quiz-a',
+      failedAt: '2026-09-01T10:00:00.000Z',
+      assignedAt: '2026-09-16T10:00:00.000Z', isCalibration: false
+    });
+    const state = makeV3State({
+      quizAttempts: [
+        { quizId: 'quiz-a', score: 60, attemptedAt: '2026-09-01T10:00:00.000Z' },
+        { quizId: 'quiz-a', score: 90, attemptedAt: '2026-09-02T10:00:00.000Z' }
+      ]
+    });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
+  });
+
   test('requires a later independent problem solution with explanation and correct complexity', () => {
     const failedAt = '2026-09-01T10:00:00.000Z';
     const stage = stageFor({
@@ -1445,11 +1523,11 @@ describe('remediation evidence', () => {
       assignedAt: '2026-09-01T10:00:00.000Z', isCalibration: false
     };
     const result = validateImportedState(makeV3State({
-      remediationAssignments: { 'w10-gap-work': assignment }
+      remediationAssignments: { 'stage-w10-gap-work': assignment }
     }));
 
     expect(result.ok).toBe(true);
-    expect(result.value.remediationAssignments).toEqual({ 'w10-gap-work': assignment });
+    expect(result.value.remediationAssignments).toEqual({ 'stage-w10-gap-work': assignment });
   });
 });
 

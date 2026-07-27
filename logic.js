@@ -196,6 +196,52 @@
     };
   }
 
+  function normalizeRemediationTarget(target) {
+    if (!isRecord(target) || !['recall', 'quiz', 'problem', 'design'].includes(target.kind)) return null;
+    if (!isIdentifier(target.sourceId) || typeof target.isCalibration !== 'boolean') return null;
+    const failedAt = target.failedAt === null || isValidDate(target.failedAt) ? target.failedAt : null;
+    const assignedAt = target.assignedAt === null || isValidDate(target.assignedAt) ? target.assignedAt : null;
+    if (failedAt !== target.failedAt || assignedAt !== target.assignedAt) return null;
+
+    const normalized = {
+      kind: target.kind,
+      sourceId: target.sourceId,
+      failedAt,
+      assignedAt,
+      isCalibration: target.isCalibration
+    };
+    if (target.kind === 'recall') {
+      if (!Number.isInteger(target.promptIndex) || target.promptIndex < 0) return null;
+      normalized.promptIndex = target.promptIndex;
+    } else if (target.kind === 'quiz') {
+      if (!isIdentifier(target.quizId) || target.quizId !== target.sourceId) return null;
+      normalized.quizId = target.quizId;
+    } else if (target.kind === 'problem') {
+      if (!isIdentifier(target.problemId) || target.problemId !== target.sourceId) return null;
+      normalized.problemId = target.problemId;
+    } else {
+      if (!isIdentifier(target.caseId) || target.caseId !== target.sourceId || !isNonEmptyString(target.dimension)) return null;
+      normalized.caseId = target.caseId;
+      normalized.dimension = target.dimension.trim();
+    }
+    if (isNonEmptyString(target.label)) normalized.label = target.label.trim();
+    if (isNonEmptyString(target.completionCriterion)) {
+      normalized.completionCriterion = target.completionCriterion.trim();
+    }
+    return normalized;
+  }
+
+  function normalizeRemediationAssignments(value) {
+    if (!isRecord(value)) return {};
+    const assignments = {};
+    for (const [stageId, target] of Object.entries(value)) {
+      if (!/^(?:stage-)?w(?:8|9|10)-[a-z0-9-]+$/.test(stageId)) continue;
+      const normalized = normalizeRemediationTarget(target);
+      if (normalized) assignments[stageId] = normalized;
+    }
+    return assignments;
+  }
+
   function updateMockDebrief(existingDebrief, changes, reviewedAt = new Date().toISOString()) {
     const existing = isRecord(existingDebrief) ? existingDebrief : {};
     if (!isRecord(changes)) throw new TypeError('Mock debrief changes must be a record.');
@@ -302,6 +348,7 @@
         starStories: normalizeRecords(candidate.starStories, normalizeStarStory),
         rehearsals: normalizeRecords(candidate.rehearsals, normalizeRehearsal),
         mocks: normalizeRecords(candidate.mocks, normalizeMock),
+        remediationAssignments: normalizeRemediationAssignments(candidate.remediationAssignments),
         studyProgress
       }
     };
@@ -694,6 +741,13 @@
     };
   }
 
+  function isValidDesignAnswerAttempt(attempt, caseId) {
+    if (!isRecord(attempt) || attempt.caseId !== caseId || attempt.phase !== 'attempt') return false;
+    const duration = Number(attempt.durationMinutes);
+    if (!Number.isFinite(duration) || duration <= 0) return false;
+    return Boolean(isNonEmptyString(attempt.note) || rubricQuality(attempt.scores));
+  }
+
   function calculateDesignStatus(stage, state) {
     const caseId = stage.reference?.caseId;
     const phase = stage.reference?.phase || 'attempt';
@@ -885,11 +939,9 @@
 
   function calculateRemediationStatus(stage, state) {
     const target = isRecord(stage?.reference?.target) ? stage.reference.target : null;
-    const cutoff = isValidDate(target?.failedAt)
-      ? target.failedAt
-      : isValidDate(target?.assignedAt)
-        ? target.assignedAt
-        : null;
+    const cutoff = target?.isCalibration === true
+      ? (isValidDate(target?.assignedAt) ? target.assignedAt : null)
+      : (isValidDate(target?.failedAt) ? target.failedAt : null);
     let complete = false;
     let latestEvidence = null;
 
@@ -1379,6 +1431,7 @@
     getLearningProgress,
     getWeakAreaRecommendation,
     isApplicationUnlocked,
+    isValidDesignAnswerAttempt,
     isTaskComplete,
     markStudied,
     scheduleProblemReview,

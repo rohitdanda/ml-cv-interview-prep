@@ -250,8 +250,8 @@
           task('w5-dp-recall', 'Recurrence recall', 'Explain state, transition, base, order, and answer.', 10, 'coding')
         ]),
         session('w5-thu', '2026-08-27', 'Real-time detection design', 'system-design', 'Balance accuracy, latency, throughput, and cost', 'Use cascades, batching, compression, and fallbacks as explicit tradeoffs.', 90, [
-          task('w5-detection-design', 'Detection service outline', 'Camera input to alert delivery with SLOs and failure modes.', 55, 'system-design'),
-          task('w5-detection-metrics', 'Detection evaluation', 'mAP slices, operating points, alert precision, event-level latency.', 20, 'foundations'),
+          task('w5-detection-metrics', 'Detection requirements and evaluation', 'Clarify users, scale, SLOs, error costs, mAP slices, operating points, alert precision, and event latency.', 20, 'foundations'),
+          task('w5-detection-design', 'Detection service outline', 'Run the timed camera-to-alert design with model, serving, monitoring, and failure handling.', 55, 'system-design'),
           task('w5-edge-tradeoffs', 'Edge/cloud tradeoff', 'Reason about privacy, bandwidth, updates, and device heterogeneity.', 15, 'system-design')
         ]),
         session('w5-sat', '2026-08-29', 'Video moderation design', 'system-design', 'Design sampling, temporal aggregation, and review', 'Model the whole video and the human process, not just frame classification.', 180, [
@@ -284,8 +284,8 @@
           task('w6-weak-problems', 'Two cold tree mediums', 'Kth Smallest Element in a BST and Lowest Common Ancestor of a BST; use 30 minutes each.', 60, 'coding')
         ]),
         session('w6-thu', '2026-09-03', 'Segmentation-system design', 'system-design', 'Choose metrics and architecture by error cost', 'Include annotation cost, boundaries, small objects, review, and drift.', 90, [
-          task('w6-seg-design', 'Segmentation outline', 'Defect or medical-image segmentation from ingest to review.', 55, 'system-design'),
-          task('w6-seg-metrics', 'Metric decision', 'Dice versus IoU versus boundary F1; object-level sensitivity and calibration.', 20, 'foundations'),
+          task('w6-seg-metrics', 'Segmentation requirements and metrics', 'Clarify users and error costs, then choose Dice, IoU, boundary F1, object sensitivity, and calibration.', 20, 'foundations'),
+          task('w6-seg-design', 'Segmentation outline', 'Run the timed defect or medical-image design from ingest through review and monitoring.', 55, 'system-design'),
           task('w6-seg-modern', 'Foundation-model decision', 'Use SAM2 as label accelerator, baseline, component, or not at all.', 15, 'modern-cv')
         ]),
         session('w6-sat', '2026-09-05', 'First coding mock', 'mocks', 'Obtain an external advance/no-advance signal', 'Treat the mock as a real interview and log remediation immediately.', 180, [
@@ -314,8 +314,8 @@
           task('w7-diffusion', 'Diffusion concepts', 'Forward noise, denoising objective, latent diffusion, conditioning, sampling cost.', 40, 'modern-cv')
         ]),
         session('w7-wed', '2026-09-09', 'OCR/document design', 'system-design', 'Design multi-stage document understanding', 'Include layout, OCR confidence, language, tables, PII, and human correction.', 90, [
-          task('w7-ocr-design', 'OCR design outline', 'Document ingestion through structured extraction and correction.', 55, 'system-design'),
-          task('w7-ocr-eval', 'Evaluation plan', 'Character/word error, field exact match, document success, confidence calibration.', 20, 'foundations'),
+          task('w7-ocr-eval', 'OCR requirements and evaluation', 'Clarify document types, users, SLOs, PII, and character, field, document, and calibration metrics.', 20, 'foundations'),
+          task('w7-ocr-design', 'OCR design outline', 'Run the timed document-ingestion design through structured extraction, serving, and correction.', 55, 'system-design'),
           task('w7-ocr-failures', 'Failure slices', 'Rotation, blur, handwriting, script, layout, tables, and domain vocabulary.', 15, 'system-design')
         ]),
         session('w7-thu', '2026-09-10', 'Compression and edge inference', 'modern-cv', 'Choose compression by bottleneck and risk', 'Quantify memory, latency, throughput, accuracy, energy, and hardware support.', 90, [
@@ -686,6 +686,63 @@
 
   const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
   const isValidDate = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value));
+  const designRubricDimensions = new Set([
+    'requirements', 'metrics', 'data', 'model', 'evaluation',
+    'serving', 'monitoring', 'feedback', 'tradeoffs', 'communication'
+  ]);
+
+  function latestRecords(items, sourceField, predicate = () => true) {
+    const latest = new Map();
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!predicate(item) || typeof item?.[sourceField] !== 'string') continue;
+      const at = eventTime(item);
+      if (!at) continue;
+      const previous = latest.get(item[sourceField]);
+      if (!previous || Date.parse(at) >= Date.parse(previous.at)) {
+        latest.set(item[sourceField], { item, at });
+      }
+    }
+    return [...latest.values()];
+  }
+
+  function targetSourceResolves(policy, target) {
+    if (!isRecord(policy) || !isRecord(target) || !policy.kinds.includes(target.kind)) return false;
+    const registry = contentRegistry();
+    if (target.kind === 'recall') {
+      const modules = [
+        ...(registry.foundationModules || []),
+        ...(registry.codingModules || []),
+        ...(registry.modernCvModules || [])
+      ];
+      const module = modules.find((candidate) => candidate.id === target.sourceId);
+      return Boolean(
+        module
+        && recallSourceAllowed(target.sourceId, policy.recallArea)
+        && Number.isInteger(target.promptIndex)
+        && target.promptIndex >= 0
+        && target.promptIndex < (module.recall || []).length
+      );
+    }
+    if (target.kind === 'quiz') {
+      return target.quizId === target.sourceId
+        && (registry.quizzes || []).some((quiz) => quiz.id === target.sourceId);
+    }
+    if (target.kind === 'problem') {
+      return target.problemId === target.sourceId
+        && problems.some((problem) => problem.id === target.sourceId);
+    }
+    return target.caseId === target.sourceId
+      && designRubricDimensions.has(target.dimension)
+      && (registry.systemDesignCases || []).some((item) => item.id === target.sourceId);
+  }
+
+  function isCompatibleRemediationTarget(policy, target) {
+    return isRemediationTarget(target)
+      && typeof target.isCalibration === 'boolean'
+      && isValidDate(target.assignedAt)
+      && (target.isCalibration || isValidDate(target.failedAt))
+      && targetSourceResolves(policy, target);
+  }
   const eventTime = (item) => {
     for (const field of ['attemptedAt', 'lastReviewedAt', 'completedAt', 'createdAt']) {
       if (isValidDate(item?.[field])) return item[field];
@@ -733,12 +790,9 @@
     const candidates = [];
     if (policy.kinds.includes('recall')) {
       for (const review of Object.values(state?.studyProgress?.reviews || {})) {
-        if (review?.kind !== 'recall' || !recallSourceAllowed(review.sourceId, policy.recallArea)) continue;
-        const failedAt = isValidDate(review.lastFailedAt)
-          ? review.lastFailedAt
-          : review.lastResult === 'again' && isValidDate(review.lastReviewedAt)
-            ? review.lastReviewedAt
-            : null;
+        if (review?.kind !== 'recall' || review.lastResult !== 'again') continue;
+        if (!recallSourceAllowed(review.sourceId, policy.recallArea)) continue;
+        const failedAt = isValidDate(review.lastReviewedAt) ? review.lastReviewedAt : null;
         if (!failedAt || !Number.isInteger(review.promptIndex)) continue;
         candidates.push({
           kind: 'recall', sourceId: review.sourceId, promptIndex: review.promptIndex, failedAt
@@ -746,47 +800,49 @@
       }
     }
     if (policy.kinds.includes('quiz')) {
-      for (const attempt of Array.isArray(state?.quizAttempts) ? state.quizAttempts : []) {
+      for (const { item: attempt, at: failedAt } of latestRecords(state?.quizAttempts, 'quizId')) {
         const score = Number(attempt?.score);
-        const failedAt = eventTime(attempt);
-        if (!attempt?.quizId || !failedAt || !Number.isFinite(score) || score >= 80) continue;
+        if (!Number.isFinite(score) || score >= 80) continue;
         candidates.push({
           kind: 'quiz', sourceId: attempt.quizId, quizId: attempt.quizId, failedAt
         });
       }
     }
     if (policy.kinds.includes('problem')) {
-      for (const attempt of Array.isArray(state?.problemAttempts) ? state.problemAttempts : []) {
-        const failedAt = eventTime(attempt);
+      for (const { item: attempt, at: failedAt } of latestRecords(state?.problemAttempts, 'problemId')) {
         const assisted = Boolean(attempt?.usedHint || attempt?.reviewedSolution
           || attempt?.outcome === 'hint' || attempt?.outcome === 'reviewed');
         const complete = Boolean(
           (attempt?.solvedIndependently || attempt?.outcome === 'independent')
           && !assisted && attempt?.explainedAloud && attempt?.complexityCorrect
         );
-        if (!attempt?.problemId || !failedAt || complete) continue;
+        if (complete) continue;
         candidates.push({
           kind: 'problem', sourceId: attempt.problemId, problemId: attempt.problemId, failedAt
         });
       }
     }
     if (policy.kinds.includes('design')) {
-      for (const attempt of Array.isArray(state?.designAttempts) ? state.designAttempts : []) {
-        if ((attempt?.phase || 'attempt') !== 'attempt') continue;
-        const failedAt = eventTime(attempt);
+      for (const { item: attempt, at: failedAt } of latestRecords(
+        state?.designAttempts,
+        'caseId',
+        (candidate) => (candidate?.phase || 'attempt') === 'attempt'
+      )) {
         const weakest = lowestDesignDimension(attempt?.scores);
-        if (!attempt?.caseId || !failedAt || !weakest || weakest[1] >= 4) continue;
+        if (!weakest || weakest[1] >= 4) continue;
         candidates.push({
           kind: 'design', sourceId: attempt.caseId, caseId: attempt.caseId,
           dimension: weakest[0], failedAt
         });
       }
     }
-    return candidates.sort((left, right) => (
-      Date.parse(right.failedAt) - Date.parse(left.failedAt)
-      || policy.kinds.indexOf(left.kind) - policy.kinds.indexOf(right.kind)
-      || left.sourceId.localeCompare(right.sourceId)
-    ));
+    return candidates
+      .filter((target) => targetSourceResolves(policy, target))
+      .sort((left, right) => (
+        Date.parse(right.failedAt) - Date.parse(left.failedAt)
+        || policy.kinds.indexOf(left.kind) - policy.kinds.indexOf(right.kind)
+        || left.sourceId.localeCompare(right.sourceId)
+      ));
   }
 
   function latestEvidenceTime(state) {
@@ -809,9 +865,12 @@
   function isRemediationStageActivated(state, stageId) {
     if (!isRecord(state) || typeof stageId !== 'string') return false;
     const taskId = stageId.startsWith('stage-') ? stageId.slice('stage-'.length) : '';
-    return stageSpecs[taskId]?.reference?.type === 'remediation-policy'
-      && isRemediationTarget(state.remediationAssignments?.[stageId]);
+    const spec = stageSpecs[taskId];
+    if (spec?.reference?.type !== 'remediation-policy') return false;
+    const policy = remediationPolicies[spec.reference.policyId];
+    return isCompatibleRemediationTarget(policy, state.remediationAssignments?.[stageId]);
   }
+
 
   function decorateTarget(target, isCalibration, assignedAt) {
     const label = contentTitle(target.kind, target.sourceId);
@@ -838,7 +897,7 @@
   function selectedRemediationTarget(policyId, state, stageId) {
     const policy = remediationPolicies[policyId];
     const assigned = state?.remediationAssignments?.[stageId];
-    if (isRemediationTarget(assigned)) return { ...assigned };
+    if (isCompatibleRemediationTarget(policy, assigned)) return { ...assigned };
     return decorateTarget(policy.fallback, true, latestEvidenceTime(state));
   }
 
@@ -848,12 +907,12 @@
     const spec = stageSpecs[taskId];
     if (spec?.reference?.type !== 'remediation-policy') return state;
     const assignments = isRecord(state.remediationAssignments) ? state.remediationAssignments : {};
-    if (isRemediationTarget(assignments[stageId])) return state;
+    const policy = remediationPolicies[spec.reference.policyId];
+    if (isCompatibleRemediationTarget(policy, assignments[stageId])) return state;
 
     const assignedAt = isValidDate(activatedAt)
       ? new Date(Date.parse(activatedAt)).toISOString()
       : new Date().toISOString();
-    const policy = remediationPolicies[spec.reference.policyId];
     const historical = historicalMisses(state, policy)[0] || null;
     const target = historical
       ? decorateTarget(historical, false, assignedAt)
@@ -865,9 +924,12 @@
   }
 
   function remediationInstruction(target) {
-    const timing = target.isCalibration
-      ? (isValidDate(target.assignedAt) ? target.assignedAt : 'this calibration assignment')
-      : (isValidDate(target.failedAt) ? target.failedAt : 'the selected miss');
+    const cutoffTimes = [target.assignedAt, target.isCalibration ? null : target.failedAt]
+      .filter(isValidDate)
+      .map(Date.parse);
+    const timing = cutoffTimes.length
+      ? new Date(Math.max(...cutoffTimes)).toISOString()
+      : 'the saved assignment';
     const prefix = target.isCalibration ? 'Calibration target. ' : '';
     if (target.kind === 'recall') {
       return `${prefix}Re-attempt ${target.sourceId} recall prompt ${target.promptIndex + 1} without notes. Complete only when you rate it hard or got-it after ${timing}. Save the rerating as evidence.`;

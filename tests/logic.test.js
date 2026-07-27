@@ -211,6 +211,33 @@ describe('progress import validation', () => {
     expect(state).toEqual(before);
   });
 
+  test('drops explicit invalid evidence variants while defaulting only absent legacy fields', () => {
+    const state = makeV3State({
+      designAttempts: [
+        { caseId: 'image-search', durationMinutes: 40 },
+        { caseId: 'image-search', phase: 'requirements', note: 'Define scale.' },
+        { caseId: 'image-search', phase: 'requrements', durationMinutes: 40, scores: { metrics: 5 } }
+      ],
+      rehearsals: [
+        { withoutNotes: true },
+        { kind: 'intro', withoutNotes: true },
+        { kind: 'intor', withoutNotes: true }
+      ]
+    });
+
+    const result = validateImportedState(state);
+
+    expect(result.ok).toBe(true);
+    expect(result.value.designAttempts).toEqual([
+      { caseId: 'image-search', durationMinutes: 40, phase: 'attempt' },
+      { caseId: 'image-search', phase: 'requirements', note: 'Define scale.' }
+    ]);
+    expect(result.value.rehearsals).toEqual([
+      { withoutNotes: true, kind: 'story' },
+      { kind: 'intro', withoutNotes: true }
+    ]);
+  });
+
   test('preserves valid evidence metadata and a complete nested mock debrief', () => {
     const inventoryItem = {
       id: 'project-1',
@@ -279,6 +306,29 @@ describe('progress import validation', () => {
     const clean = validateImportedState(withoutAssignments);
     expect(clean.ok).toBe(true);
     expect(clean.value.remediationAssignments).toEqual({});
+  });
+
+  test('discards remediation assignments without their required activation cutoffs', () => {
+    const base = {
+      kind: 'quiz',
+      sourceId: 'rapid-fire-readiness',
+      quizId: 'rapid-fire-readiness',
+      failedAt: '2026-09-01T10:00:00.000Z',
+      assignedAt: '2026-09-02T10:00:00.000Z',
+      isCalibration: false
+    };
+    const result = validateImportedState(makeV3State({
+      remediationAssignments: {
+        'stage-w8-theory-fix-a': { ...base, assignedAt: null },
+        'stage-w9-theory-fix-b': { ...base, failedAt: null },
+        'stage-w10-gap-work': { ...base, failedAt: null, isCalibration: true }
+      }
+    }));
+
+    expect(result.ok).toBe(true);
+    expect(result.value.remediationAssignments).toEqual({
+      'stage-w10-gap-work': { ...base, failedAt: null, isCalibration: true }
+    });
   });
 
   test('reveals pressure answers only for a valid matching timed answer attempt', () => {
@@ -477,6 +527,33 @@ describe('progress import validation', () => {
     ).complete).toBe(false);
   });
 
+  test('replaces every editable mock weakness without retaining removed rows', () => {
+    const existing = {
+      weaknesses: [
+        { text: 'Old first', remediation: 'Old repair', remediationComplete: false },
+        { text: 'Old second', remediation: 'Old repair two', remediationComplete: false }
+      ],
+      noMaterialWeakness: false,
+      reviewedAt: '2026-07-27T18:00:00.000Z'
+    };
+    const weaknesses = [
+      { text: 'Updated second', remediation: 'Run a new drill', remediationComplete: true }
+    ];
+
+    expect(updateMockDebrief(existing, {
+      noMaterialWeakness: false,
+      weaknesses,
+      rubricScores: { Framing: 4, 'Algorithm and code': 5, 'Testing and bounds': 4 },
+      followUpNotes: 'Handled the streaming follow-up with a bounded-memory design.'
+    }, '2026-07-28T18:00:00.000Z')).toEqual({
+      weaknesses,
+      noMaterialWeakness: false,
+      rubricScores: { Framing: 4, 'Algorithm and code': 5, 'Testing and bounds': 4 },
+      followUpNotes: 'Handled the streaming follow-up with a bounded-memory design.',
+      reviewedAt: '2026-07-28T18:00:00.000Z'
+    });
+  });
+
   test('explicit no-material-weakness review intentionally clears prior weaknesses', () => {
     const existing = {
       weaknesses: [{
@@ -632,7 +709,16 @@ const evidenceContent = {
   ],
   modernCvModules: [],
   quizzes: [{ id: 'quiz-a' }, { id: 'quiz-b' }],
-  systemDesignCases: [{ id: 'case-a' }]
+  systemDesignCases: [{ id: 'case-a' }],
+  behavioralPrompts: Array.from({ length: 10 }, (_, index) => ({ id: `behavior-${index + 1}` })),
+  mockPackets: [{
+    id: 'coding',
+    rubric: [
+      { dimension: 'Framing' },
+      { dimension: 'Algorithm and code' },
+      { dimension: 'Testing and bounds' }
+    ]
+  }]
 };
 
 const curriculumContext = vm.createContext({ window: { InterviewPrepData: {} } });
@@ -1088,6 +1174,32 @@ describe('guided stage evidence', () => {
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(true);
   });
 
+  test('does not let legacy task flags satisfy newly split evidence contracts', () => {
+    const requirementsStage = makeStage('legacy-requirements', 'learn', {
+      type: 'design-case', caseId: 'case-a', phase: 'requirements'
+    });
+    const inventoryStage = makeStage('legacy-inventory', 'reflect', {
+      type: 'story', requirements: { inventoryCount: 10 }
+    });
+    const debriefStage = makeStage('legacy-mock-debrief', 'reflect', {
+      type: 'mock', requirements: { mockType: 'coding', requiredCount: 1, phase: 'debrief' }
+    });
+    const state = makeV3State({
+      completedTasks: {
+        'task-legacy-requirements': true,
+        'task-legacy-inventory': true,
+        'task-legacy-mock-debrief': true
+      },
+      designAttempts: [{ caseId: 'case-a', phase: 'attempt', durationMinutes: 40, scores: { metrics: 4 } }],
+      storyInventory: [],
+      mocks: [{ type: 'coding', packetId: 'coding', debrief: null }]
+    });
+
+    expect(calculateStageStatus(requirementsStage, state, evidenceContent).complete).toBe(false);
+    expect(calculateStageStatus(inventoryStage, state, evidenceContent).complete).toBe(false);
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
+  });
+
   test('does not let a ten-item project inventory satisfy the story drafting contract', () => {
     const inventoryStage = makeStage('inventory', 'reflect', {
       type: 'story',
@@ -1299,72 +1411,48 @@ describe('guided stage evidence', () => {
     expect(calculateStageStatus(mlII, state, evidenceContent).complete).toBe(true);
   });
 
-  test('requires a complete debrief artifact separately from a mock attempt', () => {
+  test('requires packet rubric and follow-up feedback in a complete mock debrief', () => {
     const defaultAttemptStage = makeStage('default-mock-attempt', 'verify', {
-      type: 'mock',
-      requirements: { mockType: 'coding', requiredCount: 1 }
+      type: 'mock', requirements: { mockType: 'coding', requiredCount: 1 }
     });
     const attemptStage = makeStage('mock-attempt', 'verify', {
-      type: 'mock',
-      requirements: { mockType: 'coding', requiredCount: 1, phase: 'attempt' }
+      type: 'mock', requirements: { mockType: 'coding', requiredCount: 1, phase: 'attempt' }
     });
     const debriefStage = makeStage('mock-debrief', 'reflect', {
-      type: 'mock',
-      requirements: { mockType: 'coding', requiredCount: 1, phase: 'debrief' }
+      type: 'mock', requirements: { mockType: 'coding', requiredCount: 1, phase: 'debrief' }
     });
     const state = makeV2State({
-      mocks: [{ type: 'coding', debrief: null }]
+      mocks: [{ type: 'coding', packetId: 'coding', debrief: null }]
     });
-    const weakness = (text, remediation, remediationComplete) => ({
-      text,
-      remediation,
-      remediationComplete
-    });
-    const debrief = (candidate) => ({
-      weaknesses: [candidate],
+    const completeDebrief = {
+      weaknesses: [{
+        text: 'Skipped the complexity discussion',
+        remediation: 'Repeat the solution and state both bounds',
+        remediationComplete: true
+      }],
       noMaterialWeakness: false,
+      rubricScores: { Framing: 4, 'Algorithm and code': 4, 'Testing and bounds': 4 },
+      followUpNotes: 'Explained how a memory cap changes the state representation.',
       reviewedAt: '2026-07-27T19:00:00.000Z'
-    });
+    };
 
     expect(calculateStageStatus(defaultAttemptStage, state, evidenceContent).complete).toBe(true);
     expect(calculateStageStatus(attemptStage, state, evidenceContent).complete).toBe(true);
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
 
-    state.mocks[0].debrief = debrief(weakness(
-      '   ',
-      'Repeat the solution and state both bounds',
-      true
-    ));
+    state.mocks[0].debrief = { ...completeDebrief, rubricScores: {} };
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
-
-    state.mocks[0].debrief = debrief(weakness(
-      'Skipped the complexity discussion',
-      '   ',
-      true
-    ));
+    state.mocks[0].debrief = { ...completeDebrief, rubricScores: { Framing: 4 } };
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
-
-    state.mocks[0].debrief = debrief(weakness(
-      'Skipped the complexity discussion',
-      'Repeat the solution and state both bounds',
-      false
-    ));
+    state.mocks[0].debrief = { ...completeDebrief, followUpNotes: '   ' };
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
-
-    state.mocks[0].debrief = debrief(weakness(
-      'Skipped the complexity discussion',
-      'Repeat the solution and state both bounds',
-      true
-    ));
+    state.mocks[0].debrief = completeDebrief;
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(true);
 
-    state.mocks[0].debrief = {
-      weaknesses: [],
-      noMaterialWeakness: true,
-      reviewedAt: '2026-07-27T19:00:00.000Z'
-    };
+    state.mocks[0].debrief = { ...completeDebrief, weaknesses: [], noMaterialWeakness: true };
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(true);
   });
+
 
   test('keeps instruction, resource-only, and reflection work explicitly manual', () => {
     const instruction = makeStage('instruction', 'learn', { type: 'instruction', resourceIds: ['resource-a'] });
@@ -1436,7 +1524,7 @@ describe('remediation evidence', () => {
     expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
   });
 
-  test('accepts a historical repair after the miss even when activation happens later', () => {
+  test('requires repair evidence after activation even when the miss was repaired earlier', () => {
     const stage = stageFor({
       kind: 'quiz', sourceId: 'quiz-a', quizId: 'quiz-a',
       failedAt: '2026-09-01T10:00:00.000Z',
@@ -1447,6 +1535,11 @@ describe('remediation evidence', () => {
         { quizId: 'quiz-a', score: 60, attemptedAt: '2026-09-01T10:00:00.000Z' },
         { quizId: 'quiz-a', score: 90, attemptedAt: '2026-09-02T10:00:00.000Z' }
       ]
+    });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(false);
+
+    state.quizAttempts.push({
+      quizId: 'quiz-a', score: 90, attemptedAt: '2026-09-16T10:00:01.000Z'
     });
     expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
   });
@@ -1502,18 +1595,21 @@ describe('remediation evidence', () => {
     expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
   });
 
-  test('keeps a fresh calibration target incomplete until evidence arrives after assignment', () => {
+  test('keeps a calibration target incomplete until evidence arrives after assignment', () => {
+    const assignedAt = '2026-09-02T10:00:00.000Z';
     const stage = stageFor({
       kind: 'quiz', sourceId: 'quiz-a', quizId: 'quiz-a', failedAt: null,
-      assignedAt: null, isCalibration: true
+      assignedAt, isCalibration: true
     });
-    const fresh = makeV3State();
-    expect(calculateStageStatus(stage, fresh, evidenceContent).complete).toBe(false);
-
-    const calibrated = makeV3State({
+    const fresh = makeV3State({
       quizAttempts: [{ quizId: 'quiz-a', score: 85, attemptedAt: '2026-09-01T10:00:00.000Z' }]
     });
-    expect(calculateStageStatus(stage, calibrated, evidenceContent).complete).toBe(true);
+    expect(calculateStageStatus(stage, fresh, evidenceContent).complete).toBe(false);
+
+    fresh.quizAttempts.push({
+      quizId: 'quiz-a', score: 85, attemptedAt: '2026-09-02T10:00:01.000Z'
+    });
+    expect(calculateStageStatus(stage, fresh, evidenceContent).complete).toBe(true);
   });
 
   test('preserves valid remediation assignments through schema-v3 import', () => {
@@ -1737,10 +1833,17 @@ function makeReadyState() {
   state.mocks = [
     {
       type: 'coding',
+      packetId: 'coding',
       wouldAdvance: true,
-      debrief: { weaknesses: [remediatedWeakness], noMaterialWeakness: false, reviewedAt }
+      debrief: {
+        weaknesses: [remediatedWeakness],
+        noMaterialWeakness: false,
+        rubricScores: { Framing: 4, 'Algorithm and code': 4, 'Testing and bounds': 4 },
+        followUpNotes: 'Handled the bounded-memory follow-up.',
+        reviewedAt
+      }
     },
-    { type: 'coding', wouldAdvance: true, debrief: null },
+    { type: 'coding', packetId: 'coding', wouldAdvance: true, debrief: null },
     { type: 'ml-system', wouldAdvance: true, debrief: null },
     { type: 'ml-system', wouldAdvance: true, debrief: null }
   ];
@@ -1749,7 +1852,8 @@ function makeReadyState() {
 
 describe('evidence-based readiness', () => {
   const criteria = {
-    requiredFoundationTaskIds: ['foundation-linear-algebra', 'foundation-probability']
+    requiredFoundationTaskIds: ['foundation-linear-algebra', 'foundation-probability'],
+    content: evidenceContent
   };
 
   test('keeps every gate red when evidence is missing', () => {
@@ -1765,16 +1869,21 @@ describe('evidence-based readiness', () => {
     expect(isApplicationUnlocked(makeReadyState(), readiness)).toBe(true);
   });
 
-  test('requires eight distinct non-empty prompt IDs for the behavioral gate', () => {
+  test('counts only known prompts attached to interview-ready stories', () => {
     const state = makeReadyState();
-    state.starStories[7].promptId = 'behavior-1';
+    state.starStories.forEach((story) => { story.promptId = 'behavior-1'; });
+    state.starStories.push(...Array.from({ length: 7 }, (_, index) => ({
+      title: `Incomplete coverage ${index + 2}`,
+      promptId: `behavior-${index + 2}`,
+      complete: false
+    })));
     expect(calculateReadiness(state, criteria).gates.behavioral.status).not.toBe('green');
 
-    state.starStories[7].promptId = '';
-    expect(calculateReadiness(state, criteria).gates.behavioral.status).not.toBe('green');
+    const unknown = makeReadyState();
+    unknown.starStories.forEach((story, index) => { story.promptId = `unknown-${index + 1}`; });
+    expect(calculateReadiness(unknown, criteria).gates.behavioral.status).not.toBe('green');
 
-    state.starStories[7].promptId = 'behavior-8';
-    expect(calculateReadiness(state, criteria).gates.behavioral.status).toBe('green');
+    expect(calculateReadiness(makeReadyState(), criteria).gates.behavioral.status).toBe('green');
   });
 
   test('requires 2+2 mocks and at least one complete debrief, not one debrief per mock', () => {
@@ -1794,9 +1903,11 @@ describe('evidence-based readiness', () => {
     expect(calculateReadiness(countedButUndebriefed, criteria).gates.mocks.status).not.toBe('green');
 
     const exactlyOneComplete = structuredClone(countedButUndebriefed);
-    exactlyOneComplete.mocks[3].debrief = {
+    exactlyOneComplete.mocks[1].debrief = {
       weaknesses: [],
       noMaterialWeakness: true,
+      rubricScores: { Framing: 4, 'Algorithm and code': 4, 'Testing and bounds': 4 },
+      followUpNotes: 'Handled the bounded-memory follow-up.',
       reviewedAt: '2026-09-16T18:00:00.000Z'
     };
     expect(calculateReadiness(exactlyOneComplete, criteria).gates.mocks.status).toBe('green');

@@ -145,48 +145,74 @@
 
   function normalizeRehearsal(rehearsal) {
     if (!isRecord(rehearsal)) return null;
+    if (Object.hasOwn(rehearsal, 'kind') && !REHEARSAL_KINDS.has(rehearsal.kind)) return null;
     const normalized = {
       ...rehearsal,
-      kind: REHEARSAL_KINDS.has(rehearsal.kind) ? rehearsal.kind : 'story'
+      kind: Object.hasOwn(rehearsal, 'kind') ? rehearsal.kind : 'story'
     };
-    if (isNonEmptyString(rehearsal.refId)) normalized.refId = rehearsal.refId;
+    if (isNonEmptyString(rehearsal.refId)) normalized.refId = rehearsal.refId.trim();
     else delete normalized.refId;
+    return normalized;
+  }
+
+  function normalizeMockWeakness(weakness) {
+    if (!isRecord(weakness)) return null;
+    if (typeof weakness.text !== 'string' || typeof weakness.remediation !== 'string') return null;
+    const text = weakness.text.trim();
+    const remediation = weakness.remediation.trim();
+    if (!text || !remediation) return null;
+    return { text, remediation, remediationComplete: weakness.remediationComplete === true };
+  }
+
+  function normalizeRubricScores(scores) {
+    if (!isRecord(scores)) return {};
+    const normalized = {};
+    for (const [dimension, rawScore] of Object.entries(scores)) {
+      const score = Number(rawScore);
+      if (!isNonEmptyString(dimension) || !Number.isInteger(score) || score < 1 || score > 5) continue;
+      normalized[dimension.trim()] = score;
+    }
     return normalized;
   }
 
   function normalizeMockDebrief(debrief) {
     if (!isRecord(debrief)) return null;
-    const weaknesses = [];
-    if (Array.isArray(debrief.weaknesses)) {
-      for (const weakness of debrief.weaknesses) {
-        if (!isRecord(weakness)) continue;
-        if (typeof weakness.text !== 'string' || typeof weakness.remediation !== 'string') continue;
-        weaknesses.push({
-          text: weakness.text,
-          remediation: weakness.remediation,
-          remediationComplete: weakness.remediationComplete === true
-        });
-      }
-    }
-    return {
+    const weaknesses = Array.isArray(debrief.weaknesses)
+      ? debrief.weaknesses.map(normalizeMockWeakness).filter(Boolean)
+      : [];
+    const normalized = {
       weaknesses,
       noMaterialWeakness: debrief.noMaterialWeakness === true,
       reviewedAt: typeof debrief.reviewedAt === 'string' ? debrief.reviewedAt : null
     };
+    if (Object.hasOwn(debrief, 'rubricScores')) {
+      normalized.rubricScores = normalizeRubricScores(debrief.rubricScores);
+    }
+    if (Object.hasOwn(debrief, 'followUpNotes')) {
+      normalized.followUpNotes = typeof debrief.followUpNotes === 'string'
+        ? debrief.followUpNotes.trim()
+        : '';
+    }
+    return normalized;
   }
 
   function normalizeMock(mock) {
     if (!isRecord(mock)) return null;
-    return { ...mock, debrief: normalizeMockDebrief(mock.debrief) };
+    const normalized = { ...mock, debrief: normalizeMockDebrief(mock.debrief) };
+    if (isNonEmptyString(mock.packetId)) normalized.packetId = mock.packetId.trim();
+    else delete normalized.packetId;
+    return normalized;
   }
 
   function normalizeDesignAttempt(attempt) {
     if (!isRecord(attempt)) return null;
+    if (Object.hasOwn(attempt, 'phase') && !DESIGN_PHASES.has(attempt.phase)) return null;
     return {
       ...attempt,
-      phase: DESIGN_PHASES.has(attempt.phase) ? attempt.phase : 'attempt'
+      phase: Object.hasOwn(attempt, 'phase') ? attempt.phase : 'attempt'
     };
   }
+
 
   function normalizeStarStory(story) {
     if (!isRecord(story)) return null;
@@ -199,9 +225,10 @@
   function normalizeRemediationTarget(target) {
     if (!isRecord(target) || !['recall', 'quiz', 'problem', 'design'].includes(target.kind)) return null;
     if (!isIdentifier(target.sourceId) || typeof target.isCalibration !== 'boolean') return null;
+    if (!isValidDate(target.assignedAt)) return null;
     const failedAt = target.failedAt === null || isValidDate(target.failedAt) ? target.failedAt : null;
-    const assignedAt = target.assignedAt === null || isValidDate(target.assignedAt) ? target.assignedAt : null;
-    if (failedAt !== target.failedAt || assignedAt !== target.assignedAt) return null;
+    if (failedAt !== target.failedAt || (!target.isCalibration && !isValidDate(failedAt))) return null;
+    const assignedAt = target.assignedAt;
 
     const normalized = {
       kind: target.kind,
@@ -245,11 +272,36 @@
   function updateMockDebrief(existingDebrief, changes, reviewedAt = new Date().toISOString()) {
     const existing = isRecord(existingDebrief) ? existingDebrief : {};
     if (!isRecord(changes)) throw new TypeError('Mock debrief changes must be a record.');
+
+    const evidence = {};
+    if (Object.hasOwn(changes, 'rubricScores')) {
+      evidence.rubricScores = normalizeRubricScores(changes.rubricScores);
+    }
+    if (Object.hasOwn(changes, 'followUpNotes')) {
+      evidence.followUpNotes = typeof changes.followUpNotes === 'string'
+        ? changes.followUpNotes.trim()
+        : '';
+    }
     if (changes.noMaterialWeakness === true) {
       return {
         ...existing,
+        ...evidence,
         weaknesses: [],
         noMaterialWeakness: true,
+        reviewedAt
+      };
+    }
+
+    if (Array.isArray(changes.weaknesses)) {
+      const weaknesses = changes.weaknesses.map(normalizeMockWeakness);
+      if (!weaknesses.length || weaknesses.some((weakness) => weakness === null)) {
+        throw new TypeError('Every weakness needs non-empty text and remediation.');
+      }
+      return {
+        ...existing,
+        ...evidence,
+        weaknesses,
+        noMaterialWeakness: false,
         reviewedAt
       };
     }
@@ -257,24 +309,15 @@
     if (!isRecord(changes.weakness)) {
       throw new TypeError('A weakness is required when material weaknesses remain.');
     }
-    const text = typeof changes.weakness.text === 'string' ? changes.weakness.text.trim() : '';
-    const remediation = typeof changes.weakness.remediation === 'string'
-      ? changes.weakness.remediation.trim()
-      : '';
-    if (!text || !remediation) {
-      throw new TypeError('Weakness text and remediation must be non-empty.');
-    }
+    const weakness = normalizeMockWeakness(changes.weakness);
+    if (!weakness) throw new TypeError('Weakness text and remediation must be non-empty.');
 
     const existingWeaknesses = Array.isArray(existing.weaknesses) ? existing.weaknesses : [];
     const existingFirst = isRecord(existingWeaknesses[0]) ? existingWeaknesses[0] : {};
     return {
       ...existing,
-      weaknesses: [{
-        ...existingFirst,
-        text,
-        remediation,
-        remediationComplete: changes.weakness.remediationComplete === true
-      }, ...existingWeaknesses.slice(1)],
+      ...evidence,
+      weaknesses: [{ ...existingFirst, ...weakness }, ...existingWeaknesses.slice(1)],
       noMaterialWeakness: false,
       reviewedAt
     };
@@ -601,8 +644,8 @@
     return taskIds.length > 0 && taskIds.every((taskId) => Boolean(state?.completedTasks?.[taskId]));
   }
 
-  function evidenceStatus(stage, state, status, hasTypedEvidence) {
-    if (!hasTypedEvidence && legacyTasksComplete(stage, state)) {
+  function evidenceStatus(stage, state, status, hasTypedEvidence, allowLegacy = true) {
+    if (allowLegacy && !hasTypedEvidence && legacyTasksComplete(stage, state)) {
       return { ...status, complete: true, evidence: 'legacy', quality: 'legacy' };
     }
     return { ...status, evidence: hasTypedEvidence ? 'typed' : 'none' };
@@ -765,7 +808,7 @@
         quality: complete ? 'recorded' : latest ? 'missing-note' : 'missing',
         phase,
         attempt: latest || null
-      }, matches.length > 0);
+      }, matches.length > 0, false);
     }
 
     const quality = rubricQuality(latest?.scores);
@@ -823,7 +866,7 @@
         artifactType: null,
         count: 0,
         requiredCount: null
-      }, inventory.length > 0 || stories.length > 0 || rehearsals.length > 0);
+      }, inventory.length > 0 || stories.length > 0 || rehearsals.length > 0, false);
     }
 
     if (inventoryCount !== null) {
@@ -835,7 +878,7 @@
         artifactType: 'story-inventory',
         count: validInventory.length,
         requiredCount: inventoryCount
-      }, inventory.length > 0);
+      }, inventory.length > 0, false);
     }
 
     if (savedStoryCount !== null) {
@@ -847,7 +890,7 @@
         artifactType: 'saved-story',
         count: stories.length,
         requiredCount: savedStoryCount
-      }, stories.length > 0);
+      }, stories.length > 0, false);
     }
 
     if (completedStoryCount !== null) {
@@ -867,7 +910,7 @@
         artifactType: 'completed-story',
         count,
         requiredCount: completedStoryCount
-      }, stories.length > 0);
+      }, stories.length > 0, false);
     }
 
     const matchingRehearsals = rehearsals.filter((rehearsal) => (
@@ -887,23 +930,37 @@
       rehearsalKind,
       withoutNotes: requirements.withoutNotes,
       refIds: hasRefIds ? [...requirements.refIds] : null
-    }, rehearsals.length > 0);
+    }, rehearsals.length > 0, false);
   }
 
-  function isCompleteMockDebrief(debrief) {
-    if (!isRecord(debrief)) return false;
-    if (debrief.noMaterialWeakness === true) return true;
-    return Array.isArray(debrief.weaknesses)
+  function isCompleteMockDebrief(debrief, mock, content) {
+    if (!isRecord(debrief) || !isRecord(mock) || !isNonEmptyString(mock.packetId)) return false;
+    const packet = (Array.isArray(content?.mockPackets) ? content.mockPackets : [])
+      .find((candidate) => candidate?.id === mock.packetId);
+    const dimensions = (Array.isArray(packet?.rubric) ? packet.rubric : [])
+      .map((item) => item?.dimension)
+      .filter(isNonEmptyString);
+    const scores = isRecord(debrief.rubricScores) ? debrief.rubricScores : {};
+    const rubricComplete = dimensions.length > 0 && dimensions.every((dimension) => (
+      Object.hasOwn(scores, dimension)
+      && Number.isInteger(Number(scores[dimension]))
+      && Number(scores[dimension]) >= 1
+      && Number(scores[dimension]) <= 5
+    ));
+    const weaknessesComplete = debrief.noMaterialWeakness === true || (
+      Array.isArray(debrief.weaknesses)
       && debrief.weaknesses.length > 0
       && debrief.weaknesses.every((weakness) => (
         isRecord(weakness)
         && isNonEmptyString(weakness.text)
         && isNonEmptyString(weakness.remediation)
         && weakness.remediationComplete === true
-      ));
+      ))
+    );
+    return rubricComplete && isNonEmptyString(debrief.followUpNotes) && weaknessesComplete;
   }
 
-  function calculateMockStatus(stage, state) {
+  function calculateMockStatus(stage, state, content) {
     const requirements = isRecord(stage?.reference?.requirements)
       ? stage.reference.requirements
       : {};
@@ -918,7 +975,7 @@
       ? mocks.filter((mock) => mock?.type === mockType)
       : [];
     const count = phase === 'debrief'
-      ? matchingMocks.filter((mock) => isCompleteMockDebrief(mock.debrief)).length
+      ? matchingMocks.filter((mock) => isCompleteMockDebrief(mock.debrief, mock, content)).length
       : matchingMocks.length;
     const complete = validRequirements && count >= requiredCount;
     return evidenceStatus(stage, state, {
@@ -929,19 +986,23 @@
       phase: validRequirements ? phase : null,
       count,
       requiredCount: validRequirements ? requiredCount : null
-    }, matchingMocks.length > 0);
+    }, matchingMocks.length > 0, phase !== 'debrief');
   }
 
   function occursAfter(value, cutoff) {
-    if (!isValidDate(value)) return false;
-    return !isValidDate(cutoff) || Date.parse(value) > Date.parse(cutoff);
+    return isValidDate(value) && isValidDate(cutoff) && Date.parse(value) > Date.parse(cutoff);
+  }
+
+  function remediationCutoff(target) {
+    if (!isRecord(target) || !isValidDate(target.assignedAt)) return null;
+    if (target.isCalibration === true) return target.assignedAt;
+    if (target.isCalibration !== false || !isValidDate(target.failedAt)) return null;
+    return new Date(Math.max(Date.parse(target.failedAt), Date.parse(target.assignedAt))).toISOString();
   }
 
   function calculateRemediationStatus(stage, state) {
     const target = isRecord(stage?.reference?.target) ? stage.reference.target : null;
-    const cutoff = target?.isCalibration === true
-      ? (isValidDate(target?.assignedAt) ? target.assignedAt : null)
-      : (isValidDate(target?.failedAt) ? target.failedAt : null);
+    const cutoff = remediationCutoff(target);
     let complete = false;
     let latestEvidence = null;
 
@@ -1012,7 +1073,7 @@
     if (referenceType === 'quiz') return calculateQuizStatus(stage, state);
     if (referenceType === 'design-case') return calculateDesignStatus(stage, state);
     if (referenceType === 'story') return calculateStoryStatus(stage, state);
-    if (referenceType === 'mock') return calculateMockStatus(stage, state);
+    if (referenceType === 'mock') return calculateMockStatus(stage, state, content);
     if (referenceType === 'remediation') return calculateRemediationStatus(stage, state);
 
     const complete = legacyTasksComplete(stage, state);
@@ -1263,7 +1324,7 @@
     const requiredFoundationTaskIds = criteria.requiredFoundationTaskIds || [];
     const evidenceContext = criteria.sessionGuides
       ? { sessionGuides: criteria.sessionGuides, content: criteria.content || content || {} }
-      : normalizeEvidenceContext(sessionGuides, content);
+      : normalizeEvidenceContext(sessionGuides, criteria.content || content);
 
     const randomMediums = state.problemAttempts
       .filter((attempt) => attempt.random && attempt.difficulty === 'medium')
@@ -1318,10 +1379,18 @@
     const noNotesRehearsals = state.rehearsals.filter((rehearsal) => (
       (rehearsal.kind || 'story') === 'story' && rehearsal.withoutNotes
     )).length;
-    const coveredPrompts = new Set(
-      state.starStories
-        .map((story) => story.promptId)
+    const knownPromptIds = new Set(
+      (Array.isArray(evidenceContext.content?.behavioralPrompts)
+        ? evidenceContext.content.behavioralPrompts
+        : [])
+        .map((prompt) => prompt?.id)
         .filter(isNonEmptyString)
+        .map((promptId) => promptId.trim())
+    );
+    const coveredPrompts = new Set(
+      qualifyingStories
+        .map((story) => story.promptId)
+        .filter((promptId) => isNonEmptyString(promptId) && knownPromptIds.has(promptId.trim()))
         .map((promptId) => promptId.trim())
     );
     const behaviorEvidenceComplete = coveredPrompts.size >= 8;
@@ -1337,7 +1406,7 @@
     const latestMlSystemMock = mlSystemMocks.at(-1);
     const mockEvidenceComplete = codingMocks.length >= 2 && mlSystemMocks.length >= 2;
     const weaknessesRemediated = mockEvidenceComplete
-      && state.mocks.filter((mock) => isCompleteMockDebrief(mock.debrief)).length >= 1;
+      && state.mocks.filter((mock) => isCompleteMockDebrief(mock.debrief, mock, evidenceContext.content)).length >= 1;
     const mocksStatus = !mockEvidenceComplete
       ? 'red'
       : latestCodingMock.wouldAdvance && latestMlSystemMock.wouldAdvance && weaknessesRemediated

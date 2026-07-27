@@ -525,6 +525,21 @@ describe('session guide graph', () => {
     }
   });
 
+  test('orders requirements before timed attempts for multi-stage design sessions', () => {
+    const expected = [
+      ['w5-thu', 'w5-detection-metrics', 'w5-detection-design'],
+      ['w6-thu', 'w6-seg-metrics', 'w6-seg-design'],
+      ['w7-wed', 'w7-ocr-eval', 'w7-ocr-design']
+    ];
+
+    for (const [sessionId, requirementsTaskId, attemptTaskId] of expected) {
+      const taskIds = sessions.find((session) => session.id === sessionId).tasks.map((task) => task.id);
+      expect(taskIds.indexOf(requirementsTaskId)).toBeLessThan(taskIds.indexOf(attemptTaskId));
+      expect(stageForTask(requirementsTaskId).reference.phase).toBe('requirements');
+      expect(stageForTask(attemptTaskId).reference.phase).toBe('attempt');
+    }
+  });
+
   test('uses each design case and lifecycle phase at most once', () => {
     const designKeys = Object.values(sessionGuides)
       .flatMap((guide) => guide.stages)
@@ -741,7 +756,7 @@ describe('Phase 1C scheduling and remediation graph', () => {
     remediationAssignments: {}
   });
 
-  test('keeps remediation workspaces inactive until a target is explicitly persisted', () => {
+  test('keeps remediation inactive and requires a post-activation re-attempt', () => {
     expect(typeof data.isRemediationStageActivated).toBe('function');
     if (typeof data.isRemediationStageActivated !== 'function') return;
     const state = emptyRemediationState();
@@ -749,29 +764,58 @@ describe('Phase 1C scheduling and remediation graph', () => {
       quizId: 'rapid-fire-readiness', score: 55, attemptedAt: '2026-09-01T10:00:00.000Z'
     });
     const stageId = 'stage-w8-theory-fix-a';
+    const assignedAt = '2026-09-16T10:00:00.000Z';
 
     expect(data.isRemediationStageActivated(state, stageId)).toBe(false);
     expect(stageForTaskIn(data.buildSessionGuides(state), 'w8-theory-fix-a').stage.reference.target.isCalibration).toBe(true);
 
-    const activated = data.activateRemediationStage(state, stageId, '2026-09-16T10:00:00.000Z');
+    const activated = data.activateRemediationStage(state, stageId, assignedAt);
     expect(data.isRemediationStageActivated(activated, stageId)).toBe(true);
-    expect(activated.remediationAssignments[stageId].assignedAt).toBe('2026-09-16T10:00:00.000Z');
+    expect(activated.remediationAssignments[stageId].assignedAt).toBe(assignedAt);
 
     const stage = stageForTaskIn(data.buildSessionGuides(activated), 'w8-theory-fix-a').stage;
-    expect(stage.instructions).toContain('2026-09-01T10:00:00.000Z');
-    expect(stage.instructions).not.toContain('after 2026-09-16T10:00:00.000Z');
+    expect(stage.instructions).toContain(assignedAt);
     const alreadyRepaired = {
       ...activated,
       quizAttempts: [...activated.quizAttempts, {
         quizId: 'rapid-fire-readiness', score: 90, attemptedAt: '2026-09-02T10:00:00.000Z'
       }]
     };
-    expect(calculateStageStatus(stage, alreadyRepaired, data).complete).toBe(true);
+    expect(calculateStageStatus(stage, alreadyRepaired, data).complete).toBe(false);
 
-    const rebuilt = data.buildSessionGuides(alreadyRepaired);
+    const reattempted = {
+      ...alreadyRepaired,
+      quizAttempts: [...alreadyRepaired.quizAttempts, {
+        quizId: 'rapid-fire-readiness', score: 90, attemptedAt: '2026-09-16T10:00:01.000Z'
+      }]
+    };
+    const rebuilt = data.buildSessionGuides(reattempted);
     const stableStage = stageForTaskIn(rebuilt, 'w8-theory-fix-a').stage;
     expect(stableStage.reference.target).toEqual(activated.remediationAssignments[stageId]);
-    expect(calculateStageStatus(stableStage, alreadyRepaired, data).complete).toBe(true);
+    expect(calculateStageStatus(stableStage, reattempted, data).complete).toBe(true);
+  });
+
+  test('replaces persisted remediation targets that no longer resolve', () => {
+    const stageId = 'stage-w8-theory-fix-a';
+    const state = emptyRemediationState();
+    state.remediationAssignments[stageId] = {
+      kind: 'quiz',
+      sourceId: 'removed-quiz',
+      quizId: 'removed-quiz',
+      failedAt: null,
+      assignedAt: '2026-09-01T10:00:00.000Z',
+      isCalibration: true
+    };
+
+    expect(data.isRemediationStageActivated(state, stageId)).toBe(false);
+    const preview = stageForTaskIn(data.buildSessionGuides(state), 'w8-theory-fix-a').stage.reference.target;
+    expect(preview).toMatchObject({ kind: 'quiz', quizId: 'rapid-fire-readiness', isCalibration: true });
+
+    const activated = data.activateRemediationStage(state, stageId, '2026-09-02T10:00:00.000Z');
+    expect(data.isRemediationStageActivated(activated, stageId)).toBe(true);
+    expect(activated.remediationAssignments[stageId]).toMatchObject({
+      kind: 'quiz', quizId: 'rapid-fire-readiness', assignedAt: '2026-09-02T10:00:00.000Z'
+    });
   });
 
   test('activates concrete recall, quiz, problem, and design targets only for the focused stage', () => {

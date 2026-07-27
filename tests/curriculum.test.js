@@ -213,29 +213,59 @@ describe('session guide graph', () => {
     expect(repair.reference).toEqual({ type: 'instruction' });
   });
 
-  test('encodes cumulative story, rehearsal, and typed mock thresholds as reference data', () => {
-    expect(requirementsForTask('w2-story-inventory')).toEqual({ savedStoryCount: 10 });
+  test('encodes isolated story, rehearsal, and mock lifecycle thresholds as reference data', () => {
+    expect(requirementsForTask('w2-story-inventory')).toEqual({ inventoryCount: 10 });
     expect(requirementsForTask('w4-story-a')).toEqual({ savedStoryCount: 2 });
     expect(requirementsForTask('w5-story-b')).toEqual({ savedStoryCount: 4 });
     expect(requirementsForTask('w6-story-c')).toEqual({ savedStoryCount: 8 });
     expect(requirementsForTask('w7-story-finish')).toEqual({ completedStoryCount: 8 });
-    expect(requirementsForTask('w8-story-rehearsal-a')).toEqual({ rehearsalCount: 1, withoutNotes: true });
-    expect(requirementsForTask('w9-story-random')).toEqual({ rehearsalCount: 2, withoutNotes: true });
+
+    const expectedRehearsals = [
+      ['w1-baseline-intro', 1, false, 'intro'],
+      ['w6-story-rehearse', 2, false, 'story'],
+      ['w8-story-rehearsal-a', 1, true, 'story'],
+      ['w9-story-random', 2, true, 'story'],
+      ['w9-intro', 5, false, 'intro'],
+      ['w10-story-cert', 3, true, 'story'],
+      ['w10-intro-cert', 7, false, 'intro'],
+      ['w10-loop-behavior', 8, false, 'full-round']
+    ];
+    for (const [taskId, rehearsalCount, withoutNotes, rehearsalKind] of expectedRehearsals) {
+      expect(requirementsForTask(taskId)).toEqual({ rehearsalCount, rehearsalKind, withoutNotes });
+    }
 
     const expectedMocks = [
-      ['w6-coding-mock', 'coding', 1],
-      ['w6-mock-debrief', 'coding', 1],
-      ['w8-coding-mock', 'coding', 2],
-      ['w8-coding-debrief', 'coding', 2],
-      ['w9-coding-mock', 'coding', 3],
-      ['w9-coding-debrief', 'coding', 3],
-      ['w8-ml-mock', 'ml-system', 1],
-      ['w8-ml-debrief', 'ml-system', 1],
-      ['w9-ml-mock', 'ml-system', 2],
-      ['w9-ml-debrief', 'ml-system', 2]
+      ['w6-coding-mock', 'coding', 1, 'attempt'],
+      ['w6-mock-debrief', 'coding', 1, 'debrief'],
+      ['w8-coding-mock', 'coding', 2, 'attempt'],
+      ['w8-coding-debrief', 'coding', 2, 'debrief'],
+      ['w9-coding-mock', 'coding', 3, 'attempt'],
+      ['w9-coding-debrief', 'coding', 3, 'debrief'],
+      ['w8-ml-mock', 'ml-system', 1, 'attempt'],
+      ['w8-ml-debrief', 'ml-system', 1, 'debrief'],
+      ['w9-ml-mock', 'ml-system', 2, 'attempt'],
+      ['w9-ml-debrief', 'ml-system', 2, 'debrief']
     ];
-    for (const [taskId, mockType, requiredCount] of expectedMocks) {
-      expect(requirementsForTask(taskId)).toEqual({ mockType, requiredCount });
+    for (const [taskId, mockType, requiredCount, phase] of expectedMocks) {
+      expect(requirementsForTask(taskId)).toEqual({ mockType, requiredCount, phase });
+    }
+  });
+
+  test('assigns every design-case stage to its intended lifecycle phase', () => {
+    const expectedPhaseByStageType = {
+      learn: 'requirements',
+      practice: 'attempt',
+      verify: 'attempt',
+      recall: 'debrief',
+      reflect: 'debrief'
+    };
+    const designStages = Object.values(sessionGuides)
+      .flatMap((guide) => guide.stages)
+      .filter((stage) => stage.reference.type === 'design-case');
+
+    expect(designStages.length).toBeGreaterThan(0);
+    for (const stage of designStages) {
+      expect(stage.reference.phase).toBe(expectedPhaseByStageType[stage.type]);
     }
   });
 
@@ -273,28 +303,39 @@ describe('session guide graph', () => {
           expect(new Set(reference.quizIds).size).toBe(reference.quizIds.length);
           expect(reference.quizIds.every((id) => quizIds.has(id))).toBe(true);
         } else if (reference.type === 'design-case') {
-          expect(Object.keys(reference).sort()).toEqual(['caseId', 'type']);
+          expect(Object.keys(reference).sort()).toEqual(['caseId', 'phase', 'type']);
           expect(typeof reference.caseId).toBe('string');
           expect(designCaseIds.has(reference.caseId)).toBe(true);
+          expect(['requirements', 'attempt', 'debrief']).toContain(reference.phase);
         } else if (reference.type === 'story') {
           expect(Object.keys(reference).sort()).toEqual(['requirements', 'type']);
           expect(reference.requirements && typeof reference.requirements === 'object').toBe(true);
-          const countFields = ['savedStoryCount', 'completedStoryCount', 'rehearsalCount']
+          const countFields = ['inventoryCount', 'savedStoryCount', 'completedStoryCount', 'rehearsalCount']
             .filter((field) => Object.hasOwn(reference.requirements, field));
           expect(countFields).toHaveLength(1);
           const countField = countFields[0];
           expect(Number.isInteger(reference.requirements[countField])).toBe(true);
           expect(reference.requirements[countField]).toBeGreaterThan(0);
           if (countField === 'rehearsalCount') {
-            expect(Object.keys(reference.requirements).sort()).toEqual(['rehearsalCount', 'withoutNotes']);
+            const expectedKeys = ['rehearsalCount', 'rehearsalKind', 'withoutNotes'];
+            if (Object.hasOwn(reference.requirements, 'refIds')) expectedKeys.push('refIds');
+            expect(Object.keys(reference.requirements).sort()).toEqual(expectedKeys.sort());
+            expect(['story', 'intro', 'project-deep-dive', 'full-round'])
+              .toContain(reference.requirements.rehearsalKind);
             expect(typeof reference.requirements.withoutNotes).toBe('boolean');
+            if (Object.hasOwn(reference.requirements, 'refIds')) {
+              expect(Array.isArray(reference.requirements.refIds)).toBe(true);
+              expect(reference.requirements.refIds.every((id) => typeof id === 'string' && id.length > 0)).toBe(true);
+              expect(new Set(reference.requirements.refIds).size).toBe(reference.requirements.refIds.length);
+            }
           } else {
             expect(Object.keys(reference.requirements)).toEqual([countField]);
           }
         } else if (reference.type === 'mock') {
           expect(Object.keys(reference).sort()).toEqual(['requirements', 'type']);
-          expect(Object.keys(reference.requirements).sort()).toEqual(['mockType', 'requiredCount']);
+          expect(Object.keys(reference.requirements).sort()).toEqual(['mockType', 'phase', 'requiredCount']);
           expect(['coding', 'ml-system']).toContain(reference.requirements.mockType);
+          expect(['attempt', 'debrief']).toContain(reference.requirements.phase);
           expect(Number.isInteger(reference.requirements.requiredCount)).toBe(true);
           expect(reference.requirements.requiredCount).toBeGreaterThan(0);
         } else if (reference.type === 'instruction' && Object.hasOwn(reference, 'resourceIds')) {

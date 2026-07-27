@@ -35,6 +35,7 @@ describe('createInitialState', () => {
       problemAttempts: [],
       quizAttempts: [],
       designAttempts: [],
+      storyInventory: [],
       starStories: [],
       rehearsals: [],
       mocks: [],
@@ -125,6 +126,11 @@ describe('progress import validation', () => {
     expect(result.value).toEqual({
       ...legacy,
       schemaVersion: 3,
+      storyInventory: [],
+      designAttempts: [{ ...legacy.designAttempts[0], phase: 'attempt' }],
+      starStories: [{ ...legacy.starStories[0], promptId: null }],
+      rehearsals: [{ ...legacy.rehearsals[0], kind: 'story' }],
+      mocks: [{ ...legacy.mocks[0], debrief: null }],
       studyProgress: { activeFocus: null, reviews: {}, studied: {} }
     });
     expect(legacy).toEqual(before);
@@ -169,24 +175,129 @@ describe('progress import validation', () => {
       value: {
         ...state,
         schemaVersion: 3,
+        storyInventory: [],
         studyProgress: { ...state.studyProgress, studied: {} }
       }
     });
     expect(state).toEqual(before);
   });
 
-  test('round-trips a valid version-three record without loss or mutation', () => {
+  test('fills missing evidence metadata in current records without mutating input', () => {
     const state = makeV3State({
-      studyProgress: {
-        activeFocus: null,
-        reviews: {},
-        studied: { 'linear-algebra': '2026-07-27T18:00:00.000Z' }
-      }
+      designAttempts: [{ caseId: 'image-search', durationMinutes: 40 }],
+      starStories: [{ title: 'Launch' }],
+      rehearsals: [{ withoutNotes: true }],
+      mocks: [{ type: 'coding' }]
     });
     const before = structuredClone(state);
 
-    expect(validateImportedState(state)).toEqual({ ok: true, value: state });
+    expect(validateImportedState(state)).toEqual({
+      ok: true,
+      value: {
+        ...state,
+        storyInventory: [],
+        designAttempts: [{ ...state.designAttempts[0], phase: 'attempt' }],
+        starStories: [{ ...state.starStories[0], promptId: null }],
+        rehearsals: [{ ...state.rehearsals[0], kind: 'story' }],
+        mocks: [{ ...state.mocks[0], debrief: null }]
+      }
+    });
     expect(state).toEqual(before);
+  });
+
+  test('preserves valid evidence metadata and a complete nested mock debrief', () => {
+    const inventoryItem = {
+      id: 'project-1',
+      title: 'Reduced serving latency',
+      note: 'Owned the cache and batching tradeoff.',
+      createdAt: '2026-07-27T18:00:00.000Z'
+    };
+    const weakness = {
+      text: 'Skipped the capacity estimate',
+      remediation: 'Repeat the estimate with three traffic scenarios',
+      remediationComplete: true
+    };
+    const debrief = {
+      weaknesses: [weakness],
+      noMaterialWeakness: false,
+      reviewedAt: '2026-07-27T19:00:00.000Z'
+    };
+    const state = makeV3State({
+      storyInventory: [inventoryItem],
+      designAttempts: [{ caseId: 'image-search', phase: 'requirements', note: 'Define scale and latency.' }],
+      starStories: [{ title: 'Launch', promptId: 'handling-ambiguity' }],
+      rehearsals: [{ kind: 'intro', refId: 'career-intro', withoutNotes: true }],
+      mocks: [{ type: 'coding', debrief }]
+    });
+    const before = structuredClone(state);
+
+    const result = validateImportedState(state);
+
+    expect(result.ok).toBe(true);
+    expect(result.value.storyInventory).toEqual([inventoryItem]);
+    expect(result.value.designAttempts[0].phase).toBe('requirements');
+    expect(result.value.starStories[0].promptId).toBe('handling-ambiguity');
+    expect(result.value.rehearsals[0]).toMatchObject({ kind: 'intro', refId: 'career-intro' });
+    expect(result.value.mocks[0].debrief).toEqual(debrief);
+    expect(state).toEqual(before);
+  });
+
+  test('sanitizes malformed inventory and debrief data instead of rejecting the backup', () => {
+    const inventoryItem = {
+      id: 'incident-1',
+      title: 'Recovered a failed rollout',
+      note: 'Coordinated rollback and follow-up.',
+      createdAt: '2026-07-27T18:00:00.000Z'
+    };
+    const weakness = {
+      text: 'Metrics were underspecified',
+      remediation: 'Write guardrail and goal metrics',
+      remediationComplete: false
+    };
+    const malformedWeakness = {
+      text: 42,
+      remediation: null,
+      remediationComplete: 'yes'
+    };
+    const state = makeV3State({
+      storyInventory: [null, { id: 17, title: [], note: {}, createdAt: false }, inventoryItem],
+      mocks: [
+        { type: 'coding', debrief: 'not-a-debrief' },
+        {
+          type: 'ml-system',
+          debrief: {
+            weaknesses: [null, malformedWeakness, weakness],
+            noMaterialWeakness: false,
+            reviewedAt: '2026-07-27T19:00:00.000Z'
+          }
+        }
+      ]
+    });
+    const before = structuredClone(state);
+
+    const result = validateImportedState(state);
+
+    expect(result.ok).toBe(true);
+    expect(result.value.storyInventory).toContainEqual(inventoryItem);
+    expect(result.value.storyInventory.every((entry) => (
+      entry && Object.keys(entry).sort().join(',') === 'createdAt,id,note,title'
+      && ['id', 'title', 'note', 'createdAt'].every((field) => typeof entry[field] === 'string')
+    ))).toBe(true);
+    expect(result.value.mocks[0].debrief).toBeNull();
+    expect(result.value.mocks[1].debrief.weaknesses).toContainEqual(weakness);
+    expect(result.value.mocks[1].debrief.weaknesses).not.toContainEqual(malformedWeakness);
+    expect(result.value.mocks[1].debrief.weaknesses.every((entry) => (
+      entry && typeof entry.text === 'string'
+      && typeof entry.remediation === 'string'
+      && typeof entry.remediationComplete === 'boolean'
+    ))).toBe(true);
+    expect(state).toEqual(before);
+
+    const malformedArray = makeV3State({ storyInventory: 'not-an-array' });
+    expect(validateImportedState(malformedArray)).toMatchObject({
+      ok: true,
+      value: { storyInventory: [] }
+    });
   });
 
   test('rejects unknown versions and malformed required legacy fields', () => {
@@ -649,11 +760,16 @@ describe('guided stage evidence', () => {
   });
 
   test('completes design work from a timed rubric and exposes its lowest dimension', () => {
-    const designStage = makeStage('design', 'practice', { type: 'design-case', caseId: 'case-a' });
+    const designStage = makeStage('design', 'practice', {
+      type: 'design-case',
+      caseId: 'case-a',
+      phase: 'attempt'
+    });
     const invalid = makeV2State({
       completedTasks: { 'task-design': true },
       designAttempts: [{
         caseId: 'case-a',
+        phase: 'attempt',
         durationMinutes: 0,
         scores: { requirements: 4 }
       }]
@@ -667,6 +783,7 @@ describe('guided stage evidence', () => {
     const state = makeV2State({
       designAttempts: [{
         caseId: 'case-a',
+        phase: 'attempt',
         durationMinutes: 38,
         attemptedAt: '2026-07-27T18:00:00.000Z',
         scores: { requirements: 4, metrics: 2, serving: 3 }
@@ -684,10 +801,83 @@ describe('guided stage evidence', () => {
     expect(status).not.toHaveProperty('mastered');
   });
 
+  test('keeps requirements, timed attempts, and debriefs as distinct design evidence', () => {
+    const stage = (phase, type) => makeStage(`design-${phase}`, type, {
+      type: 'design-case',
+      caseId: 'case-a',
+      phase
+    });
+    const requirementsStage = stage('requirements', 'learn');
+    const attemptStage = stage('attempt', 'practice');
+    const debriefStage = stage('debrief', 'reflect');
+    const state = makeV2State({
+      designAttempts: [{
+        caseId: 'case-a',
+        phase: 'attempt',
+        durationMinutes: 38,
+        scores: { requirements: 4, metrics: 3 }
+      }]
+    });
+
+    expect(calculateStageStatus(attemptStage, state, evidenceContent).complete).toBe(true);
+    expect(calculateStageStatus(requirementsStage, state, evidenceContent).complete).toBe(false);
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
+
+    state.designAttempts.push({ caseId: 'case-a', phase: 'requirements', note: '   ' });
+    expect(calculateStageStatus(requirementsStage, state, evidenceContent).complete).toBe(false);
+    state.designAttempts.push({
+      caseId: 'case-a',
+      phase: 'requirements',
+      note: 'Clarify traffic, latency, and quality constraints.'
+    });
+    expect(calculateStageStatus(requirementsStage, state, evidenceContent).complete).toBe(true);
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
+
+    state.designAttempts.push({ caseId: 'case-a', phase: 'debrief', note: '' });
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
+    state.designAttempts.push({
+      caseId: 'case-a',
+      phase: 'debrief',
+      note: 'Repair the weakest metric and serving tradeoffs.'
+    });
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(true);
+  });
+
+  test('does not let a ten-item project inventory satisfy the story drafting contract', () => {
+    const inventoryStage = makeStage('inventory', 'reflect', {
+      type: 'story',
+      requirements: { inventoryCount: 10 }
+    });
+    const draftingStage = makeStage('drafting', 'practice', {
+      type: 'story',
+      requirements: { savedStoryCount: 2 }
+    });
+    const state = makeV2State({
+      storyInventory: Array.from({ length: 10 }, (_, index) => ({
+        id: `inventory-${index + 1}`,
+        title: `Project ${index + 1}`,
+        note: 'Scope, decision, action, and result.',
+        createdAt: '2026-07-27T18:00:00.000Z'
+      }))
+    });
+
+    expect(calculateStageStatus(inventoryStage, state, evidenceContent).complete).toBe(true);
+    expect(calculateStageStatus(draftingStage, state, evidenceContent).complete).toBe(false);
+
+    state.starStories = [{ title: 'Launch' }, { title: 'Incident' }];
+    expect(calculateStageStatus(draftingStage, state, evidenceContent).complete).toBe(true);
+  });
+
   test('requires eight completed stories for the actual story-bank finish stage', () => {
     const stage = actualStageForTask('w7-story-finish');
     const state = makeV2State({
-      starStories: [{ title: 'Launch', complete: true }]
+      starStories: [{
+        title: 'Launch',
+        complete: true,
+        durationMinutes: 1.8,
+        measurableImpact: true,
+        individualContribution: true
+      }]
     });
 
     expect(calculateStageStatus(stage, state, evidenceContent)).toMatchObject({
@@ -699,7 +889,10 @@ describe('guided stage evidence', () => {
 
     state.starStories.push(...Array.from({ length: 7 }, (_, index) => ({
       title: `Story ${index + 2}`,
-      complete: true
+      complete: true,
+      durationMinutes: 1.8,
+      measurableImpact: true,
+      individualContribution: true
     })));
     expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
   });
@@ -720,18 +913,36 @@ describe('guided stage evidence', () => {
       taskIds: ['opaque-story-task-b']
     };
     const state = makeV2State({
-      rehearsals: [{ withoutNotes: false }, { withoutNotes: false }]
+      rehearsals: [{ kind: 'story', withoutNotes: false }, { kind: 'story', withoutNotes: false }]
     });
 
     expect(calculateStageStatus(firstStage, state, evidenceContent).complete).toBe(false);
     expect(calculateStageStatus(secondStage, state, evidenceContent).complete).toBe(false);
 
-    state.rehearsals.push({ withoutNotes: true });
+    state.rehearsals.push({ kind: 'story', withoutNotes: true });
     expect(calculateStageStatus(firstStage, state, evidenceContent).complete).toBe(true);
     expect(calculateStageStatus(secondStage, state, evidenceContent).complete).toBe(false);
 
-    state.rehearsals.push({ withoutNotes: true });
+    state.rehearsals.push({ kind: 'story', withoutNotes: true });
     expect(calculateStageStatus(secondStage, state, evidenceContent).complete).toBe(true);
+  });
+
+  test('does not count a story rehearsal toward an intro rehearsal stage', () => {
+    const introStage = makeStage('intro-rehearsal', 'verify', {
+      type: 'story',
+      requirements: {
+        rehearsalCount: 1,
+        rehearsalKind: 'intro',
+        withoutNotes: true
+      }
+    });
+    const state = makeV2State({
+      rehearsals: [{ kind: 'story', withoutNotes: true }]
+    });
+
+    expect(calculateStageStatus(introStage, state, evidenceContent).complete).toBe(false);
+    state.rehearsals.push({ kind: 'intro', withoutNotes: true });
+    expect(calculateStageStatus(introStage, state, evidenceContent).complete).toBe(true);
   });
 
   test('requires cumulative mocks of the actual guide type for Mock II and III', () => {
@@ -756,6 +967,34 @@ describe('guided stage evidence', () => {
     state.mocks.push({ type: 'coding' }, { type: 'ml-system' });
     expect(calculateStageStatus(codingIII, state, evidenceContent).complete).toBe(true);
     expect(calculateStageStatus(mlII, state, evidenceContent).complete).toBe(true);
+  });
+
+  test('requires a complete debrief artifact separately from a mock attempt', () => {
+    const attemptStage = makeStage('mock-attempt', 'verify', {
+      type: 'mock',
+      requirements: { mockType: 'coding', requiredCount: 1, phase: 'attempt' }
+    });
+    const debriefStage = makeStage('mock-debrief', 'reflect', {
+      type: 'mock',
+      requirements: { mockType: 'coding', requiredCount: 1, phase: 'debrief' }
+    });
+    const state = makeV2State({
+      mocks: [{ type: 'coding', debrief: null }]
+    });
+
+    expect(calculateStageStatus(attemptStage, state, evidenceContent).complete).toBe(true);
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
+
+    state.mocks[0].debrief = {
+      weaknesses: [{
+        text: 'Skipped the complexity discussion',
+        remediation: 'Repeat the solution and state both bounds',
+        remediationComplete: true
+      }],
+      noMaterialWeakness: false,
+      reviewedAt: '2026-07-27T19:00:00.000Z'
+    };
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(true);
   });
 
   test('keeps instruction, resource-only, and reflection work explicitly manual', () => {
@@ -952,23 +1191,57 @@ function makeReadyState() {
     communication: 4
   };
   state.designAttempts = [
-    { durationMinutes: 40, scores: designScores, attemptedAt: '2026-09-13T18:00:00.000Z' },
-    { durationMinutes: 38, scores: designScores, attemptedAt: '2026-09-14T18:00:00.000Z' }
+    { phase: 'attempt', durationMinutes: 40, scores: designScores, attemptedAt: '2026-09-13T18:00:00.000Z' },
+    { phase: 'attempt', durationMinutes: 38, scores: designScores, attemptedAt: '2026-09-14T18:00:00.000Z' }
   ];
+  state.storyInventory = Array.from({ length: 10 }, (_, index) => ({
+    id: `inventory-${index + 1}`,
+    title: `Project ${index + 1}`,
+    note: 'Scope, decision, action, and measured result.',
+    createdAt: `2026-09-${String(index + 1).padStart(2, '0')}T18:00:00.000Z`
+  }));
   state.starStories = Array.from({ length: 8 }, (_, index) => ({
     title: `Story ${index + 1}`,
+    promptId: `behavior-${index + 1}`,
     complete: true,
     durationMinutes: 1.8,
     measurableImpact: true,
     individualContribution: true,
     leadership: index < 2
   }));
-  state.rehearsals = [{ withoutNotes: true }, { withoutNotes: true }];
+  state.rehearsals = [
+    { kind: 'story', withoutNotes: true },
+    { kind: 'story', withoutNotes: true },
+    { kind: 'intro', withoutNotes: true },
+    { kind: 'full-round', withoutNotes: true }
+  ];
+  const reviewedAt = '2026-09-15T18:00:00.000Z';
+  const remediatedWeakness = {
+    text: 'Skipped a tradeoff',
+    remediation: 'Repeat the answer with the tradeoff first',
+    remediationComplete: true
+  };
   state.mocks = [
-    { type: 'coding', wouldAdvance: true, weaknesses: [{ remediationComplete: true }] },
-    { type: 'coding', wouldAdvance: true, weaknesses: [] },
-    { type: 'ml-system', wouldAdvance: true, weaknesses: [] },
-    { type: 'ml-system', wouldAdvance: true, weaknesses: [{ remediationComplete: true }] }
+    {
+      type: 'coding',
+      wouldAdvance: true,
+      debrief: { weaknesses: [], noMaterialWeakness: true, reviewedAt }
+    },
+    {
+      type: 'coding',
+      wouldAdvance: true,
+      debrief: { weaknesses: [remediatedWeakness], noMaterialWeakness: false, reviewedAt }
+    },
+    {
+      type: 'ml-system',
+      wouldAdvance: true,
+      debrief: { weaknesses: [], noMaterialWeakness: true, reviewedAt }
+    },
+    {
+      type: 'ml-system',
+      wouldAdvance: true,
+      debrief: { weaknesses: [remediatedWeakness], noMaterialWeakness: false, reviewedAt }
+    }
   ];
   return state;
 }
@@ -989,6 +1262,28 @@ describe('evidence-based readiness', () => {
     expect(readiness.overall).toBe('green');
     expect(Object.values(readiness.gates).every((gate) => gate.status === 'green')).toBe(true);
     expect(isApplicationUnlocked(makeReadyState(), readiness)).toBe(true);
+  });
+
+  test('requires eight distinct non-empty prompt IDs for the behavioral gate', () => {
+    const state = makeReadyState();
+    state.starStories[7].promptId = 'behavior-1';
+    expect(calculateReadiness(state, criteria).gates.behavioral.status).not.toBe('green');
+
+    state.starStories[7].promptId = '';
+    expect(calculateReadiness(state, criteria).gates.behavioral.status).not.toBe('green');
+
+    state.starStories[7].promptId = 'behavior-8';
+    expect(calculateReadiness(state, criteria).gates.behavioral.status).toBe('green');
+  });
+
+  test('keeps weakness remediation non-green without a complete mock debrief', () => {
+    const withoutMocks = makeReadyState();
+    withoutMocks.mocks = [];
+    expect(calculateReadiness(withoutMocks, criteria).gates.mocks.status).toBe('red');
+
+    const missingDebrief = makeReadyState();
+    missingDebrief.mocks[0].debrief = null;
+    expect(calculateReadiness(missingDebrief, criteria).gates.mocks.status).not.toBe('green');
   });
 
   test('allows a reasoned manual override without changing readiness evidence', () => {

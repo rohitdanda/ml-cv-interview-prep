@@ -1383,7 +1383,7 @@
 
   function storyForm(story = {}) {
     const prompts = data.behavioralPrompts || [];
-    const selectedPromptId = typeof story.promptId === 'string' ? story.promptId : '';
+    const selectedPromptId = typeof story.promptId === 'string' ? story.promptId.trim() : '';
     const selectedIsKnown = prompts.some((prompt) => behavioralPromptId(prompt) === selectedPromptId);
     return `
       <form id="story-form" class="form-grid">
@@ -1413,12 +1413,13 @@
   }
 
   function renderStoryCard(story, index) {
+    const storyPromptId = typeof story.promptId === 'string' ? story.promptId.trim() : '';
     const prompt = (data.behavioralPrompts || [])
-      .find((candidate) => behavioralPromptId(candidate) === story.promptId);
+      .find((candidate) => behavioralPromptId(candidate) === storyPromptId);
     return `
       <article class="card">
         <div class="card-header"><div><h3>${escapeHtml(story.title)}</h3><p>${escapeHtml(story.durationMinutes)} min spoken</p></div><span class="status-badge ${story.complete ? 'status-green' : 'status-amber'}">${story.complete ? 'Ready' : 'Draft'}</span></div>
-        <p class="subtle"><strong>Prompt:</strong> ${escapeHtml(prompt?.title || story.promptId || 'Not selected')}</p>
+        <p class="subtle"><strong>Prompt:</strong> ${escapeHtml(prompt?.title || storyPromptId || 'Not selected')}</p>
         <p><strong>Result:</strong> ${escapeHtml(story.result)}</p>
         <div class="card-actions"><button class="button button-small" type="button" data-action="edit-story" data-index="${index}">Edit</button><button class="button button-small button-danger" type="button" data-action="delete-story" data-index="${index}">Delete</button></div>
       </article>`;
@@ -1428,7 +1429,9 @@
     const prompts = data.behavioralPrompts || [];
     const story = editingStoryIndex === null ? {} : state.starStories[editingStoryIndex] || {};
     const coveredPromptIds = new Set(
-      state.starStories.map((savedStory) => savedStory.promptId).filter(Boolean)
+      state.starStories
+        .map((savedStory) => typeof savedStory.promptId === 'string' ? savedStory.promptId.trim() : '')
+        .filter(Boolean)
     );
     const coveredCount = prompts.reduce((count, prompt) => (
       count + Number(coveredPromptIds.has(behavioralPromptId(prompt)))
@@ -1489,10 +1492,11 @@
         <div class="card-header"><div><h2>${mock.debrief ? 'Update' : 'Add'} debrief</h2><p>${escapeHtml(mock.source)} · ${escapeHtml(mock.type)}</p></div></div>
         <form id="mock-debrief-form" class="form-grid">
           <input type="hidden" name="index" value="${editingMockIndex}">
-          <label class="check-field full" for="mock-no-material-weakness"><input id="mock-no-material-weakness" type="checkbox" name="noMaterialWeakness" ${debrief.noMaterialWeakness ? 'checked' : ''}> Reviewed: no material weakness</label>
+          <label class="check-field full" for="mock-no-material-weakness"><input id="mock-no-material-weakness" type="checkbox" name="noMaterialWeakness" ${debrief.noMaterialWeakness ? 'checked' : ''}> Reviewed: no material weakness (clears saved weaknesses)</label>
           <div class="form-field full"><label for="mock-debrief-weakness">Weakness</label><input id="mock-debrief-weakness" name="weakness" value="${escapeHtml(weakness.text || '')}"></div>
           <div class="form-field full"><label for="mock-debrief-remediation">Remediation</label><input id="mock-debrief-remediation" name="remediation" value="${escapeHtml(weakness.remediation || '')}"></div>
           <label class="check-field" for="mock-debrief-complete"><input id="mock-debrief-complete" type="checkbox" name="remediationComplete" ${weakness.remediationComplete ? 'checked' : ''}> Remediation complete</label>
+          ${debrief.weaknesses?.length > 1 ? `<p class="subtle full">Editing the first weakness; ${debrief.weaknesses.length - 1} additional saved weakness${debrief.weaknesses.length === 2 ? '' : 'es'} will be preserved.</p>` : ''}
           <div class="form-field full card-actions"><button class="button button-primary" type="submit">Save debrief</button><button class="button" type="button" data-action="cancel-mock-debrief">Cancel</button></div>
         </form>
       </section>`;
@@ -1993,15 +1997,16 @@
       toast('Add both a weakness and remediation, or mark no material weakness.');
       return;
     }
-    const debrief = {
-      weaknesses: noMaterialWeakness ? [] : [{
-        text: weakness,
-        remediation,
-        remediationComplete: values.remediationComplete === 'on'
-      }],
+    const debrief = logic.updateMockDebrief(state.mocks[index].debrief, {
       noMaterialWeakness,
-      reviewedAt: new Date().toISOString()
-    };
+      ...(noMaterialWeakness ? {} : {
+        weakness: {
+          text: weakness,
+          remediation,
+          remediationComplete: values.remediationComplete === 'on'
+        }
+      })
+    }, new Date().toISOString());
     const mocks = [...state.mocks];
     mocks[index] = { ...mocks[index], debrief };
     editingMockIndex = null;

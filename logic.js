@@ -112,10 +112,19 @@
   }
 
   function coerceInventoryField(value) {
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-    if (typeof value === 'boolean') return String(value);
-    return null;
+    let coerced = null;
+    if (typeof value === 'string') coerced = value;
+    else if (typeof value === 'number' && Number.isFinite(value)) coerced = String(value);
+    else if (typeof value === 'boolean') coerced = String(value);
+    if (coerced === null) return null;
+    const trimmed = coerced.trim();
+    return trimmed || null;
+  }
+
+  function isValidInventoryRecord(entry) {
+    return isRecord(entry) && ['id', 'title', 'note', 'createdAt'].every((field) => (
+      isNonEmptyString(entry[field])
+    ));
   }
 
   function normalizeStoryInventory(value) {
@@ -182,7 +191,45 @@
     if (!isRecord(story)) return null;
     return {
       ...story,
-      promptId: isNonEmptyString(story.promptId) ? story.promptId : null
+      promptId: isNonEmptyString(story.promptId) ? story.promptId.trim() : null
+    };
+  }
+
+  function updateMockDebrief(existingDebrief, changes, reviewedAt = new Date().toISOString()) {
+    const existing = isRecord(existingDebrief) ? existingDebrief : {};
+    if (!isRecord(changes)) throw new TypeError('Mock debrief changes must be a record.');
+    if (changes.noMaterialWeakness === true) {
+      return {
+        ...existing,
+        weaknesses: [],
+        noMaterialWeakness: true,
+        reviewedAt
+      };
+    }
+
+    if (!isRecord(changes.weakness)) {
+      throw new TypeError('A weakness is required when material weaknesses remain.');
+    }
+    const text = typeof changes.weakness.text === 'string' ? changes.weakness.text.trim() : '';
+    const remediation = typeof changes.weakness.remediation === 'string'
+      ? changes.weakness.remediation.trim()
+      : '';
+    if (!text || !remediation) {
+      throw new TypeError('Weakness text and remediation must be non-empty.');
+    }
+
+    const existingWeaknesses = Array.isArray(existing.weaknesses) ? existing.weaknesses : [];
+    const existingFirst = isRecord(existingWeaknesses[0]) ? existingWeaknesses[0] : {};
+    return {
+      ...existing,
+      weaknesses: [{
+        ...existingFirst,
+        text,
+        remediation,
+        remediationComplete: changes.weakness.remediationComplete === true
+      }, ...existingWeaknesses.slice(1)],
+      noMaterialWeakness: false,
+      reviewedAt
     };
   }
 
@@ -682,6 +729,7 @@
       + Number(completedStoryCount !== null)
       + Number(rehearsalCount !== null);
     const inventory = Array.isArray(state?.storyInventory) ? state.storyInventory : [];
+    const validInventory = inventory.filter(isValidInventoryRecord);
     const stories = Array.isArray(state?.starStories) ? state.starStories : [];
     const rehearsals = Array.isArray(state?.rehearsals) ? state.rehearsals : [];
     const rehearsalKind = requirements.rehearsalKind || 'story';
@@ -710,13 +758,13 @@
     }
 
     if (inventoryCount !== null) {
-      const complete = inventory.length >= inventoryCount;
+      const complete = validInventory.length >= inventoryCount;
       return evidenceStatus(stage, state, {
         complete,
         kind: 'story',
-        quality: complete ? 'inventoried' : inventory.length ? 'in-progress' : 'missing',
+        quality: complete ? 'inventoried' : validInventory.length ? 'in-progress' : 'missing',
         artifactType: 'story-inventory',
-        count: inventory.length,
+        count: validInventory.length,
         requiredCount: inventoryCount
       }, inventory.length > 0);
     }
@@ -1248,6 +1296,7 @@
     startTimer,
     stopTimer,
     unmarkStudied,
-    validateImportedState
+    validateImportedState,
+    updateMockDebrief
   };
 });

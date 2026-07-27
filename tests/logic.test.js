@@ -24,7 +24,8 @@ const {
   startTimer,
   stopTimer,
   unmarkStudied,
-  validateImportedState
+  validateImportedState,
+  updateMockDebrief
 } = require('../logic.js');
 
 describe('createInitialState', () => {
@@ -307,6 +308,128 @@ describe('progress import validation', () => {
     expect(validateImportedState(malformedArray)).toMatchObject({
       ok: true,
       value: { storyInventory: [] }
+    });
+  });
+
+  test('trims imported inventory strings and drops records with blank required evidence', () => {
+    const canonical = {
+      id: 'incident-1',
+      title: 'Recovered a failed rollout',
+      note: 'Coordinated rollback and follow-up.',
+      createdAt: '2026-07-27T18:00:00.000Z'
+    };
+    const padded = Object.fromEntries(
+      Object.entries(canonical).map(([key, value]) => [key, `  ${value}  `])
+    );
+    const blankRecord = (field) => ({ ...canonical, [field]: ' \n\t ' });
+    const state = makeV3State({
+      storyInventory: [
+        padded,
+        blankRecord('id'),
+        blankRecord('title'),
+        blankRecord('note'),
+        blankRecord('createdAt')
+      ]
+    });
+
+    const result = validateImportedState(state);
+
+    expect(result).toMatchObject({ ok: true });
+    expect(result.value.storyInventory).toEqual([canonical]);
+    expect(state.storyInventory).toEqual([
+      padded,
+      blankRecord('id'),
+      blankRecord('title'),
+      blankRecord('note'),
+      blankRecord('createdAt')
+    ]);
+  });
+
+  test('canonicalizes padded STAR prompt IDs and maps blank IDs to null', () => {
+    const state = makeV3State({
+      starStories: [
+        { title: 'Launch', promptId: '  highest-impact  ' },
+        { title: 'Incident', promptId: ' \n\t ' }
+      ]
+    });
+
+    const result = validateImportedState(state);
+
+    expect(result).toMatchObject({ ok: true });
+    expect(result.value.starStories.map((story) => story.promptId)).toEqual([
+      'highest-impact',
+      null
+    ]);
+  });
+
+  test('updates the visible mock weakness without deleting hidden trailing weaknesses', () => {
+    const first = {
+      text: 'Skipped capacity math',
+      remediation: 'Estimate average and peak traffic',
+      remediationComplete: false,
+      extension: 'preserved'
+    };
+    const trailing = {
+      text: 'Missed a rollback plan',
+      remediation: 'Add rollback triggers',
+      remediationComplete: false
+    };
+    const existing = {
+      weaknesses: [first, trailing],
+      noMaterialWeakness: false,
+      reviewedAt: '2026-07-27T18:00:00.000Z'
+    };
+    const before = structuredClone(existing);
+
+    const updated = updateMockDebrief(existing, {
+      noMaterialWeakness: false,
+      weakness: {
+        text: 'Capacity math was incomplete',
+        remediation: 'Estimate average, peak, and burst traffic',
+        remediationComplete: true
+      }
+    }, '2026-07-28T18:00:00.000Z');
+
+    expect(updated).toEqual({
+      weaknesses: [{
+        ...first,
+        text: 'Capacity math was incomplete',
+        remediation: 'Estimate average, peak, and burst traffic',
+        remediationComplete: true
+      }, trailing],
+      noMaterialWeakness: false,
+      reviewedAt: '2026-07-28T18:00:00.000Z'
+    });
+    expect(existing).toEqual(before);
+
+    const debriefStage = makeStage('mock-debrief-review', 'reflect', {
+      type: 'mock',
+      requirements: { mockType: 'coding', requiredCount: 1, phase: 'debrief' }
+    });
+    expect(calculateStageStatus(
+      debriefStage,
+      makeV2State({ mocks: [{ type: 'coding', debrief: updated }] }),
+      evidenceContent
+    ).complete).toBe(false);
+  });
+
+  test('explicit no-material-weakness review intentionally clears prior weaknesses', () => {
+    const existing = {
+      weaknesses: [{
+        text: 'Skipped capacity math',
+        remediation: 'Estimate average and peak traffic',
+        remediationComplete: false
+      }],
+      noMaterialWeakness: false,
+      reviewedAt: '2026-07-27T18:00:00.000Z'
+    };
+
+    expect(updateMockDebrief(existing, {
+      noMaterialWeakness: true
+    }, '2026-07-28T18:00:00.000Z')).toEqual({
+      weaknesses: [],
+      noMaterialWeakness: true,
+      reviewedAt: '2026-07-28T18:00:00.000Z'
     });
   });
 
@@ -924,6 +1047,37 @@ describe('guided stage evidence', () => {
 
     state.starStories = [{ title: 'Launch' }, { title: 'Incident' }];
     expect(calculateStageStatus(draftingStage, state, evidenceContent).complete).toBe(true);
+  });
+
+  test('counts only nonblank inventory records from direct in-memory state', () => {
+    const stage = makeStage('valid-inventory', 'reflect', {
+      type: 'story',
+      requirements: { inventoryCount: 2 }
+    });
+    const valid = {
+      id: 'inventory-1',
+      title: 'Segmentation launch',
+      note: 'Owned the threshold and rollout decision.',
+      createdAt: '2026-07-27T18:00:00.000Z'
+    };
+    const state = makeV2State({
+      storyInventory: [
+        valid,
+        { ...valid, id: 'inventory-2', title: '   ' },
+        { ...valid, id: 'inventory-3', note: '\n' },
+        { ...valid, id: ' ', title: 'Another project' },
+        { ...valid, id: 'inventory-4', createdAt: '\t' },
+        null
+      ]
+    });
+
+    expect(calculateStageStatus(stage, state, evidenceContent)).toMatchObject({
+      complete: false,
+      count: 1,
+      requiredCount: 2
+    });
+    state.storyInventory.push({ ...valid, id: 'inventory-5' });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
   });
 
   test('requires eight completed stories for the actual story-bank finish stage', () => {

@@ -1403,16 +1403,276 @@ def last_stone_weight(stones):
   ];
 
   const behavioralPrompts = [
-    { title: 'Highest impact', prompt: 'A project where your technical decision measurably changed a product or operation.' },
-    { title: 'Ambiguity', prompt: 'A poorly specified CV problem that you converted into requirements, data, metrics, and milestones.' },
-    { title: 'Failure', prompt: 'A model or launch that did not work, how you diagnosed it, and what changed in your process.' },
-    { title: 'Conflict', prompt: 'A substantive technical disagreement resolved through evidence and tradeoffs.' },
-    { title: 'Production incident', prompt: 'A reliability, latency, drift, or data-quality incident you owned through resolution.' },
-    { title: 'Leadership without authority', prompt: 'A cross-team direction you influenced without relying on title.' },
-    { title: 'Mentoring', prompt: 'How you raised another engineer’s capability or improved the team’s technical standard.' },
-    { title: 'Tradeoff', prompt: 'A deliberate accuracy, cost, latency, scope, or timeline compromise and its measured result.' },
-    { title: 'Research to production', prompt: 'How you converted uncertain experiments or model combinations into a maintainable system.' },
-    { title: 'Technical direction', prompt: 'A recurring problem where you created a reusable architecture, process, or decision framework.' }
+    {
+      id: 'highest-impact',
+      title: 'Highest impact',
+      prompt: 'A project where your technical decision measurably changed a product or operation.',
+      followUps: [
+        'What baseline and counterfactual make the impact attributable to your decision?',
+        'Which alternative did you reject, and what evidence made the chosen path preferable?'
+      ],
+      seniorSignals: [
+        'Frames the business stakes, technical constraints, and affected stakeholders before describing implementation.',
+        'Owns a consequential decision while distinguishing personal contribution from the broader team effort.',
+        'Quantifies before-and-after outcomes and names guardrails or costs that prevented a hollow metric win.'
+      ],
+      modelOutline: [
+        'Establish the operating baseline, stakes, constraints, and scale.',
+        'Name the decision you owned, alternatives considered, and selection evidence.',
+        'Explain execution, cross-team alignment, and the hardest course correction.',
+        'Report attributable impact with guardrails, uncertainty, and a credible counterfactual.',
+        'Close with what the result changed in your subsequent technical judgment.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Defines a consequential problem, its scale, constraints, stakeholders, and why the baseline mattered.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Makes one owned decision explicit and compares plausible alternatives using evidence rather than hindsight.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Uses attributable before-and-after measures plus quality, safety, cost, or reliability guardrails.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Communicates a crisp causal narrative and explains how the experience improved later decisions.' }
+      ]
+    },
+    {
+      id: 'ambiguity',
+      title: 'Ambiguity',
+      prompt: 'A poorly specified CV problem that you converted into requirements, data, metrics, and milestones.',
+      followUps: [
+        'Which assumption was most dangerous, and how did you test it before committing the roadmap?',
+        'What new evidence forced you to revise the original problem definition or success metric?'
+      ],
+      seniorSignals: [
+        'Turns vague product language into observable decisions, error costs, constraints, and acceptance criteria.',
+        'Uses cheap discovery work to retire data, labeling, feasibility, or stakeholder risk in the right order.',
+        'Creates milestones with explicit decision gates and keeps stakeholders aligned as assumptions change.'
+      ],
+      modelOutline: [
+        'Describe the ambiguous request, stakeholders, deployment context, and cost of choosing poorly.',
+        'List the critical assumptions and convert them into requirements and measurable outcomes.',
+        'Run targeted data audits, baselines, or prototypes to resolve the highest-risk unknowns.',
+        'Sequence milestones around decision gates and communicate changes to scope or expectations.',
+        'Summarize the delivered result and the ambiguity-management practice you retained.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Identifies multiple sources of ambiguity across users, data, operations, constraints, and success criteria.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Prioritizes assumptions by risk and chooses proportionate discovery work before expensive implementation.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Shows how concrete evidence changed requirements, milestones, investment, or the shipped outcome.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Explains evolving decisions transparently and names a reusable method for future ambiguous work.' }
+      ]
+    },
+    {
+      id: 'failure',
+      title: 'Failure',
+      prompt: 'A model or launch that did not work, how you diagnosed it, and what changed in your process.',
+      followUps: [
+        'What evidence first contradicted your expectations, and why was it not caught earlier?',
+        'Which part of the failure was yours to own, and what durable control did you add afterward?'
+      ],
+      seniorSignals: [
+        'States the miss without minimizing it and separates the initiating cause from contributing system conditions.',
+        'Uses disciplined diagnosis and containment rather than changing several variables or blaming another team.',
+        'Converts the lesson into a verified process, tooling, review, or rollout change with an accountable owner.'
+      ],
+      modelOutline: [
+        'Set the expected outcome, risk level, signals available, and what actually failed.',
+        'Own your decisions and reconstruct the causal chain without hindsight shortcuts.',
+        'Explain diagnosis, containment, stakeholder communication, and recovery sequencing.',
+        'Quantify the cost and show evidence that the corrective action addressed the cause.',
+        'Name the durable change to your engineering or decision process.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Describes user or operational consequences and the interacting technical and organizational conditions.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Owns a specific mistaken decision and demonstrates disciplined diagnosis, containment, and prioritization.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Quantifies the miss and verifies recovery or prevention with appropriate production or process signals.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Avoids blame, explains the causal lesson clearly, and identifies a durable behavior change.' }
+      ]
+    },
+    {
+      id: 'conflict',
+      title: 'Conflict',
+      prompt: 'A substantive technical disagreement resolved through evidence and tradeoffs.',
+      followUps: [
+        'What was the strongest version of the other person’s position, and where were they right?',
+        'How did you reach a decision when the available evidence remained incomplete or contested?'
+      ],
+      seniorSignals: [
+        'Represents opposing goals fairly and distinguishes technical facts from risk tolerance or incentives.',
+        'Creates a decision mechanism such as an experiment, written tradeoff review, or reversible checkpoint.',
+        'Preserves trust after the decision and supports the outcome even when the preferred option does not win.'
+      ],
+      modelOutline: [
+        'Frame the shared goal, material stakes, constraints, and genuinely competing positions.',
+        'Present the other view fairly before explaining your own assumptions and concerns.',
+        'Describe the evidence, decision rule, escalation boundary, and how uncertainty was handled.',
+        'Explain the decision, execution, relationship outcome, and measurable consequences.',
+        'Reflect on what you would repeat or change in a future disagreement.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Shows a real disagreement with consequential tradeoffs, multiple stakeholders, and incomplete information.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Builds a fair decision process, updates beliefs with evidence, and knows when escalation is appropriate.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Connects the resolution to delivery, quality, risk, or team outcomes instead of merely winning an argument.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Steel-mans the opposing view, communicates respectfully, and demonstrates preserved working trust.' }
+      ]
+    },
+    {
+      id: 'production-incident',
+      title: 'Production incident',
+      prompt: 'A reliability, latency, drift, or data-quality incident you owned through resolution.',
+      followUps: [
+        'How did you decide what to contain first while diagnosis was still uncertain?',
+        'Which leading indicator, control, or ownership gap would have shortened the incident most?'
+      ],
+      seniorSignals: [
+        'Prioritizes user safety and service containment before root-cause certainty, with explicit rollback criteria.',
+        'Coordinates technical work, decision ownership, and stakeholder updates through a clear incident cadence.',
+        'Distinguishes trigger, root cause, and systemic contributors, then verifies corrective actions in production.'
+      ],
+      modelOutline: [
+        'State the symptom, affected users, severity, detection path, and immediate uncertainty.',
+        'Explain containment choices, incident roles, communication cadence, and rollback or fallback decisions.',
+        'Trace diagnosis from hypotheses and evidence to trigger, root cause, and contributing controls.',
+        'Quantify recovery and describe tested corrective and preventive actions with owners.',
+        'Close with the monitoring, runbook, or architecture lesson that changed future response.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Defines severity, blast radius, user impact, dependencies, and uncertainty during a live system event.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Makes timely containment and rollback decisions while coordinating clear roles and escalation.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Uses incident timing and service measures to prove recovery and verifies preventive controls afterward.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Communicates calmly without blame and turns the incident into durable operational learning.' }
+      ]
+    },
+    {
+      id: 'leadership-without-authority',
+      title: 'Leadership without authority',
+      prompt: 'A cross-team direction you influenced without relying on title.',
+      followUps: [
+        'Why did the other teams initially resist, and how did you change the incentives or evidence?',
+        'Which part of the direction remained locally owned rather than centrally mandated?'
+      ],
+      seniorSignals: [
+        'Maps stakeholder goals, incentives, constraints, and decision rights before proposing a shared direction.',
+        'Builds credibility through useful evidence, a low-friction adoption path, and visible early partners.',
+        'Creates distributed ownership so adoption survives beyond personal persuasion or a single launch.'
+      ],
+      modelOutline: [
+        'Describe the cross-team problem, fragmented incentives, decision rights, and cost of inaction.',
+        'Explain how you learned stakeholder constraints and shaped a mutually useful proposal.',
+        'Show the evidence, coalition, pilot, and adoption mechanisms used instead of positional authority.',
+        'Measure organizational and technical outcomes, including where teams retained autonomy.',
+        'Reflect on trust, influence, and how the direction became sustainable.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Frames a cross-team problem with conflicting incentives, dependencies, and meaningful organizational reach.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Influences through listening, evidence, coalition building, and a pragmatic adoption strategy.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Shows durable adoption and measurable delivery, quality, cost, or coordination improvements.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Credits partners, distinguishes influence from control, and explains how trust was earned.' }
+      ]
+    },
+    {
+      id: 'mentoring',
+      title: 'Mentoring',
+      prompt: 'How you raised another engineer’s capability or improved the team’s technical standard.',
+      followUps: [
+        'How did you diagnose the real capability gap rather than simply fixing the work yourself?',
+        'What observable change showed that the person or team could succeed without your continued intervention?'
+      ],
+      seniorSignals: [
+        'Adapts support to the learner’s goals and root skill gap instead of prescribing a generic growth plan.',
+        'Uses progressively reduced scaffolding, specific feedback, and psychologically safe opportunities to practice.',
+        'Measures independent capability and turns individual learning into reusable team standards where appropriate.'
+      ],
+      modelOutline: [
+        'Set the person or team context, desired capability, stakes, and observed gap.',
+        'Explain how you diagnosed causes and agreed on an individualized growth objective.',
+        'Describe practice opportunities, feedback loops, scaffolding, and increasing ownership.',
+        'Show independent behavior or team-standard improvements rather than work you completed for them.',
+        'Reflect on consent, feedback quality, and what you learned about developing others.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Explains the capability context, learner needs, delivery stakes, and constraints on growth.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Diagnoses the gap, tailors support, gives actionable feedback, and deliberately transfers ownership.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Demonstrates sustained independent performance or a concrete improvement in team technical practice.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Centers the learner, communicates with empathy, and reflects on how the mentoring approach evolved.' }
+      ]
+    },
+    {
+      id: 'tradeoff',
+      title: 'Tradeoff',
+      prompt: 'A deliberate accuracy, cost, latency, scope, or timeline compromise and its measured result.',
+      followUps: [
+        'What option did you preserve for later, and which part of the decision was difficult to reverse?',
+        'Which guardrail would have caused you to reject or roll back the compromise?'
+      ],
+      seniorSignals: [
+        'Quantifies competing objectives and distinguishes hard constraints from negotiable preferences.',
+        'Compares credible alternatives, reversibility, opportunity cost, and asymmetric failure consequences.',
+        'Defines guardrails and a revisit trigger, then measures whether the compromise held in operation.'
+      ],
+      modelOutline: [
+        'Frame the decision, competing objectives, hard constraints, and stakeholders bearing each cost.',
+        'Compare alternatives with evidence, uncertainty, reversibility, and failure consequences.',
+        'State the compromise you owned, guardrails, rollout plan, and explicit revisit trigger.',
+        'Report measured benefits, accepted costs, and any unanticipated second-order effects.',
+        'Reflect on whether the same tradeoff remains valid under current conditions.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Makes multiple objectives, hard constraints, affected users, and asymmetric risks concrete.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Chooses among credible alternatives using explicit criteria, reversibility, and guardrails.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Quantifies both the gained outcome and the accepted cost, including relevant slice or reliability effects.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Explains the compromise plainly, acknowledges who bore its costs, and names a revisit condition.' }
+      ]
+    },
+    {
+      id: 'research-to-production',
+      title: 'Research to production',
+      prompt: 'How you converted uncertain experiments or model combinations into a maintainable system.',
+      followUps: [
+        'Which research result failed to survive production constraints, and how did the design change?',
+        'What interface, evaluation gate, or fallback kept future experimentation from destabilizing serving?'
+      ],
+      seniorSignals: [
+        'Separates hypothesis validation from productization and defines promotion criteria before optimizing a favorite model.',
+        'Designs reproducible data, evaluation, versioning, serving, monitoring, fallback, and ownership contracts.',
+        'Balances model quality with target-hardware performance, operability, iteration speed, and maintenance cost.'
+      ],
+      modelOutline: [
+        'Define the uncertain product hypothesis, baseline, constraints, and promotion criteria.',
+        'Describe experiments and the evidence that selected or rejected candidate approaches.',
+        'Explain how you converted notebooks into versioned interfaces, pipelines, tests, and serving controls.',
+        'Cover rollout, monitoring, fallback, ownership, and measured production outcomes.',
+        'Reflect on the research assumptions that changed when exposed to real operating conditions.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Connects experimental uncertainty to production data, hardware, reliability, safety, and ownership constraints.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Defines promotion criteria and builds maintainable interfaces, evaluation gates, rollout, and fallback.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Shows reproducible experimental evidence and production measures across quality, latency, cost, or reliability.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Distinguishes discovery from delivery and explains how production feedback changed the technical approach.' }
+      ]
+    },
+    {
+      id: 'technical-direction',
+      title: 'Technical direction',
+      prompt: 'A recurring problem where you created a reusable architecture, process, or decision framework.',
+      followUps: [
+        'How did you know the repeated pain justified a shared direction rather than another local fix?',
+        'What adoption or governance mechanism prevented the solution from becoming an inflexible platform mandate?'
+      ],
+      seniorSignals: [
+        'Identifies a repeated system-level cost using evidence across teams, incidents, or delivery cycles.',
+        'Chooses the smallest reusable contract that preserves local flexibility and defines migration boundaries.',
+        'Drives adoption, ownership, measurement, and evolution instead of stopping at an architecture document.'
+      ],
+      modelOutline: [
+        'Establish the recurring pattern, accumulated cost, affected teams, and evidence that local fixes were insufficient.',
+        'Define the principles, boundaries, alternatives, and smallest reusable contract worth standardizing.',
+        'Describe stakeholder input, pilot, migration, compatibility, ownership, and governance decisions.',
+        'Measure adoption and technical or organizational outcomes, including exceptions and unintended friction.',
+        'Reflect on how the direction evolved and what you deliberately left decentralized.'
+      ],
+      rubric: [
+        { dimension: 'Scope and complexity', strongSignal: 'Demonstrates repeated cross-system cost, broad stakeholders, migration constraints, and long-term consequences.' },
+        { dimension: 'Ownership and judgment', strongSignal: 'Defines an appropriately narrow direction, compares alternatives, and plans adoption and evolution.' },
+        { dimension: 'Evidence and impact', strongSignal: 'Measures adoption plus delivery, reliability, quality, cost, or decision-consistency improvements.' },
+        { dimension: 'Reflection and communication', strongSignal: 'Explains principles and boundaries clearly, welcomes exceptions, and reflects on centralization tradeoffs.' }
+      ]
+    }
   ];
 
   window.InterviewPrepData = {

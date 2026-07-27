@@ -85,6 +85,93 @@ describe('coding learning modules', () => {
   });
 });
 
+describe('quiz and behavioral content contracts', () => {
+  test('exports unique quizzes with valid answers and the required bank sizes', () => {
+    const quizIds = data.quizzes.map((quiz) => quiz.id);
+    expect(new Set(quizIds).size).toBe(quizIds.length);
+
+    const quizById = new Map(data.quizzes.map((quiz) => [quiz.id, quiz]));
+    expect(quizById.get('linear-algebra-basics')?.questions).toHaveLength(8);
+    expect(quizById.get('statistics-inference')?.questions).toHaveLength(8);
+    expect(quizById.get('rapid-fire-readiness')?.kind).toBe('rapid-fire');
+    expect(quizById.get('rapid-fire-readiness')?.questions.length).toBeGreaterThanOrEqual(20);
+    expect(quizById.get('modern-cv-judgment')?.questions.length).toBeGreaterThan(0);
+
+    for (const quiz of data.quizzes) {
+      expect(typeof quiz.id).toBe('string');
+      expect(quiz.id.length).toBeGreaterThan(3);
+      expect(typeof quiz.title).toBe('string');
+      expect(quiz.title.length).toBeGreaterThan(8);
+      expect(Array.isArray(quiz.questions)).toBe(true);
+      expect(quiz.questions.length).toBeGreaterThan(0);
+
+      for (const question of quiz.questions) {
+        expect(typeof question.prompt).toBe('string');
+        expect(question.prompt.length).toBeGreaterThan(15);
+        expect(Array.isArray(question.options)).toBe(true);
+        expect(question.options.length).toBeGreaterThanOrEqual(3);
+        expect(new Set(question.options).size).toBe(question.options.length);
+        expect(question.options.every((option) => typeof option === 'string' && option.length > 0)).toBe(true);
+        expect(Number.isInteger(question.answerIndex)).toBe(true);
+        expect(question.answerIndex).toBeGreaterThanOrEqual(0);
+        expect(question.answerIndex).toBeLessThan(question.options.length);
+        expect(typeof question.explanation).toBe('string');
+        expect(question.explanation.length).toBeGreaterThan(25);
+      }
+    }
+  });
+
+  test('enriches all behavioral prompts under stable IDs and one shared schema', () => {
+    const expectedIds = [
+      'highest-impact',
+      'ambiguity',
+      'failure',
+      'conflict',
+      'production-incident',
+      'leadership-without-authority',
+      'mentoring',
+      'tradeoff',
+      'research-to-production',
+      'technical-direction'
+    ];
+    const expectedDimensions = [
+      'Scope and complexity',
+      'Ownership and judgment',
+      'Evidence and impact',
+      'Reflection and communication'
+    ];
+
+    expect(data.behavioralPrompts.map((prompt) => prompt.id)).toEqual(expectedIds);
+    expect(new Set(data.behavioralPrompts.map((prompt) => prompt.id)).size).toBe(expectedIds.length);
+
+    for (const prompt of data.behavioralPrompts) {
+      expect(Object.keys(prompt).sort()).toEqual([
+        'followUps',
+        'id',
+        'modelOutline',
+        'prompt',
+        'rubric',
+        'seniorSignals',
+        'title'
+      ]);
+      expect(prompt.title.length).toBeGreaterThan(3);
+      expect(prompt.prompt.length).toBeGreaterThan(20);
+      expect(prompt.followUps.length).toBeGreaterThanOrEqual(2);
+      expect(prompt.followUps.every((item) => typeof item === 'string' && item.length > 15)).toBe(true);
+      expect(prompt.seniorSignals.length).toBeGreaterThanOrEqual(3);
+      expect(prompt.seniorSignals.every((item) => typeof item === 'string' && item.length > 20)).toBe(true);
+      expect(prompt.modelOutline.length).toBeGreaterThanOrEqual(4);
+      expect(prompt.modelOutline.every((item) => typeof item === 'string' && item.length > 15)).toBe(true);
+      expect(prompt.rubric.map((item) => item.dimension)).toEqual(expectedDimensions);
+      expect(prompt.rubric.every((item) =>
+        Object.keys(item).sort().join(',') === 'dimension,strongSignal' &&
+        typeof item.strongSignal === 'string' &&
+        item.strongSignal.length > 20
+      )).toBe(true);
+    }
+  });
+});
+
 const sessions = data.weeks.flatMap((week) => week.sessions);
 const sessionGuides = data.sessionGuides || {};
 const allowedStageTypes = new Set(['learn', 'recall', 'practice', 'verify', 'reflect']);
@@ -211,6 +298,51 @@ describe('session guide graph', () => {
     });
     expect(repair.type).toBe('recall');
     expect(repair.reference).toEqual({ type: 'instruction' });
+  });
+
+  test('scopes every quiz-backed task to its intended bank', () => {
+    const expectedQuizIdsByTask = new Map([
+      ['w1-baseline-theory', ['foundation-core-1']],
+      ['w1-linear-quiz', ['linear-algebra-basics']],
+      ['w1-task-metric-quiz', ['task-loss-metric']],
+      ['w2-stats-quiz', ['statistics-inference']],
+      ['w3-optimization-quiz', ['rapid-fire-readiness']],
+      ['w4-theory-bank', ['rapid-fire-readiness']],
+      ['w4-task-metric-repeat', ['task-loss-metric']],
+      ['w7-rapid-fire', ['rapid-fire-readiness']],
+      ['w8-theory-sim-a', ['rapid-fire-readiness']],
+      ['w9-theory-sim-b', ['foundation-core-1', 'task-loss-metric']],
+      ['w10-theory-cert', ['rapid-fire-readiness', 'modern-cv-judgment']],
+      ['w10-loop-theory', ['modern-cv-judgment']]
+    ]);
+
+    const quizStages = Object.values(sessionGuides)
+      .flatMap((guide) => guide.stages)
+      .filter((stage) => stage.reference.type === 'quiz');
+    expect(quizStages).toHaveLength(expectedQuizIdsByTask.size);
+
+    for (const [taskId, quizIds] of expectedQuizIdsByTask) {
+      expect(stageForTask(taskId).reference).toEqual({ type: 'quiz', quizIds });
+    }
+  });
+
+  test('states the exact referenced question count in every quiz-backed task', () => {
+    const quizById = new Map(data.quizzes.map((quiz) => [quiz.id, quiz]));
+    const taskById = new Map(sessions.flatMap((session) => session.tasks).map((task) => [task.id, task]));
+    const quizStages = Object.values(sessionGuides)
+      .flatMap((guide) => guide.stages)
+      .filter((stage) => stage.reference.type === 'quiz');
+
+    for (const stage of quizStages) {
+      const expectedCount = stage.reference.quizIds
+        .reduce((sum, quizId) => sum + quizById.get(quizId).questions.length, 0);
+      for (const taskId of stage.taskIds) {
+        const task = taskById.get(taskId);
+        const statedCounts = [...task.detail.matchAll(/\b(\d+)\s+questions?\b/gi)]
+          .map((match) => Number(match[1]));
+        expect(statedCounts).toEqual([expectedCount]);
+      }
+    }
   });
 
   test('encodes isolated story, rehearsal, and mock lifecycle thresholds as reference data', () => {

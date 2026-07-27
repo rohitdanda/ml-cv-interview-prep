@@ -86,7 +86,7 @@
       sessions: [
         session('w1-mon', '2026-07-27', 'Four-part baseline', 'foundations', 'Establish honest starting scores', 'Do not study first. The baseline makes later improvement measurable.', 90, [
           task('w1-baseline-code', 'Timed coding baseline', 'Solve Two Sum or a comparable unseen easy in 30 minutes while speaking aloud.', 30, 'coding'),
-          task('w1-baseline-theory', 'ML fundamentals diagnostic', 'Take the core diagnostic without notes; flag every uncertain answer.', 20, 'foundations'),
+          task('w1-baseline-theory', 'ML fundamentals diagnostic', 'Complete 10 questions without notes; flag every uncertain answer.', 20, 'foundations'),
           task('w1-baseline-design', 'Design baseline', 'Sketch a real-time image classification service in 30 minutes.', 30, 'system-design'),
           task('w1-baseline-intro', 'Two-minute introduction', 'Record your career summary once without editing.', 10, 'behavioral')
         ]),
@@ -98,7 +98,7 @@
         session('w1-wed', '2026-07-29', 'Linear algebra for ML', 'foundations', 'Explain vectors, projections, eigenvectors, and SVD', 'Connect every operation to embeddings, PCA, convolutions, or optimization.', 90, [
           task('w1-linear-notes', 'Study linear algebra core', 'Vectors, norms, dot products, matrix multiplication, rank, basis, projection.', 45, 'foundations'),
           task('w1-linear-recall', 'Derive and retrieve', 'Explain cosine similarity and PCA aloud; complete recall prompts.', 30, 'foundations'),
-          task('w1-linear-quiz', 'Linear algebra quiz', 'Take the quiz without reopening the notes.', 15, 'foundations')
+          task('w1-linear-quiz', 'Linear algebra quiz', 'Complete 8 questions without reopening the notes.', 15, 'foundations')
         ]),
         session('w1-thu', '2026-07-30', 'Hashing and two pointers', 'coding', 'Recognize state lookup versus ordered convergence', 'Solve first, then compare your invariant with the reference pattern.', 90, [
           task('w1-problems-b', 'Arrays set B', 'Group Anagrams, Top K Frequent Elements, Product Except Self.', 55, 'coding'),
@@ -108,7 +108,7 @@
         session('w1-sat', '2026-08-01', 'Task, loss, and metric map', 'foundations', 'Choose defensible losses and metrics by task', 'Build the classification, regression, detection, and segmentation cheat sheet.', 180, [
           task('w1-losses', 'Loss functions', 'Cross-entropy, BCE-with-logits, focal, Dice, IoU/Jaccard, smooth L1, MSE, MAE, Huber.', 60, 'foundations'),
           task('w1-metrics', 'Metrics and thresholds', 'Precision, recall, F1, ROC-AUC, PR-AUC, calibration, mAP, IoU, Dice, boundary F1.', 60, 'foundations'),
-          task('w1-task-metric-quiz', 'Task-to-metric scenarios', 'Answer production scenarios and justify every choice aloud.', 60, 'foundations')
+          task('w1-task-metric-quiz', 'Task-to-metric scenarios', 'Complete 10 questions and justify every choice aloud.', 60, 'foundations')
         ]),
         session('w1-sun', '2026-08-02', 'ML system-design frame', 'system-design', 'Use one repeatable end-to-end structure', 'Learn the interview sequence and apply it to the baseline design.', 180, [
           task('w1-design-frame', 'Requirements to feedback loop', 'Practice requirements, metrics, data, model, evaluation, serving, monitoring, feedback, tradeoffs.', 60, 'system-design'),
@@ -146,7 +146,7 @@
         session('w2-sat', '2026-08-08', 'Statistics and validation', 'foundations', 'Reason about estimates, uncertainty, and leakage', 'Use validation design that matches the deployment distribution.', 180, [
           task('w2-statistics', 'Statistical inference', 'Sampling, estimators, bias, variance, confidence intervals, hypothesis tests, power.', 60, 'foundations'),
           task('w2-validation', 'Validation strategy', 'Random, stratified, grouped, temporal, and cross-validation; identify leakage routes.', 60, 'foundations'),
-          task('w2-stats-quiz', 'Statistics quiz', 'Complete scenarios on leakage, uncertainty, and experimental claims.', 60, 'foundations')
+          task('w2-stats-quiz', 'Statistics quiz', 'Complete 8 questions on inference, leakage, uncertainty, and experimental claims.', 60, 'foundations')
         ]),
         session('w2-sun', '2026-08-09', 'Model debugging and first story inventory', 'foundations', 'Debug systematically and inventory real evidence', 'Connect failure symptoms to data, objective, optimization, capacity, and serving.', 180, [
           task('w2-debugging', 'Training-debugging playbook', 'Overfit one batch; inspect labels, gradients, activations, learning rate, and train/eval mode.', 70, 'foundations'),
@@ -184,7 +184,7 @@
         session('w3-sat', '2026-08-15', 'Optimization and generalization', 'foundations', 'Choose optimizers and regularizers with reasons', 'Tie each technique to geometry, noise, data size, and failure symptoms.', 180, [
           task('w3-optimizers', 'SGD to Adam', 'Momentum, adaptive moments, weight decay, learning-rate schedules, warmup.', 60, 'foundations'),
           task('w3-regularization', 'Generalization controls', 'L1/L2, decoupled weight decay, dropout, augmentation, early stopping, label smoothing.', 60, 'foundations'),
-          task('w3-optimization-quiz', 'Optimization rapid fire', 'Answer optimizer, normalization, and regularization scenarios without notes.', 60, 'foundations')
+          task('w3-optimization-quiz', 'Senior ML rapid fire', 'Complete 20 questions, including optimization, normalization, and regularization judgment, without notes.', 60, 'foundations')
         ]),
         session('w3-sun', '2026-08-16', 'Graphs II and rebuild checkpoint', 'coding', 'Finish core graph patterns and prove improvement', 'Use a short timed checkpoint against Week 1.', 180, [
           task('w3-graphs-c', 'Dependencies and reverse search', 'Course Schedule and Pacific Atlantic Water Flow.', 60, 'coding'),
@@ -224,8 +224,8 @@
           task('w4-story-a', 'Draft two STAR stories', 'Highest impact and hardest ambiguity.', 35, 'behavioral')
         ]),
         session('w4-sun', '2026-08-23', 'Foundations consolidation I', 'foundations', 'Answer core theory without notes', 'Use mistakes to create retrieval prompts, not more reading.', 180, [
-          task('w4-theory-bank', 'ML interview question bank', 'Answer 25 questions across data, training, evaluation, and deployment.', 70, 'foundations'),
-          task('w4-task-metric-repeat', 'Task-metric repeat', 'Retake with changed class imbalance and business costs.', 40, 'foundations'),
+          task('w4-theory-bank', 'ML interview question bank', 'Complete 20 questions across data, training, evaluation, and deployment.', 70, 'foundations'),
+          task('w4-task-metric-repeat', 'Task-metric repeat', 'Complete 10 questions on task/loss/metric choices; then vary class imbalance and business costs aloud.', 40, 'foundations'),
           task('w4-coding-repeat', 'Spaced coding repeats', 'Repeat three previously missed problems cold.', 45, 'coding'),
           task('w4-retro', 'Week 4 retrospective', 'Update weak patterns and design-rubric gaps.', 25, 'behavioral')
         ])
@@ -328,7 +328,7 @@
           task('w7-story-finish', 'Complete story bank', 'Bring all eight stories to measurable, two-minute drafts.', 30, 'behavioral')
         ]),
         session('w7-sun', '2026-09-13', 'Build-phase checkpoint', 'mocks', 'Prove coverage before simulation', 'Run timed theory and design checks; repair only demonstrated gaps.', 180, [
-          task('w7-rapid-fire', 'ML rapid-fire', 'Thirty questions without notes; log as rapid-fire quiz.', 45, 'foundations'),
+          task('w7-rapid-fire', 'ML rapid-fire', 'Complete 20 questions without notes; log as a rapid-fire quiz.', 45, 'foundations'),
           task('w7-design-random', 'Random 40-minute design', 'Select one of eight cases and score all ten rubric dimensions.', 50, 'system-design'),
           task('w7-coding-random', 'Random medium', 'Solve and explain within 30 minutes.', 35, 'coding'),
           task('w7-retro', 'Phase retrospective', 'List exact gates that remain red or amber.', 50, 'behavioral')
@@ -347,7 +347,7 @@
           task('w8-design-fix-a', 'Rubric remediation', 'Rewrite the lowest-scoring two dimensions.', 40, 'system-design')
         ]),
         session('w8-wed', '2026-09-16', 'Fundamentals simulation I', 'foundations', 'Answer rapidly and defend choices', 'Prefer concise first answers followed by deeper reasoning on request.', 90, [
-          task('w8-theory-sim-a', 'Rapid-fire theory', 'Losses, metrics, validation, optimization, debugging, and deployment.', 45, 'foundations'),
+          task('w8-theory-sim-a', 'Rapid-fire theory', 'Complete 20 questions on training, validation, drift, debugging, and production decisions.', 45, 'foundations'),
           task('w8-theory-fix-a', 'Weak-concept repair', 'Review only missed concepts, then answer again from memory.', 45, 'foundations')
         ]),
         session('w8-thu', '2026-09-17', 'Behavioral simulation I', 'behavioral', 'Deliver eight stories without reading', 'Record yourself; inspect ownership, senior scope, and measurable result.', 90, [
@@ -380,7 +380,7 @@
           task('w9-design-fix-b', 'Focused repair', 'Re-answer the weakest interviewer follow-ups.', 40, 'system-design')
         ]),
         session('w9-wed', '2026-09-23', 'Foundations simulation II', 'foundations', 'Cross the 80% knowledge bar', 'Mix conceptual and task-selection questions.', 90, [
-          task('w9-theory-sim-b', 'Core and task-metric quizzes', 'Complete without notes and log both scores.', 50, 'foundations'),
+          task('w9-theory-sim-b', 'Core and task-metric quizzes', 'Complete 20 questions without notes and log both scores.', 50, 'foundations'),
           task('w9-theory-fix-b', 'Retrieval repair', 'Write and answer five questions for misses.', 40, 'foundations')
         ]),
         session('w9-thu', '2026-09-24', 'Behavioral simulation II', 'behavioral', 'Cross the story and rehearsal gates', 'Use randomized prompts so stories are selected, not recited in order.', 90, [
@@ -422,13 +422,13 @@
           task('w10-code-close', 'Review evidence', 'Do not count familiar or hinted problems.', 15, 'coding')
         ]),
         session('w10-thu', '2026-10-01', 'Theory and story certification', 'foundations', 'Verify concise answers without notes', 'Stop studying after the evidence is recorded.', 90, [
-          task('w10-theory-cert', 'Final rapid-fire', 'Core, task-metric, debugging, and modern-CV questions.', 45, 'foundations'),
+          task('w10-theory-cert', 'Final rapid-fire', 'Complete 30 questions spanning readiness judgment and modern CV model selection.', 45, 'foundations'),
           task('w10-story-cert', 'Final story rehearsal', 'Random prompts, no notes, two-minute cap.', 35, 'behavioral'),
           task('w10-intro-cert', 'Final introduction', 'Record the two-minute Senior MLE/CV summary.', 10, 'behavioral')
         ]),
         session('w10-sat', '2026-10-03', 'Full-loop rehearsal', 'mocks', 'Simulate the combined interview day', 'Use breaks and context switching similar to a real loop.', 180, [
           task('w10-loop-code', 'Coding round', 'One medium with verbal reasoning.', 45, 'mocks'),
-          task('w10-loop-theory', 'ML/CV theory round', 'Rapid questions and model-selection scenarios.', 40, 'mocks'),
+          task('w10-loop-theory', 'ML/CV theory round', 'Complete 10 questions on modern CV model-selection scenarios.', 40, 'mocks'),
           task('w10-loop-design', 'System-design round', 'One compressed end-to-end case.', 55, 'mocks'),
           task('w10-loop-behavior', 'Behavioral round', 'Introduction plus three randomized prompts.', 40, 'mocks')
         ]),
@@ -465,7 +465,7 @@
     'w1-problems-a': stageSpec('practice', references.problems('contains-duplicate', 'valid-anagram', 'two-sum')),
     'w1-linear-notes': stageSpec('learn', references.module('linear-algebra')),
     'w1-linear-recall': stageSpec('recall', references.module('linear-algebra')),
-    'w1-linear-quiz': stageSpec('verify', references.quiz('foundation-core-1')),
+    'w1-linear-quiz': stageSpec('verify', references.quiz('linear-algebra-basics')),
     'w1-problems-b': stageSpec('practice', references.problems('group-anagrams', 'top-k-frequent-elements', 'product-of-array-except-self')),
     'w1-problems-c': stageSpec('practice', references.problems('valid-palindrome', 'two-sum-ii-input-array-is-sorted')),
     'w1-pattern-log': stageSpec('reflect', references.module('hashing', 'two-pointers')),
@@ -490,7 +490,7 @@
     'w2-pointer-check': stageSpec('recall', references.module('binary-search', 'linked-lists')),
     'w2-statistics': stageSpec('learn', references.module('statistics-validation')),
     'w2-validation': stageSpec('learn', references.module('statistics-validation')),
-    'w2-stats-quiz': stageSpec('verify', references.quiz('foundation-core-1')),
+    'w2-stats-quiz': stageSpec('verify', references.quiz('statistics-inference')),
     'w2-debugging': stageSpec('learn', references.module('data-debugging')),
     'w2-story-inventory': stageSpec('reflect', references.story({ inventoryCount: 10 })),
     'w2-retro': stageSpec('reflect', references.instruction()),
@@ -626,7 +626,7 @@
     'w10-code-warmup': stageSpec('practice', references.instruction('leetcode')),
     'w10-code-cert': stageSpec('verify', references.instruction('leetcode')),
     'w10-code-close': stageSpec('reflect', references.instruction()),
-    'w10-theory-cert': stageSpec('verify', references.quiz('rapid-fire-readiness')),
+    'w10-theory-cert': stageSpec('verify', references.quiz('rapid-fire-readiness', 'modern-cv-judgment')),
     'w10-story-cert': stageSpec('verify', references.story({ rehearsalCount: 3, rehearsalKind: 'story', withoutNotes: true })),
     'w10-intro-cert': stageSpec('verify', references.story({ rehearsalCount: 7, rehearsalKind: 'intro', withoutNotes: false })),
     'w10-loop-code': stageSpec('verify', references.instruction('leetcode')),

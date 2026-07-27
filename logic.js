@@ -933,31 +933,17 @@
     }, rehearsals.length > 0, false);
   }
 
-  function isCompleteMockDebrief(debrief, mock, content) {
-    if (!isRecord(debrief) || !isRecord(mock) || !isNonEmptyString(mock.packetId)) return false;
-    const packet = (Array.isArray(content?.mockPackets) ? content.mockPackets : [])
-      .find((candidate) => candidate?.id === mock.packetId);
-    const dimensions = (Array.isArray(packet?.rubric) ? packet.rubric : [])
-      .map((item) => item?.dimension)
-      .filter(isNonEmptyString);
-    const scores = isRecord(debrief.rubricScores) ? debrief.rubricScores : {};
-    const rubricComplete = dimensions.length > 0 && dimensions.every((dimension) => (
-      Object.hasOwn(scores, dimension)
-      && Number.isInteger(Number(scores[dimension]))
-      && Number(scores[dimension]) >= 1
-      && Number(scores[dimension]) <= 5
-    ));
-    const weaknessesComplete = debrief.noMaterialWeakness === true || (
-      Array.isArray(debrief.weaknesses)
+  function isCompleteMockDebrief(debrief) {
+    if (!isRecord(debrief)) return false;
+    if (debrief.noMaterialWeakness === true) return true;
+    return Array.isArray(debrief.weaknesses)
       && debrief.weaknesses.length > 0
       && debrief.weaknesses.every((weakness) => (
         isRecord(weakness)
         && isNonEmptyString(weakness.text)
         && isNonEmptyString(weakness.remediation)
         && weakness.remediationComplete === true
-      ))
-    );
-    return rubricComplete && isNonEmptyString(debrief.followUpNotes) && weaknessesComplete;
+      ));
   }
 
   function calculateMockStatus(stage, state, content) {
@@ -975,7 +961,7 @@
       ? mocks.filter((mock) => mock?.type === mockType)
       : [];
     const count = phase === 'debrief'
-      ? matchingMocks.filter((mock) => isCompleteMockDebrief(mock.debrief, mock, content)).length
+      ? matchingMocks.filter((mock) => isCompleteMockDebrief(mock.debrief)).length
       : matchingMocks.length;
     const complete = validRequirements && count >= requiredCount;
     return evidenceStatus(stage, state, {
@@ -1406,7 +1392,7 @@
     const latestMlSystemMock = mlSystemMocks.at(-1);
     const mockEvidenceComplete = codingMocks.length >= 2 && mlSystemMocks.length >= 2;
     const weaknessesRemediated = mockEvidenceComplete
-      && state.mocks.filter((mock) => isCompleteMockDebrief(mock.debrief, mock, evidenceContext.content)).length >= 1;
+      && state.mocks.filter((mock) => isCompleteMockDebrief(mock.debrief)).length >= 1;
     const mocksStatus = !mockEvidenceComplete
       ? 'red'
       : latestCodingMock.wouldAdvance && latestMlSystemMock.wouldAdvance && weaknessesRemediated

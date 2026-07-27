@@ -1411,7 +1411,7 @@ describe('guided stage evidence', () => {
     expect(calculateStageStatus(mlII, state, evidenceContent).complete).toBe(true);
   });
 
-  test('requires packet rubric and follow-up feedback in a complete mock debrief', () => {
+  test('accepts the debrief shape produced by the mock workspace', () => {
     const defaultAttemptStage = makeStage('default-mock-attempt', 'verify', {
       type: 'mock', requirements: { mockType: 'coding', requiredCount: 1 }
     });
@@ -1421,35 +1421,35 @@ describe('guided stage evidence', () => {
     const debriefStage = makeStage('mock-debrief', 'reflect', {
       type: 'mock', requirements: { mockType: 'coding', requiredCount: 1, phase: 'debrief' }
     });
-    const state = makeV2State({
-      mocks: [{ type: 'coding', packetId: 'coding', debrief: null }]
-    });
-    const completeDebrief = {
-      weaknesses: [{
-        text: 'Skipped the complexity discussion',
-        remediation: 'Repeat the solution and state both bounds',
-        remediationComplete: true
-      }],
-      noMaterialWeakness: false,
-      rubricScores: { Framing: 4, 'Algorithm and code': 4, 'Testing and bounds': 4 },
-      followUpNotes: 'Explained how a memory cap changes the state representation.',
-      reviewedAt: '2026-07-27T19:00:00.000Z'
-    };
+    const state = makeV2State({ mocks: [{ type: 'coding', debrief: null }] });
 
     expect(calculateStageStatus(defaultAttemptStage, state, evidenceContent).complete).toBe(true);
     expect(calculateStageStatus(attemptStage, state, evidenceContent).complete).toBe(true);
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
 
-    state.mocks[0].debrief = { ...completeDebrief, rubricScores: {} };
+    state.mocks[0].debrief = updateMockDebrief(null, {
+      noMaterialWeakness: false,
+      weakness: {
+        text: 'Skipped the complexity discussion',
+        remediation: 'Repeat the solution and state both bounds',
+        remediationComplete: false
+      }
+    }, '2026-07-27T19:00:00.000Z');
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
-    state.mocks[0].debrief = { ...completeDebrief, rubricScores: { Framing: 4 } };
-    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
-    state.mocks[0].debrief = { ...completeDebrief, followUpNotes: '   ' };
-    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
-    state.mocks[0].debrief = completeDebrief;
+
+    state.mocks[0].debrief = updateMockDebrief(state.mocks[0].debrief, {
+      noMaterialWeakness: false,
+      weakness: {
+        text: 'Skipped the complexity discussion',
+        remediation: 'Repeat the solution and state both bounds',
+        remediationComplete: true
+      }
+    }, '2026-07-27T20:00:00.000Z');
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(true);
 
-    state.mocks[0].debrief = { ...completeDebrief, weaknesses: [], noMaterialWeakness: true };
+    state.mocks[0].debrief = updateMockDebrief(state.mocks[0].debrief, {
+      noMaterialWeakness: true
+    }, '2026-07-27T21:00:00.000Z');
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(true);
   });
 
@@ -1833,20 +1833,18 @@ function makeReadyState() {
   state.mocks = [
     {
       type: 'coding',
-      packetId: 'coding',
       wouldAdvance: true,
       debrief: {
         weaknesses: [remediatedWeakness],
         noMaterialWeakness: false,
-        rubricScores: { Framing: 4, 'Algorithm and code': 4, 'Testing and bounds': 4 },
-        followUpNotes: 'Handled the bounded-memory follow-up.',
         reviewedAt
       }
     },
-    { type: 'coding', packetId: 'coding', wouldAdvance: true, debrief: null },
+    { type: 'coding', wouldAdvance: true, debrief: null },
     { type: 'ml-system', wouldAdvance: true, debrief: null },
     { type: 'ml-system', wouldAdvance: true, debrief: null }
   ];
+
   return state;
 }
 
@@ -1906,8 +1904,6 @@ describe('evidence-based readiness', () => {
     exactlyOneComplete.mocks[1].debrief = {
       weaknesses: [],
       noMaterialWeakness: true,
-      rubricScores: { Framing: 4, 'Algorithm and code': 4, 'Testing and bounds': 4 },
-      followUpNotes: 'Handled the bounded-memory follow-up.',
       reviewedAt: '2026-09-16T18:00:00.000Z'
     };
     expect(calculateReadiness(exactlyOneComplete, criteria).gates.mocks.status).toBe('green');

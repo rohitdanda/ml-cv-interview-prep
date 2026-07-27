@@ -1520,6 +1520,126 @@ assert kept.tolist() == [0, 2]` }
         { question: 'What production failure makes stereo depth unreliable far away?', answer: 'Disparity shrinks with distance, so subpixel correspondence or calibration error becomes a large relative disparity error and depth error grows approximately with squared range.' }
       ]
     },
+    {
+      id: 'depth-and-stereo', title: 'Depth estimation, stereo matching, and multi-view stereo', required: true,
+      summary: 'Depth systems infer scene geometry from one image, a calibrated stereo pair, or multiple overlapping views. Senior judgment means separating physically observable metric depth from learned priors, choosing a representation and matcher for the range and hardware budget, and exposing uncertainty, occlusion, calibration, and domain shift rather than returning an unqualified dense map.',
+      keyPoints: [
+        'A single unconstrained image does not determine absolute scene scale: monocular models learn shape and scale priors from data. A model can output metric units under its training and camera assumptions, but that does not make scale physically observable from arbitrary monocular input.',
+        'Rectified stereo reduces correspondence to a horizontal disparity search. Classical pipelines combine a matching cost, spatial aggregation or semi-global regularization, disparity selection, subpixel refinement, and left-right or confidence checks before converting disparity to depth.',
+        'Learned stereo commonly extracts left/right features, constructs a correlation or concatenation cost volume over candidate disparities, regularizes it with 2D/3D convolutions or attention, and regresses a disparity distribution. A full H×W×D×C volume improves global reasoning but can dominate memory and latency.',
+        'Monocular heads may predict depth, inverse depth, or log depth. Inverse depth allocates more resolution near the camera, while log-depth losses emphasize relative error; the representation, output range, resize convention, and metric-scale policy must remain identical in training and serving.',
+        'Self-supervised monocular depth often synthesizes a target view from neighboring frames using predicted depth and camera motion. Its photometric signal assumes sufficient motion, visibility, brightness consistency, and mostly rigid geometry, so occlusion, moving objects, reflections, exposure changes, and rolling shutter require masks or robust modeling.',
+        'Multi-view stereo uses calibrated poses and several overlapping images to test depth hypotheses, often through plane-sweep features or per-view cost volumes, then filters and fuses consistent depths into points or surfaces. View selection is essential because tiny baselines add little parallax while extreme baselines, occlusion, and appearance change break matching.',
+        'Passive depth fails predictably on textureless, repetitive, specular, transparent, saturated, or occluded regions. Confidence should combine matching ambiguity, visibility and consistency checks, calibration health, and where possible aleatoric or ensemble uncertainty rather than a raw network score alone.',
+        'Depth metrics answer different questions: AbsRel weights relative error, RMSE emphasizes large metric errors, threshold accuracy measures multiplicative agreement, and edge or point-cloud metrics expose boundary damage. Every result needs the same valid mask, crop, cap, scale alignment, and units.'
+      ],
+      formulas: [
+        'For rectified stereo, Z=f_xB/d and first-order uncertainty is σ_Z≈(Z²/(f_xB))σ_d, so fixed disparity noise produces rapidly increasing metric error with range.',
+        'Monocular scale-invariant log loss can be written L_si=(1/n)∑e_i²−(λ/n²)(∑e_i)², where e_i=log Ẑ_i−log Z_i; λ=1 removes a global log-scale offset from the loss.',
+        'A view-synthesis warp projects p̃_t through depth and pose as p̃_s∝K T_{t→s}[D_t(p_t)K⁻¹p̃_t;1], followed by perspective division and differentiable sampling in the source image.',
+        'Absolute relative error is AbsRel=(1/|V|)∑_{i∈V}|Ẑ_i−Z_i|/Z_i over an explicitly defined valid-pixel set V.'
+      ],
+      decisionRules: [
+        'Choose calibrated stereo when metric scale, bounded range error, and per-frame geometry justify two synchronized overlapping cameras; size baseline, focal length, and disparity range from the farthest required accuracy and nearest required depth.',
+        'Choose monocular depth when only one camera is available or relative ordering is sufficient, but validate metric scale separately by camera and domain and add another scale source when downstream safety depends on absolute distance.',
+        'Choose multi-view stereo for mostly static scenes with several posed overlapping views and an offline or batched quality budget; choose stereo, RGB-D, or LiDAR when online latency, moving scenes, or weak view coverage violates those assumptions.',
+        'Select classical or compact stereo before a large learned volume when deterministic memory, embedded latency, or limited domain data dominates; adopt learned matching only after range-sliced accuracy gains survive target-device profiling and shift tests.'
+      ],
+      pitfalls: [
+        'Resizing or cropping images without scaling intrinsics and disparity consistently yields a globally wrong depth scale even when the disparity map looks sharp.',
+        'Median-scaling a monocular prediction during evaluation hides absolute-scale failure; it is valid for a scale-ambiguous protocol but not evidence of metric ranging.',
+        'A low average error can hide catastrophic boundary bleeding, thin-object loss, invalid-pixel coverage, or long-range uncertainty that matters to collision and measurement tasks.',
+        'Photometric self-supervision treats independently moving objects and illumination changes as geometry unless motion, visibility, and appearance violations are handled explicitly.',
+        'Adding more MVS views can reduce quality when poses drift or views introduce occlusion and extreme appearance change; fusion needs per-view visibility and consistency gates.'
+      ],
+      systemDesignUse: 'Version camera intrinsics, baseline and synchronization, resize/crop transforms, depth representation and units, valid range, matcher and cost volume, confidence policy, MVS pose source and view selection, fusion rules, and fallback behavior. Monitor coverage and error by range, boundary, texture, motion, weather, camera, and calibration state, and propagate uncertainty to downstream planning or measurement thresholds.',
+      recall: [
+        { question: 'What mechanics distinguish learned stereo from monocular depth?', answer: 'Stereo compares two calibrated views over disparity hypotheses and can recover metric scale from focal length and baseline; monocular depth maps one image through learned scene priors and has no generic physical observation of absolute scale.' },
+        { question: 'How does a stereo cost-volume architecture trade accuracy for compute?', answer: 'It stores matching evidence across pixels and candidate disparities so a regularizer can resolve context and ambiguity, but its memory and work grow with image size, disparity range, feature width, and volume design.' },
+        { question: 'When does multi-view stereo improve on a single stereo pair?', answer: 'It helps when several accurately posed views provide complementary parallax and visibility, allowing depth consistency and fusion; it degrades when baselines, pose error, motion, or occlusion violate matching assumptions.' },
+        { question: 'Which production evaluation exposes an unsafe depth model?', answer: 'Report valid coverage and metric error by distance, object boundary, texture, motion, lighting, and camera, preserve absolute scale, test calibration and synchronization drift, and measure downstream stopping or measurement error at the operating thresholds.' }
+      ]
+    },
+    {
+      id: 'point-clouds-3d', title: 'Point clouds, sparse 3D backbones, and BEV detection', required: true,
+      summary: 'Point-cloud systems convert unordered, nonuniform, and often extremely sparse measurements into local geometry, objects, or a shared bird’s-eye-view scene. Senior answers must connect representation choice to quantization, neighborhood structure, sensor physics, sparse-kernel support, coordinate and time alignment, and the downstream cost of 3D localization errors.',
+      keyPoints: [
+        'A point record can include position, intensity, timestamp, ring, color, or learned features, but its meaning is tied to a sensor frame and acquisition time. Point order is arbitrary, density changes with range and surface angle, and missing returns are not equivalent to empty free space.',
+        'PointNet applies a shared pointwise MLP and a symmetric aggregation such as coordinatewise max to obtain permutation invariance, then combines global and per-point features for segmentation. The global bottleneck captures set evidence but does not explicitly model local neighborhoods or density.',
+        'PointNet++ recursively samples centroids, groups radius- or k-nearest neighborhoods, and applies local PointNets to build hierarchical features. Radius, sampling, density adaptation, and interpolation determine whether thin or distant structures survive; permutation invariance does not imply rotation invariance.',
+        'Voxelization quantizes space so convolution can exploit locality. Dense 3D grids waste cubic memory on empty cells; sparse convolutions operate on active coordinates, while pillars collapse height into vertical columns and use efficient 2D BEV backbones at the cost of fine vertical structure.',
+        'Regular sparse convolution can create output sites around active inputs and change the active set. Submanifold sparse convolution emits only at already-active coordinates at stride one, preventing uncontrolled dilation; strided or regular sparse layers are still needed to change scale and exchange information across gaps.',
+        '3D detectors may operate on raw points, range images, voxels, pillars, or fused features. Anchor-based heads encode size and yaw priors; center-based heads predict object centers and attributes, but both depend on assignment, orientation conventions, class range, NMS, and dataset-specific evaluation.',
+        'BEV provides a common ground-plane coordinate system for detection, tracking, mapping, and planning. LiDAR features reach BEV with measured geometry; camera-only BEV must infer depth while lifting image features, so calibration, occlusion, and depth uncertainty are part of every fused cell.',
+        'Early sensor fusion preserves fine cross-modal interactions but demands tight spatial-temporal alignment; late fusion is modular and robust to a missing modality but cannot recover detail discarded by each independent detector. Intermediate BEV fusion is a common compromise, not a calibration substitute.'
+      ],
+      formulas: [
+        'PointNet has the symmetric set form f(P)=γ(MAX_{p_i∈P} φ(p_i)), where φ is shared across points and coordinatewise MAX makes the result invariant to input permutation.',
+        'Voxel coordinates are q_x=floor((x−x_min)/v_x), q_y=floor((y−y_min)/v_y), q_z=floor((z−z_min)/v_z); smaller voxel sizes reduce quantization while increasing active sites, memory, and neighbor work.',
+        'Coordinate alignment uses p_b=R_ba p_a+t_ba; for moving platforms the transform must be evaluated at the point timestamp or after explicit motion compensation rather than once per scan.',
+        'For oriented 3D boxes A and B, IoU_3D=Vol(A∩B)/Vol(A∪B); computing the intersection requires the stated yaw axis, box center convention, and height overlap, not only a 2D BEV overlap.'
+      ],
+      decisionRules: [
+        'Use PointNet as an interpretable small-set baseline or global set encoder; use PointNet++ or a graph/local-attention alternative when local shape and multiscale neighborhoods drive the task and their grouping cost fits the budget.',
+        'Use pillars and a 2D backbone when road-scene latency and mature dense kernels dominate; use finer voxels with sparse 3D convolutions when vertical structure and small-object geometry produce measured gains that justify memory and operator complexity.',
+        'Use BEV when multiple sensors and downstream agents need one metric ground-plane frame; retain point- or image-space branches when height detail, image evidence, or projection ambiguity would be destroyed by an early collapse.',
+        'Choose fusion timing from calibration quality, sensor failure modes, bandwidth, and retraining ownership; always benchmark single-modality degradation and stale or missing-sensor behavior before accepting a fused model.'
+      ],
+      pitfalls: [
+        'Treating zero-filled voxels as observed free space confuses unmeasured or occluded regions with negative evidence and biases occupancy or detection.',
+        'Applying augmentation to points without the identical transform for boxes, poses, and velocity labels silently corrupts supervision; yaw wraparound and coordinate handedness create especially plausible errors.',
+        'PointNet permutation invariance is often misstated as geometric invariance: rotation, translation, scale, sampling density, and sensor pattern still change its input unless explicitly normalized or augmented.',
+        'Projecting unsynchronized sensors into BEV creates doubled or shifted objects during ego or object motion; a low static calibration residual does not validate temporal alignment.',
+        'Comparing 3D AP across datasets or implementations without matching class ranges, IoU or center-distance thresholds, difficulty filters, interpolation, and box conventions produces meaningless rankings.'
+      ],
+      systemDesignUse: 'Define sensor frames and clocks, motion compensation, point schema and range filters, voxel or pillar bounds and resolution, sparse-operator support, box and yaw conventions, fusion stage, BEV extent, tracking interface, confidence and NMS policy, and missing-sensor fallback. Monitor point density, active voxels, calibration residuals, coverage, AP and localization error by range, class, weather, speed, occlusion, and modality health together with target-device p99 latency and memory.',
+      recall: [
+        { question: 'How does the PointNet architecture become permutation invariant?', answer: 'It applies the same feature function to every point and then uses a symmetric aggregation such as coordinatewise max, so reordering the input points cannot change the aggregated global feature.' },
+        { question: 'What mechanics distinguish submanifold sparse convolution from regular sparse convolution?', answer: 'A submanifold layer computes outputs only at existing active coordinates and preserves the stride-one active set, whereas a regular sparse convolution can activate neighboring output coordinates or change resolution.' },
+        { question: 'Why can a pillar architecture be faster yet less expressive than sparse 3D voxels?', answer: 'Pillars collapse each vertical column and reuse optimized 2D BEV kernels, reducing 3D sparse work, but that early height aggregation can discard vertical arrangements needed to separate structures.' },
+        { question: 'Which production failures should a BEV detector evaluation isolate?', answer: 'Measure detection and localization by range, size, occlusion, weather, and sensor health; inject calibration, timing, and missing-modality faults; and profile active-site count, memory, latency, tracking stability, and downstream planning error.' }
+      ]
+    },
+    {
+      id: 'neural-3d', title: 'SfM, SLAM, NeRF, and 3D Gaussian Splatting', required: true,
+      summary: 'Modern 3D reconstruction spans explicit geometric estimation, online state tracking, implicit radiance fields, and explicit neural rendering primitives. Senior fluency means separating camera-pose estimation from dense appearance reconstruction, understanding gauge and observability, and choosing SfM, SLAM, NeRF, 3D Gaussian Splatting, or a geometric map from the product’s latency, fidelity, memory, editability, and safety requirements.',
+      keyPoints: [
+        'Structure from Motion jointly estimates camera poses and sparse 3D points from overlapping images, typically through feature matching, robust two-view geometry, triangulation, incremental or global pose estimation, and bundle adjustment. Multi-view stereo usually consumes those poses to densify geometry; SfM and MVS are related but not interchangeable.',
+        'With calibrated intrinsics, Euclidean monocular SfM is determined only up to a similarity transform: global rotation, translation, and scale are not fixed by reprojection alone. With unknown unconstrained intrinsics, reconstruction is only projective until known calibration or valid self-calibration assumptions upgrade it to Euclidean structure. A stereo baseline, known object, GPS, depth, or sufficiently calibrated inertial sensing can then provide metric scale, while weak motion and calibration errors can leave directions poorly observable.',
+        'SLAM prioritizes online camera or robot state while maintaining a map. A front end tracks features or photometric alignment; a back end optimizes local bundles or a pose graph; loop closure corrects accumulated drift, and relocalization recovers tracking after failure.',
+        'Visual-inertial or RGB-D SLAM improves metric observability and robustness but adds clock, extrinsic, bias, and noise-model calibration. Loop closure is a high-impact hypothesis that needs geometric verification because one false closure can deform the entire trajectory and map.',
+        'A NeRF maps 3D position and viewing direction to volume density and view-dependent radiance, then renders rays by differentiable alpha compositing. Positional encodings, multiresolution grids, proposal sampling, and scene bounds change speed, but the core representation remains a learned volumetric appearance field rather than an explicit surface mesh.',
+        'NeRF quality depends strongly on camera poses, coverage, static-scene consistency, exposure, and sampling. It can synthesize excellent in-distribution views while producing wrong depth, floaters, or unsupported extrapolation; photometric PSNR alone does not establish geometric fidelity.',
+        '3D Gaussian Splatting optimizes explicit anisotropic Gaussians with position, covariance, opacity, and usually spherical-harmonic color, projects them to screen-space ellipses, and alpha-composites sorted splats with differentiable rasterization. Densification and pruning allocate capacity where image gradients demand it.',
+        '3DGS usually renders much faster than a densely sampled NeRF but can consume substantial memory and overfit training views with duplicated or floating primitives. Neither representation automatically provides watertight surfaces, collision geometry, semantic consistency, or correct novel illumination.'
+      ],
+      formulas: [
+        'Bundle adjustment minimizes ∑_{(i,j)∈O} ρ(||u_ij−π(K_j T_j X_i)||²), jointly refining observed 3D points X_i and camera poses T_j after fixing the gauge.',
+        'Discrete NeRF rendering is C(r)=∑_i T_i α_i c_i with α_i=1−exp(−σ_iδ_i) and T_i=∏_{k<i}(1−α_k), so density controls both contribution and occlusion along the ray.',
+        'A 3D Gaussian can parameterize positive-semidefinite covariance as Σ=R S SᵀRᵀ; camera projection maps its local covariance to a screen-space ellipse before depth-ordered alpha compositing.',
+        'A pose-graph back end minimizes ∑_{(i,j)} ||Log(Z_ij⁻¹ T_i⁻¹T_j)||²_{Ω_ij}, weighting odometry and loop constraints by their information matrices Ω_ij.'
+      ],
+      decisionRules: [
+        'Choose offline SfM plus MVS when a mostly static scene, broad image coverage, inspectable geometric stages, and batch reconstruction matter more than immediate pose output.',
+        'Choose SLAM when an agent needs bounded-latency state and map updates; add stereo, depth, or inertial sensing when metric scale and recovery justify calibration complexity, and retain a loss-of-tracking safety state.',
+        'Choose NeRF for bounded-scene novel-view quality or differentiable scene optimization when training and ray-sampling cost fit and explicit topology is not the primary contract; use a mesh, TSDF, or occupancy map for collision, measurement, and editable geometry unless separately validated.',
+        'Choose 3D Gaussian Splatting when interactive rendering speed is decisive and explicit primitive memory, sorting, and scene update costs are acceptable; compare against accelerated NeRF and conventional textured geometry under identical views, hardware, and fidelity metrics.'
+      ],
+      pitfalls: [
+        'Reporting a monocular trajectory after a best-fit similarity alignment conceals absolute scale and global-frame error; the alignment protocol must match the deployment contract.',
+        'A loop-closure retrieval match is not sufficient evidence: repeated structures can create a false constraint that yields low local residuals while globally corrupting the map.',
+        'Training and testing novel views from adjacent frames overstates generalization because near-duplicate imagery shares pose, exposure, and scene content; hold out meaningful trajectories or view regions.',
+        'Optimizing NeRF or 3DGS with inaccurate poses can bake pose error into geometry and appearance, so a photometrically sharp rendering can still have wrong surfaces and camera states.',
+        'Treating 3DGS primitives as physical surface elements ignores opacity overlap, floaters, view-dependent color, and holes; geometry extraction and downstream collision use require separate evidence.'
+      ],
+      systemDesignUse: 'Specify the world-frame and scale source, sensor clocks and calibration, SfM or SLAM front end, robust estimation, bundle or pose-graph schedule, loop verification and relocalization, scene bounds and dynamics policy, NeRF or 3DGS training and update path, render hardware, memory budget, geometry export, privacy, and rollback artifacts. Evaluate trajectory and pose error, completeness, geometric accuracy, held-out-view PSNR/SSIM/LPIPS, render p99, memory, update time, and failure recovery by motion, texture, lighting, and scene-change slice.',
+      recall: [
+        { question: 'What mechanics distinguish offline SfM from online SLAM?', answer: 'SfM can optimize poses and sparse structure over an image collection in batch, while SLAM must track current state under a latency budget, update a map incrementally, detect loop closures, and recover from tracking loss.' },
+        { question: 'How does the NeRF rendering objective connect density to occlusion?', answer: 'Samples predict density and color; density becomes alpha, accumulated transmittance attenuates samples behind occupied regions, and their weighted colors compose the rendered pixel compared with observed views.' },
+        { question: 'What architecture tradeoff separates 3D Gaussian Splatting from NeRF?', answer: '3DGS stores and rasterizes explicit anisotropic primitives for fast rendering at a potentially high memory cost, while NeRF queries an implicit field along rays and usually spends more sampling compute per rendered view.' },
+        { question: 'Which production evaluation prevents a photorealistic reconstruction from hiding geometric failure?', answer: 'Combine held-out trajectory and view splits with pose error, metric surface accuracy and completeness, scale drift, recovery after tracking loss, render latency and memory, and downstream measurement or collision checks rather than relying on PSNR alone.' }
+      ]
+    },
 
     {
       id: 'cnn-foundations', title: 'CNN foundations and residual backbones', required: true,

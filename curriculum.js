@@ -306,7 +306,7 @@
       week: 7,
       phase: 'Build',
       theme: 'OCR, active learning, multimodal systems',
-      goal: 'Complete all thirteen system-design cases and convert the story inventory into interview answers.',
+      goal: 'Complete the eight scheduled system-design cases, use the expanded thirteen-case library for random practice, and convert the story inventory into interview answers.',
       sessions: [
         session('w7-mon', '2026-09-07', 'Timed heap and DP set', 'coding', 'Hold the medium interview bar across priority and recurrence problems', 'Cap Linked List Cycle at 15 minutes, then use 25 minutes per medium.', 90, [task('w7-timed-a', 'One warmup and three timed mediums', 'Linked List Cycle, Kth Largest Element in an Array, Task Scheduler, and Coin Change.', 90, 'coding')]),
         session('w7-tue', '2026-09-08', 'Vision-language models and diffusion', 'modern-cv', 'Explain capability without treating models as magic', 'Separate perception, grounding, language generation, and generative priors.', 90, [

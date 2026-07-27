@@ -1838,6 +1838,7 @@ def adam_step(parameters, state, step, learning_rate=1e-3, beta1=0.9, beta2=0.99
 import torch
 
 def train_one_epoch(model, dataloader, optimizer, loss_fn, device, grad_clip=None):
+    """Train with a loss_fn that returns a finite, mean-reduced scalar per batch."""
     model.train()
     total_loss, total_examples = 0.0, 0
     for features, targets in dataloader:
@@ -1847,7 +1848,7 @@ def train_one_epoch(model, dataloader, optimizer, loss_fn, device, grad_clip=Non
         logits = model(features)
         loss = loss_fn(logits, targets)
         if loss.ndim != 0 or not torch.isfinite(loss):
-            raise ValueError("loss must be one finite scalar")
+            raise ValueError("loss_fn must return one finite, mean-reduced scalar per batch")
         loss.backward()
         if grad_clip is not None:
             torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
@@ -1855,7 +1856,9 @@ def train_one_epoch(model, dataloader, optimizer, loss_fn, device, grad_clip=Non
         batch = targets.shape[0]
         total_loss += loss.detach().item() * batch
         total_examples += batch
-    return total_loss / max(total_examples, 1)
+    if total_examples == 0:
+        raise ValueError("dataloader must yield at least one example")
+    return total_loss / total_examples
 
 def box_iou_xyxy(a, b):
     top_left = np.maximum(a[:2], b[:2])
@@ -1940,6 +1943,7 @@ def kmeans(x, k, iterations=100, seed=0):
         for cluster in range(k):
             members = x[labels == cluster]
             centers[cluster] = members.mean(axis=0) if len(members) else x[rng.integers(len(x))]
+    labels = np.argmin(((x[:, None, :] - centers[None, :, :]) ** 2).sum(axis=2), axis=1)
     return centers, labels
 
 def pca(x, components):

@@ -178,6 +178,12 @@ describe('Phase 1C study content', () => {
       'probability-experimentation'
     ];
     const tier2ModernIds = [
+      'classical-cv-filtering',
+      'local-features-matching',
+      'geometric-vision',
+      'depth-and-stereo',
+      'point-clouds-3d',
+      'neural-3d',
       'self-supervised-vision',
       'generative-vision',
       'video-motion',
@@ -189,6 +195,18 @@ describe('Phase 1C study content', () => {
       .toEqual(tier2FoundationIds);
     expect(data.modernCvModules.map(({ id }) => id).filter((id) => tier2ModernIds.includes(id)))
       .toEqual(tier2ModernIds);
+
+    for (const id of tier2ModernIds) {
+      const module = modernById.get(id);
+      expect(module?.required).toBe(true);
+      expect(module.summary.length).toBeGreaterThan(80);
+      expect(module.keyPoints.length).toBeGreaterThanOrEqual(5);
+      expect(module.formulas.length).toBeGreaterThanOrEqual(2);
+      expect(module.decisionRules.length).toBeGreaterThanOrEqual(3);
+      expect(module.pitfalls.length).toBeGreaterThanOrEqual(3);
+      expect(module.systemDesignUse.length).toBeGreaterThan(60);
+      expect(module.recall.length).toBeGreaterThanOrEqual(3);
+    }
 
     for (const id of tier2FoundationIds) {
       const module = foundationById.get(id);
@@ -247,6 +265,36 @@ describe('Phase 1C study content', () => {
     const detectionText = JSON.stringify(modernById.get('detection-segmentation-foundations'));
     for (const topic of [/R-CNN/, /Fast R-CNN/, /Faster R-CNN/, /RPN/, /RoIAlign/, /SSD/, /RetinaNet/, /FCOS/, /CenterNet/, /YOLO/, /FCN/, /U-Net/, /DeepLab/, /ASPP/, /Mask R-CNN/, /panoptic/i]) {
       expect(detectionText).toMatch(topic);
+    }
+
+    const classicalCvText = JSON.stringify(modernById.get('classical-cv-filtering'));
+    for (const topic of [/convolution/i, /Gaussian smoothing/i, /Sobel/i, /Canny/i, /Harris/i, /morphology/i, /Gaussian pyramid/i, /Laplacian pyramid/i, /HSV/, /YCbCr/, /Lab/]) {
+      expect(classicalCvText).toMatch(topic);
+    }
+
+    const localFeaturesText = JSON.stringify(modernById.get('local-features-matching'));
+    for (const topic of [/SIFT/, /ORB/, /descriptor/i, /Hamming distance/i, /ratio test/i, /RANSAC/, /geometric verification/i]) {
+      expect(localFeaturesText).toMatch(topic);
+    }
+
+    const geometryText = JSON.stringify(modernById.get('geometric-vision'));
+    for (const topic of [/pinhole/i, /intrinsics/i, /extrinsics/i, /calibration/i, /homography/i, /epipolar geometry/i, /fundamental matrix/i, /essential matrix/i, /stereo rectification/i, /triangulation/i]) {
+      expect(geometryText).toMatch(topic);
+    }
+
+    const depthText = JSON.stringify(modernById.get('depth-and-stereo'));
+    for (const topic of [/monocular/i, /calibrated stereo/i, /cost volume/i, /self-supervised/i, /multi-view stereo/i, /uncertainty/i, /AbsRel/]) {
+      expect(depthText).toMatch(topic);
+    }
+
+    const pointCloudText = JSON.stringify(modernById.get('point-clouds-3d'));
+    for (const topic of [/PointNet/, /PointNet\+\+/, /voxelization/i, /sparse convolution/i, /pillars/i, /3D detectors/i, /BEV/, /sensor fusion/i]) {
+      expect(pointCloudText).toMatch(topic);
+    }
+
+    const neural3dText = JSON.stringify(modernById.get('neural-3d'));
+    for (const topic of [/Structure from Motion/i, /SLAM/, /bundle adjustment/i, /loop closure/i, /NeRF/, /3D Gaussian Splatting/i, /pose-graph/i]) {
+      expect(neural3dText).toMatch(topic);
     }
 
     const modernText = new Map(tier2ModernIds.map((id) => [id, JSON.stringify(modernById.get(id))]));

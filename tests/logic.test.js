@@ -833,8 +833,28 @@ describe('guided stage evidence', () => {
     const recordWithoutPhase = makeV2State({
       designAttempts: [{ caseId: 'case-a', durationMinutes: 38, scores }]
     });
+    const requirementsOnly = makeV2State({
+      designAttempts: [{
+        caseId: 'case-a',
+        phase: 'requirements',
+        note: 'Clarify traffic, latency, and quality constraints.',
+        durationMinutes: 38,
+        scores
+      }]
+    });
+    const debriefOnly = makeV2State({
+      designAttempts: [{
+        caseId: 'case-a',
+        phase: 'debrief',
+        note: 'Repair metrics.',
+        durationMinutes: 38,
+        scores
+      }]
+    });
 
     expect(calculateStageStatus(stageWithoutPhase, explicitAttempt, evidenceContent).complete).toBe(true);
+    expect(calculateStageStatus(stageWithoutPhase, requirementsOnly, evidenceContent).complete).toBe(false);
+    expect(calculateStageStatus(stageWithoutPhase, debriefOnly, evidenceContent).complete).toBe(false);
     expect(calculateStageStatus(explicitAttemptStage, recordWithoutPhase, evidenceContent).complete).toBe(true);
     expect(calculateStageStatus(requirementsStage, recordWithoutPhase, evidenceContent).complete).toBe(false);
   });
@@ -943,15 +963,19 @@ describe('guided stage evidence', () => {
     const validStory = {
       title: 'Recovered a failed launch',
       complete: true,
-      durationMinutes: 1.8,
+      durationMinutes: 2,
       measurableImpact: true,
       individualContribution: true
     };
     const invalidStories = [
-      { ...validStory, measurableImpact: undefined },
-      { ...validStory, individualContribution: undefined },
-      { ...validStory, durationMinutes: undefined },
+      { ...validStory, complete: false },
+      { ...validStory, measurableImpact: false },
+      { ...validStory, individualContribution: false },
       { ...validStory, durationMinutes: 0 },
+      { ...validStory, durationMinutes: -0.1 },
+      { ...validStory, durationMinutes: Number.NaN },
+      { ...validStory, durationMinutes: '1.8' },
+      { ...validStory, durationMinutes: Number.POSITIVE_INFINITY },
       { ...validStory, durationMinutes: 2.1 }
     ];
 

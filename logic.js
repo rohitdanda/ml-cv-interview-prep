@@ -18,6 +18,9 @@
     'streak',
     'lastResult'
   ];
+  const DESIGN_PHASES = new Set(['requirements', 'attempt', 'debrief']);
+  const REHEARSAL_KINDS = new Set(['story', 'intro', 'project-deep-dive', 'full-round']);
+  const MOCK_PHASES = new Set(['attempt', 'debrief']);
 
   function isRecord(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -70,6 +73,7 @@
       problemAttempts: [],
       quizAttempts: [],
       designAttempts: [],
+      storyInventory: [],
       starStories: [],
       rehearsals: [],
       mocks: [],
@@ -107,6 +111,90 @@
     };
   }
 
+  function coerceInventoryField(value) {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    if (typeof value === 'boolean') return String(value);
+    return null;
+  }
+
+  function normalizeStoryInventory(value) {
+    if (!Array.isArray(value)) return [];
+    const inventory = [];
+    for (const entry of value) {
+      if (!isRecord(entry)) continue;
+      const id = coerceInventoryField(entry.id);
+      const title = coerceInventoryField(entry.title);
+      const note = coerceInventoryField(entry.note);
+      const createdAt = coerceInventoryField(entry.createdAt);
+      if ([id, title, note, createdAt].some((field) => field === null)) continue;
+      inventory.push({ id, title, note, createdAt });
+    }
+    return inventory;
+  }
+
+  function normalizeRehearsal(rehearsal) {
+    if (!isRecord(rehearsal)) return null;
+    const normalized = {
+      ...rehearsal,
+      kind: REHEARSAL_KINDS.has(rehearsal.kind) ? rehearsal.kind : 'story'
+    };
+    if (isNonEmptyString(rehearsal.refId)) normalized.refId = rehearsal.refId;
+    else delete normalized.refId;
+    return normalized;
+  }
+
+  function normalizeMockDebrief(debrief) {
+    if (!isRecord(debrief)) return null;
+    const weaknesses = [];
+    if (Array.isArray(debrief.weaknesses)) {
+      for (const weakness of debrief.weaknesses) {
+        if (!isRecord(weakness)) continue;
+        if (typeof weakness.text !== 'string' || typeof weakness.remediation !== 'string') continue;
+        weaknesses.push({
+          text: weakness.text,
+          remediation: weakness.remediation,
+          remediationComplete: weakness.remediationComplete === true
+        });
+      }
+    }
+    return {
+      weaknesses,
+      noMaterialWeakness: debrief.noMaterialWeakness === true,
+      reviewedAt: typeof debrief.reviewedAt === 'string' ? debrief.reviewedAt : null
+    };
+  }
+
+  function normalizeMock(mock) {
+    if (!isRecord(mock)) return null;
+    return { ...mock, debrief: normalizeMockDebrief(mock.debrief) };
+  }
+
+  function normalizeDesignAttempt(attempt) {
+    if (!isRecord(attempt)) return null;
+    return {
+      ...attempt,
+      phase: DESIGN_PHASES.has(attempt.phase) ? attempt.phase : 'attempt'
+    };
+  }
+
+  function normalizeStarStory(story) {
+    if (!isRecord(story)) return null;
+    return {
+      ...story,
+      promptId: isNonEmptyString(story.promptId) ? story.promptId : null
+    };
+  }
+
+  function normalizeRecords(value, normalizer) {
+    const normalized = [];
+    for (const entry of value) {
+      const record = normalizer(entry);
+      if (record) normalized.push(record);
+    }
+    return normalized;
+  }
+
   function validateImportedState(candidate) {
     if (!isRecord(candidate)) {
       return { ok: false, error: 'The selected file is not a progress backup.' };
@@ -140,25 +228,35 @@
       return { ok: false, error: 'The backup is missing required progress fields.' };
     }
 
-    if (candidate.schemaVersion === 1) {
-      return {
-        ok: true,
-        value: {
-          ...candidate,
-          schemaVersion: 3,
-          studyProgress: { activeFocus: null, reviews: {}, studied: {} }
-        }
-      };
-    }
-
     const rawProgress = candidate.studyProgress;
-    const studyProgress = candidate.schemaVersion === 2 && isRecord(rawProgress)
-      ? { ...rawProgress, studied: isRecord(rawProgress.studied) ? rawProgress.studied : {} }
-      : rawProgress;
+    let studyProgress;
+    if (candidate.schemaVersion === 1) {
+      studyProgress = { activeFocus: null, reviews: {}, studied: {} };
+    } else if (candidate.schemaVersion === 2 && isRecord(rawProgress)) {
+      studyProgress = {
+        ...rawProgress,
+        studied: isRecord(rawProgress.studied) ? rawProgress.studied : {}
+      };
+    } else {
+      studyProgress = rawProgress;
+    }
     if (!isValidStudyProgress(studyProgress)) {
       return { ok: false, error: 'The backup contains malformed learning progress.' };
     }
-    return { ok: true, value: { ...candidate, schemaVersion: 3, studyProgress } };
+
+    return {
+      ok: true,
+      value: {
+        ...candidate,
+        schemaVersion: 3,
+        storyInventory: normalizeStoryInventory(candidate.storyInventory),
+        designAttempts: normalizeRecords(candidate.designAttempts, normalizeDesignAttempt),
+        starStories: normalizeRecords(candidate.starStories, normalizeStarStory),
+        rehearsals: normalizeRecords(candidate.rehearsals, normalizeRehearsal),
+        mocks: normalizeRecords(candidate.mocks, normalizeMock),
+        studyProgress
+      }
+    };
   }
 
   function isValidStudyProgress(studyProgress) {
@@ -536,16 +634,33 @@
 
   function calculateDesignStatus(stage, state) {
     const caseId = stage.reference?.caseId;
+    const phase = stage.reference?.phase || 'attempt';
     const matches = (Array.isArray(state?.designAttempts) ? state.designAttempts : [])
-      .filter((attempt) => attempt?.caseId === caseId);
+      .filter((attempt) => (
+        attempt?.caseId === caseId && (attempt.phase || 'attempt') === phase
+      ));
     const latest = latestBySource(matches, 'caseId').get(caseId)?.item;
+
+    if (phase === 'requirements' || phase === 'debrief') {
+      const complete = Boolean(latest && isNonEmptyString(latest.note));
+      return evidenceStatus(stage, state, {
+        complete,
+        kind: 'design-case',
+        quality: complete ? 'recorded' : latest ? 'missing-note' : 'missing',
+        phase,
+        attempt: latest || null
+      }, matches.length > 0);
+    }
+
     const quality = rubricQuality(latest?.scores);
     const duration = Number(latest?.durationMinutes);
-    const complete = Boolean(latest && Number.isFinite(duration) && duration > 0 && quality);
+    const complete = phase === 'attempt'
+      && Boolean(latest && Number.isFinite(duration) && duration > 0 && quality);
     return evidenceStatus(stage, state, {
       complete,
       kind: 'design-case',
       quality: quality || (latest ? 'invalid-rubric' : 'missing'),
+      phase,
       attempt: latest || null
     }, matches.length > 0);
   }
@@ -558,17 +673,31 @@
     const requirements = isRecord(stage?.reference?.requirements)
       ? stage.reference.requirements
       : {};
+    const inventoryCount = positiveRequirementCount(requirements.inventoryCount);
     const savedStoryCount = positiveRequirementCount(requirements.savedStoryCount);
     const completedStoryCount = positiveRequirementCount(requirements.completedStoryCount);
     const rehearsalCount = positiveRequirementCount(requirements.rehearsalCount);
-    const requirementKinds = Number(savedStoryCount !== null)
+    const requirementKinds = Number(inventoryCount !== null)
+      + Number(savedStoryCount !== null)
       + Number(completedStoryCount !== null)
       + Number(rehearsalCount !== null);
+    const inventory = Array.isArray(state?.storyInventory) ? state.storyInventory : [];
     const stories = Array.isArray(state?.starStories) ? state.starStories : [];
     const rehearsals = Array.isArray(state?.rehearsals) ? state.rehearsals : [];
+    const rehearsalKind = requirements.rehearsalKind || 'story';
+    const hasRefIds = Object.hasOwn(requirements, 'refIds');
+    const refIdsValid = !hasRefIds || (
+      Array.isArray(requirements.refIds)
+      && requirements.refIds.length > 0
+      && requirements.refIds.every(isNonEmptyString)
+    );
 
     if (requirementKinds !== 1 || (
-      rehearsalCount !== null && typeof requirements.withoutNotes !== 'boolean'
+      rehearsalCount !== null && (
+        typeof requirements.withoutNotes !== 'boolean'
+        || !REHEARSAL_KINDS.has(rehearsalKind)
+        || !refIdsValid
+      )
     )) {
       return evidenceStatus(stage, state, {
         complete: false,
@@ -577,7 +706,19 @@
         artifactType: null,
         count: 0,
         requiredCount: null
-      }, stories.length > 0 || rehearsals.length > 0);
+      }, inventory.length > 0 || stories.length > 0 || rehearsals.length > 0);
+    }
+
+    if (inventoryCount !== null) {
+      const complete = inventory.length >= inventoryCount;
+      return evidenceStatus(stage, state, {
+        complete,
+        kind: 'story',
+        quality: complete ? 'inventoried' : inventory.length ? 'in-progress' : 'missing',
+        artifactType: 'story-inventory',
+        count: inventory.length,
+        requiredCount: inventoryCount
+      }, inventory.length > 0);
     }
 
     if (savedStoryCount !== null) {
@@ -593,7 +734,14 @@
     }
 
     if (completedStoryCount !== null) {
-      const count = stories.reduce((sum, story) => sum + Number(Boolean(story?.complete)), 0);
+      const count = stories.reduce((sum, story) => sum + Number(Boolean(
+        story?.complete
+        && story.measurableImpact
+        && story.individualContribution
+        && Number.isFinite(story.durationMinutes)
+        && story.durationMinutes > 0
+        && story.durationMinutes <= 2
+      )), 0);
       const complete = count >= completedStoryCount;
       return evidenceStatus(stage, state, {
         complete,
@@ -605,20 +753,37 @@
       }, stories.length > 0);
     }
 
-    const withoutNotes = requirements.withoutNotes;
-    const count = withoutNotes
-      ? rehearsals.reduce((sum, rehearsal) => sum + Number(Boolean(rehearsal?.withoutNotes)), 0)
-      : rehearsals.length;
+    const matchingRehearsals = rehearsals.filter((rehearsal) => (
+      (rehearsal?.kind || 'story') === rehearsalKind
+      && (!hasRefIds || requirements.refIds.includes(rehearsal?.refId))
+      && (!requirements.withoutNotes || rehearsal?.withoutNotes)
+    ));
+    const count = matchingRehearsals.length;
     const complete = count >= rehearsalCount;
     return evidenceStatus(stage, state, {
       complete,
       kind: 'story',
-      quality: complete ? (withoutNotes ? 'rehearsed-without-notes' : 'rehearsed') : 'missing',
+      quality: complete ? (requirements.withoutNotes ? 'rehearsed-without-notes' : 'rehearsed') : 'missing',
       artifactType: 'rehearsal',
       count,
       requiredCount: rehearsalCount,
-      withoutNotes
+      rehearsalKind,
+      withoutNotes: requirements.withoutNotes,
+      refIds: hasRefIds ? [...requirements.refIds] : null
     }, rehearsals.length > 0);
+  }
+
+  function isCompleteMockDebrief(debrief) {
+    if (!isRecord(debrief)) return false;
+    if (debrief.noMaterialWeakness === true) return true;
+    return Array.isArray(debrief.weaknesses)
+      && debrief.weaknesses.length > 0
+      && debrief.weaknesses.every((weakness) => (
+        isRecord(weakness)
+        && isNonEmptyString(weakness.text)
+        && isNonEmptyString(weakness.remediation)
+        && weakness.remediationComplete === true
+      ));
   }
 
   function calculateMockStatus(stage, state) {
@@ -627,21 +792,27 @@
       : {};
     const mockType = requirements.mockType;
     const requiredCount = positiveRequirementCount(requirements.requiredCount);
+    const phase = requirements.phase || 'attempt';
     const validRequirements = (mockType === 'coding' || mockType === 'ml-system')
-      && requiredCount !== null;
+      && requiredCount !== null
+      && MOCK_PHASES.has(phase);
     const mocks = Array.isArray(state?.mocks) ? state.mocks : [];
-    const count = validRequirements
-      ? mocks.reduce((sum, mock) => sum + Number(mock?.type === mockType), 0)
-      : 0;
+    const matchingMocks = validRequirements
+      ? mocks.filter((mock) => mock?.type === mockType)
+      : [];
+    const count = phase === 'debrief'
+      ? matchingMocks.filter((mock) => isCompleteMockDebrief(mock.debrief)).length
+      : matchingMocks.length;
     const complete = validRequirements && count >= requiredCount;
     return evidenceStatus(stage, state, {
       complete,
       kind: 'mock',
-      quality: validRequirements ? (complete ? 'saved' : 'missing') : 'invalid-requirements',
+      quality: validRequirements ? (complete ? (phase === 'debrief' ? 'debriefed' : 'saved') : 'missing') : 'invalid-requirements',
       mockType: validRequirements ? mockType : null,
+      phase: validRequirements ? phase : null,
       count,
       requiredCount: validRequirements ? requiredCount : null
-    }, mocks.length > 0);
+    }, matchingMocks.length > 0);
   }
 
   function calculateStageStatus(stage, state, content = {}) {
@@ -933,7 +1104,9 @@
         ? 'green'
         : 'amber';
 
-    const recentDesigns = state.designAttempts.slice(-2);
+    const recentDesigns = state.designAttempts
+      .filter((attempt) => (attempt.phase || 'attempt') === 'attempt')
+      .slice(-2);
     const designPasses = recentDesigns.filter((attempt) => (
       attempt.durationMinutes <= 40 &&
       attempt.scores &&
@@ -943,14 +1116,24 @@
     const systemDesignStatus = recentDesigns.length < 2 ? 'red' : designPasses === 2 ? 'green' : 'amber';
 
     const qualifyingStories = state.starStories.filter((story) => (
-      story.complete &&
-      story.durationMinutes <= 2 &&
-      story.measurableImpact &&
-      story.individualContribution
+      story.complete
+      && Number.isFinite(story.durationMinutes)
+      && story.durationMinutes > 0
+      && story.durationMinutes <= 2
+      && story.measurableImpact
+      && story.individualContribution
     ));
     const leadershipStories = qualifyingStories.filter((story) => story.leadership).length;
-    const noNotesRehearsals = state.rehearsals.filter((rehearsal) => rehearsal.withoutNotes).length;
-    const behaviorEvidenceComplete = state.starStories.length >= 8;
+    const noNotesRehearsals = state.rehearsals.filter((rehearsal) => (
+      (rehearsal.kind || 'story') === 'story' && rehearsal.withoutNotes
+    )).length;
+    const coveredPrompts = new Set(
+      state.starStories
+        .map((story) => story.promptId)
+        .filter(isNonEmptyString)
+        .map((promptId) => promptId.trim())
+    );
+    const behaviorEvidenceComplete = coveredPrompts.size >= 8;
     const behavioralStatus = !behaviorEvidenceComplete
       ? 'red'
       : qualifyingStories.length >= 8 && leadershipStories >= 2 && noNotesRehearsals >= 2
@@ -961,10 +1144,9 @@
     const mlSystemMocks = state.mocks.filter((mock) => mock.type === 'ml-system');
     const latestCodingMock = codingMocks.at(-1);
     const latestMlSystemMock = mlSystemMocks.at(-1);
-    const weaknessesRemediated = state.mocks.every((mock) => (
-      (mock.weaknesses || []).every((weakness) => weakness.remediationComplete)
-    ));
     const mockEvidenceComplete = codingMocks.length >= 2 && mlSystemMocks.length >= 2;
+    const weaknessesRemediated = mockEvidenceComplete
+      && state.mocks.filter((mock) => isCompleteMockDebrief(mock.debrief)).length >= 1;
     const mocksStatus = !mockEvidenceComplete
       ? 'red'
       : latestCodingMock.wouldAdvance && latestMlSystemMock.wouldAdvance && weaknessesRemediated

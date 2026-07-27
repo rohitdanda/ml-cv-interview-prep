@@ -28,6 +28,7 @@
   let problemFilter = 'all';
   let editingStoryIndex = null;
   let editingApplicationIndex = null;
+  let editingMockIndex = null;
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -40,6 +41,20 @@
 
   function safeId(value) {
     return String(value ?? 'item').replace(/[^a-zA-Z0-9_-]+/g, '-');
+  }
+
+  function stableSlug(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function behavioralPromptId(prompt) {
+    return typeof prompt?.id === 'string' && prompt.id.trim()
+      ? prompt.id.trim()
+      : stableSlug(prompt?.title);
   }
 
   function todayIso() {
@@ -664,6 +679,7 @@
     const choices = fixedCase ? [fixedCase] : cases;
     return `
       <form id="${prefix}-form" class="form-grid design-attempt-form">
+        <input type="hidden" name="phase" value="attempt">
         ${fixedCase
           ? `<input type="hidden" name="caseId" value="${escapeHtml(fixedCase.id)}">`
           : `<div class="form-field full">
@@ -691,20 +707,56 @@
       </form>`;
   }
 
+  function designNotesForm(item, stage, phase, existing) {
+    const prefix = safeId(`${stage.id}-${item.id}-${phase}`);
+    const isRequirements = phase === 'requirements';
+    const heading = isRequirements ? 'Capture requirements' : 'Debrief this design';
+    const prompt = isRequirements
+      ? 'Record users, traffic, latency, quality, data, and constraints before choosing architecture.'
+      : 'Record the weakest decision, the evidence behind it, and the exact repair to rehearse.';
+    return `
+      <section class="design-phase-workbook">
+        <h4>${heading}</h4>
+        <p class="subtle">${prompt}</p>
+        <form id="${prefix}-form" class="form-grid design-attempt-form">
+          <input type="hidden" name="caseId" value="${escapeHtml(item.id)}">
+          <input type="hidden" name="phase" value="${escapeHtml(phase)}">
+          <div class="form-field full">
+            <label for="${prefix}-note">${isRequirements ? 'Requirements notes' : 'Debrief notes'}</label>
+            <textarea id="${prefix}-note" name="note" required>${escapeHtml(existing?.note || '')}</textarea>
+          </div>
+          <div class="form-field full"><button class="button button-primary" type="submit">Save ${isRequirements ? 'requirements' : 'debrief'}</button></div>
+        </form>
+      </section>`;
+  }
+
   function renderInlineDesign(stage) {
     const item = findDesignCase(stage.reference.caseId);
     if (!item) return '<p class="pitfall">The referenced design case is unavailable.</p>';
-    const latest = latestFor(state.designAttempts, 'caseId', item.id);
+    const phase = stage.reference.phase || 'attempt';
+    const matchingRecords = state.designAttempts.filter((attempt) => (
+      attempt?.caseId === item.id && (attempt.phase || 'attempt') === phase
+    ));
+    const matchingAttempts = state.designAttempts.filter((attempt) => (
+      attempt?.caseId === item.id && (attempt.phase || 'attempt') === 'attempt'
+    ));
+    const latestPhaseRecord = matchingRecords.at(-1) || null;
+    const latestAttempt = matchingAttempts.at(-1) || null;
     const hasTimedRubric = Boolean(
-      latest
-      && Number(latest.durationMinutes) > 0
-      && latest.scores
-      && Object.keys(latest.scores).length === RUBRIC_DIMENSIONS.length
+      latestAttempt
+      && Number(latestAttempt.durationMinutes) > 0
+      && latestAttempt.scores
+      && Object.keys(latestAttempt.scores).length === RUBRIC_DIMENSIONS.length
     );
+    const phaseLabel = phase === 'requirements'
+      ? 'Requirements worksheet'
+      : phase === 'debrief'
+        ? 'Design debrief'
+        : 'Timed design attempt';
     return `
       <article class="inline-reference design-case-inline">
         <div class="card-header">
-          <div><p class="eyebrow">Design case</p><h3>${escapeHtml(item.title)}</h3></div>
+          <div><p class="eyebrow">${phaseLabel}</p><h3>${escapeHtml(item.title)}</h3></div>
           <a class="button button-small" href="#system-design">Browse all cases</a>
         </div>
         <p>${escapeHtml(item.scenario)}</p>
@@ -714,16 +766,29 @@
             ${noteSection('Strong solution includes', item.solutionOutline)}
             <p class="callout"><strong>Modern CV decision:</strong> ${escapeHtml(item.modernCv)}</p>
             <p class="pitfall"><strong>Pressure test:</strong> ${escapeHtml(item.pressureTest)}</p>
-          </div>` : '<p class="locked-hint">Save a matching timed rubric to reveal the outline and pressure test.</p>'}
-        ${designAttemptForm([item], { prefix: `${stage.id}-${item.id}`, fixedCaseId: item.id })}
+          </div>` : '<p class="locked-hint">Save a matching timed attempt to reveal the outline and pressure test.</p>'}
+        ${phase === 'attempt'
+          ? designAttemptForm([item], { prefix: `${stage.id}-${item.id}`, fixedCaseId: item.id })
+          : designNotesForm(item, stage, phase, latestPhaseRecord)}
       </article>`;
   }
 
   function storyRequirementText(requirements = {}) {
+    if (requirements.inventoryCount) return `Inventory ${requirements.inventoryCount} project or incident examples.`;
     if (requirements.savedStoryCount) return `Save ${requirements.savedStoryCount} STAR stories.`;
     if (requirements.completedStoryCount) return `Complete ${requirements.completedStoryCount} interview-ready STAR stories.`;
     if (requirements.rehearsalCount) {
-      return `Log ${requirements.rehearsalCount} rehearsal${requirements.rehearsalCount === 1 ? '' : 's'}${requirements.withoutNotes ? ' without notes' : ''}.`;
+      const kindLabels = {
+        story: 'story',
+        intro: 'career introduction',
+        'project-deep-dive': 'project deep-dive',
+        'full-round': 'full behavioral round'
+      };
+      const kind = kindLabels[requirements.rehearsalKind || 'story'] || 'story';
+      const references = requirements.refIds?.length
+        ? ` for ${requirements.refIds.join(', ')}`
+        : '';
+      return `Log ${requirements.rehearsalCount} ${kind} rehearsal${requirements.rehearsalCount === 1 ? '' : 's'}${requirements.withoutNotes ? ' without notes' : ''}${references}.`;
     }
     return 'Save the requested story evidence.';
   }
@@ -743,11 +808,15 @@
   function renderInlineMock(stage, status) {
     const requirements = stage.reference.requirements || {};
     const label = requirements.mockType === 'ml-system' ? 'ML / system-design' : 'coding';
+    const requiredCount = requirements.requiredCount || 1;
+    const heading = requirements.phase === 'debrief'
+      ? `Complete debriefs for ${requiredCount} ${label} mock${requiredCount === 1 ? '' : 's'}`
+      : `Log ${requiredCount} ${label} mock attempt${requiredCount === 1 ? '' : 's'}`;
     return `
       <article class="inline-reference workspace-reference">
         <div>
-          <p class="eyebrow">Mock workspace</p>
-          <h3>Log ${requirements.requiredCount || 1} ${escapeHtml(label)} mock${requirements.requiredCount === 1 ? '' : 's'}</h3>
+          <p class="eyebrow">Mock ${requirements.phase === 'debrief' ? 'debrief' : 'attempt'} workspace</p>
+          <h3>${escapeHtml(heading)}</h3>
           <p class="subtle">Current evidence: ${escapeHtml(statusText(status))}</p>
         </div>
         <a class="button button-primary" href="#mocks">Open mock workspace</a>
@@ -1313,8 +1382,22 @@
   }
 
   function storyForm(story = {}) {
+    const prompts = data.behavioralPrompts || [];
+    const selectedPromptId = typeof story.promptId === 'string' ? story.promptId : '';
+    const selectedIsKnown = prompts.some((prompt) => behavioralPromptId(prompt) === selectedPromptId);
     return `
       <form id="story-form" class="form-grid">
+        <div class="form-field full">
+          <label for="story-prompt">Behavioral prompt</label>
+          <select id="story-prompt" name="promptId" required>
+            <option value="" ${selectedPromptId ? '' : 'selected'} disabled>Select the prompt this story answers</option>
+            ${prompts.map((prompt) => {
+              const promptId = behavioralPromptId(prompt);
+              return `<option value="${escapeHtml(promptId)}" ${promptId === selectedPromptId ? 'selected' : ''}>${escapeHtml(prompt.title)}</option>`;
+            }).join('')}
+            ${selectedPromptId && !selectedIsKnown ? `<option value="${escapeHtml(selectedPromptId)}" selected>Saved prompt: ${escapeHtml(selectedPromptId)}</option>` : ''}
+          </select>
+        </div>
         <div class="form-field full"><label for="story-title">Story title</label><input id="story-title" name="title" value="${escapeHtml(story.title || '')}" required></div>
         <div class="form-field full"><label for="story-situation">Situation</label><textarea id="story-situation" name="situation" required>${escapeHtml(story.situation || '')}</textarea></div>
         <div class="form-field full"><label for="story-task">Task</label><textarea id="story-task" name="task" required>${escapeHtml(story.task || '')}</textarea></div>
@@ -1330,9 +1413,12 @@
   }
 
   function renderStoryCard(story, index) {
+    const prompt = (data.behavioralPrompts || [])
+      .find((candidate) => behavioralPromptId(candidate) === story.promptId);
     return `
       <article class="card">
         <div class="card-header"><div><h3>${escapeHtml(story.title)}</h3><p>${escapeHtml(story.durationMinutes)} min spoken</p></div><span class="status-badge ${story.complete ? 'status-green' : 'status-amber'}">${story.complete ? 'Ready' : 'Draft'}</span></div>
+        <p class="subtle"><strong>Prompt:</strong> ${escapeHtml(prompt?.title || story.promptId || 'Not selected')}</p>
         <p><strong>Result:</strong> ${escapeHtml(story.result)}</p>
         <div class="card-actions"><button class="button button-small" type="button" data-action="edit-story" data-index="${index}">Edit</button><button class="button button-small button-danger" type="button" data-action="delete-story" data-index="${index}">Delete</button></div>
       </article>`;
@@ -1341,6 +1427,12 @@
   function renderBehavioral() {
     const prompts = data.behavioralPrompts || [];
     const story = editingStoryIndex === null ? {} : state.starStories[editingStoryIndex] || {};
+    const coveredPromptIds = new Set(
+      state.starStories.map((savedStory) => savedStory.promptId).filter(Boolean)
+    );
+    const coveredCount = prompts.reduce((count, prompt) => (
+      count + Number(coveredPromptIds.has(behavioralPromptId(prompt)))
+    ), 0);
     return `
       ${pageHeader('Behavioral', 'Turn six years into evidence', 'Senior interviews test scope, judgment, influence, and measurable impact.')}
       <section class="grid grid-2">
@@ -1349,57 +1441,101 @@
           ${storyForm(story)}
         </div>
         <div class="card">
-          <div class="card-header"><div><h2>Prompt coverage</h2><p>Build at least one strong story for each.</p></div></div>
-          <ol class="subtle">${prompts.map((prompt) => `<li><strong>${escapeHtml(prompt.title)}:</strong> ${escapeHtml(prompt.prompt)}</li>`).join('')}</ol>
+          <div class="card-header"><div><h2>Prompt coverage</h2><p>${coveredCount}/10 prompts covered. Build at least one strong story for each.</p></div></div>
+          <ol class="subtle">${prompts.map((prompt) => {
+            const covered = coveredPromptIds.has(behavioralPromptId(prompt));
+            return `<li class="${covered ? '' : 'pitfall'}"><strong>${escapeHtml(prompt.title)}:</strong> ${escapeHtml(prompt.prompt)} <span class="status-badge ${covered ? 'status-green' : 'status-amber'}">${covered ? 'Covered' : 'Uncovered'}</span></li>`;
+          }).join('')}</ol>
         </div>
       </section>
       <section class="section-gap">
         <div class="card-header"><div><h2>Your story bank</h2><p>${state.starStories.length}/8 minimum stories created.</p></div></div>
         ${state.starStories.length ? `<div class="grid grid-2">${state.starStories.map(renderStoryCard).join('')}</div>` : '<div class="empty-state">No stories yet. Start with your highest-impact production CV project.</div>'}
       </section>
-      <section class="card section-gap">
-        <div class="card-header"><div><h2>Log a rehearsal</h2><p>Two no-notes rehearsals are required for readiness.</p></div></div>
-        <form id="rehearsal-form" class="form-grid">
-          <div class="form-field"><label for="rehearsal-duration">Minutes</label><input id="rehearsal-duration" name="durationMinutes" type="number" min="1" max="60" required></div>
-          <label class="check-field" for="rehearsal-no-notes"><input id="rehearsal-no-notes" type="checkbox" name="withoutNotes"> Completed without notes</label>
-          <div class="form-field full"><label for="rehearsal-note">What needs tightening?</label><input id="rehearsal-note" name="note" required></div>
-          <div class="form-field full"><button class="button" type="submit">Save rehearsal</button></div>
-        </form>
+      <section class="grid grid-2 section-gap">
+        <article class="card">
+          <div class="card-header"><div><h2>Project evidence inventory</h2><p>${state.storyInventory.length}/10 examples captured before drafting.</p></div></div>
+          <form id="inventory-form" class="form-grid">
+            <div class="form-field full"><label for="inventory-title">Project or incident</label><input id="inventory-title" name="title" required></div>
+            <div class="form-field full"><label for="inventory-note">Scope, decision, action, and result</label><textarea id="inventory-note" name="note" required></textarea></div>
+            <div class="form-field full"><button class="button" type="submit">Add inventory item</button></div>
+          </form>
+          ${state.storyInventory.length ? `<ul class="subtle">${state.storyInventory.map((item, index) => `
+            <li><strong>${escapeHtml(item.title)}</strong> — ${escapeHtml(item.note)} <button class="button button-small button-danger" type="button" data-action="delete-inventory" data-index="${index}">Delete</button></li>`).join('')}</ul>` : '<p class="empty-state">No project evidence inventoried yet.</p>'}
+        </article>
+        <article class="card">
+          <div class="card-header"><div><h2>Log a rehearsal</h2><p>${state.rehearsals.length} typed rehearsals logged; readiness counts no-notes story rehearsals.</p></div></div>
+          <form id="rehearsal-form" class="form-grid">
+            <div class="form-field"><label for="rehearsal-kind">Kind</label><select id="rehearsal-kind" name="kind" required><option value="story">Story</option><option value="intro">Career introduction</option><option value="project-deep-dive">Project deep dive</option><option value="full-round">Full behavioral round</option></select></div>
+            <div class="form-field"><label for="rehearsal-duration">Minutes</label><input id="rehearsal-duration" name="durationMinutes" type="number" min="1" max="60" required></div>
+            <div class="form-field full"><label for="rehearsal-ref">Story, prompt, or case reference (optional)</label><input id="rehearsal-ref" name="refId" placeholder="For example: segmentation"></div>
+            <label class="check-field" for="rehearsal-no-notes"><input id="rehearsal-no-notes" type="checkbox" name="withoutNotes"> Completed without notes</label>
+            <div class="form-field full"><label for="rehearsal-note">What needs tightening?</label><input id="rehearsal-note" name="note" required></div>
+            <div class="form-field full"><button class="button" type="submit">Save rehearsal</button></div>
+          </form>
+        </article>
       </section>
       ${renderResources('behavioral')}`;
   }
 
+  function mockDebriefForm() {
+    if (editingMockIndex === null) return '';
+    const mock = state.mocks[editingMockIndex];
+    if (!mock) return '';
+    const debrief = mock.debrief || {};
+    const weakness = debrief.weaknesses?.[0] || {};
+    return `
+      <section class="card section-gap" id="mock-debrief-editor">
+        <div class="card-header"><div><h2>${mock.debrief ? 'Update' : 'Add'} debrief</h2><p>${escapeHtml(mock.source)} · ${escapeHtml(mock.type)}</p></div></div>
+        <form id="mock-debrief-form" class="form-grid">
+          <input type="hidden" name="index" value="${editingMockIndex}">
+          <label class="check-field full" for="mock-no-material-weakness"><input id="mock-no-material-weakness" type="checkbox" name="noMaterialWeakness" ${debrief.noMaterialWeakness ? 'checked' : ''}> Reviewed: no material weakness</label>
+          <div class="form-field full"><label for="mock-debrief-weakness">Weakness</label><input id="mock-debrief-weakness" name="weakness" value="${escapeHtml(weakness.text || '')}"></div>
+          <div class="form-field full"><label for="mock-debrief-remediation">Remediation</label><input id="mock-debrief-remediation" name="remediation" value="${escapeHtml(weakness.remediation || '')}"></div>
+          <label class="check-field" for="mock-debrief-complete"><input id="mock-debrief-complete" type="checkbox" name="remediationComplete" ${weakness.remediationComplete ? 'checked' : ''}> Remediation complete</label>
+          <div class="form-field full card-actions"><button class="button button-primary" type="submit">Save debrief</button><button class="button" type="button" data-action="cancel-mock-debrief">Cancel</button></div>
+        </form>
+      </section>`;
+  }
+
   function renderMocks() {
     return `
-      ${pageHeader('Mock interviews', 'Practice under interview conditions', 'Feedback counts when a weakness becomes a concrete remediation task.')}
+      ${pageHeader('Mock interviews', 'Practice under interview conditions', 'A mock attempt and its reviewed debrief are separate evidence.')}
       <section class="grid grid-2">
         <div class="card">
-          <div class="card-header"><div><h2>Log a mock</h2><p>Minimum: two coding and two ML/system-design mocks.</p></div></div>
+          <div class="card-header"><div><h2>Log mock attempt</h2><p>Minimum: two coding and two ML/system-design attempts.</p></div></div>
           <form id="mock-form" class="form-grid">
             <div class="form-field"><label for="mock-type">Type</label><select id="mock-type" name="type"><option value="coding">Coding</option><option value="ml-system">ML / system design</option></select></div>
             <div class="form-field"><label for="mock-source">Source or partner</label><input id="mock-source" name="source" required></div>
             <label class="check-field" for="mock-advance"><input id="mock-advance" type="checkbox" name="wouldAdvance"> Would advance</label>
-            <div class="form-field full"><label for="mock-weakness">Main weakness</label><input id="mock-weakness" name="weakness"></div>
-            <div class="form-field full"><label for="mock-remediation">Remediation task</label><input id="mock-remediation" name="remediation"></div>
-            <label class="check-field" for="mock-remediation-complete"><input id="mock-remediation-complete" type="checkbox" name="remediationComplete"> Remediation complete</label>
-            <div class="form-field full"><button class="button button-primary" type="submit">Save mock</button></div>
+            <div class="form-field full"><button class="button button-primary" type="submit">Save mock attempt</button></div>
           </form>
         </div>
         <div class="card">
           <h2>Mock protocol</h2>
-          <ol class="subtle"><li>Use a timer and speak every decision aloud.</li><li>Ask for an advance/no-advance signal.</li><li>Record one concrete weakness.</li><li>Close the remediation before the next mock.</li></ol>
+          <ol class="subtle"><li>Use a timer and speak every decision aloud.</li><li>Ask for an advance/no-advance signal.</li><li>Save the attempt before reviewing it.</li><li>Add a debrief and close its remediation.</li></ol>
         </div>
       </section>
       <section class="section-gap">
-        <div class="card-header"><div><h2>Mock history</h2><p>${state.mocks.length} mocks logged.</p></div></div>
+        <div class="card-header"><div><h2>Mock history</h2><p>${state.mocks.length} attempts logged.</p></div></div>
         ${state.mocks.length ? `
-          <div class="table-wrap"><table><thead><tr><th>Type</th><th>Source</th><th>Signal</th><th>Weakness</th><th>Remediation</th><th></th></tr></thead><tbody>
+          <div class="table-wrap"><table><thead><tr><th>Type</th><th>Source</th><th>Signal</th><th>Debrief</th><th>Remediation</th><th></th></tr></thead><tbody>
             ${state.mocks.map((mock, index) => {
-              const weakness = mock.weaknesses?.[0];
-              return `<tr><td>${escapeHtml(mock.type)}</td><td>${escapeHtml(mock.source)}</td><td><span class="status-badge ${mock.wouldAdvance ? 'status-green' : 'status-red'}">${mock.wouldAdvance ? 'Advance' : 'No'}</span></td><td>${escapeHtml(weakness?.text || 'None')}</td><td>${weakness ? (weakness.remediationComplete ? 'Complete' : escapeHtml(weakness.remediation || 'Missing')) : 'None'}</td><td><button class="button button-small button-danger" type="button" data-action="delete-mock" data-index="${index}">Delete</button></td></tr>`;
+              const debrief = mock.debrief;
+              const weakness = debrief?.weaknesses?.[0];
+              const debriefLabel = debrief?.noMaterialWeakness
+                ? 'No material weakness'
+                : weakness?.text || 'Not reviewed';
+              const remediationLabel = debrief?.noMaterialWeakness
+                ? 'Reviewed'
+                : weakness
+                  ? (weakness.remediationComplete ? 'Complete' : weakness.remediation || 'Missing')
+                  : 'Pending';
+              return `<tr><td>${escapeHtml(mock.type)}</td><td>${escapeHtml(mock.source)}</td><td><span class="status-badge ${mock.wouldAdvance ? 'status-green' : 'status-red'}">${mock.wouldAdvance ? 'Advance' : 'No'}</span></td><td>${escapeHtml(debriefLabel)}</td><td>${escapeHtml(remediationLabel)}</td><td><div class="card-actions"><button class="button button-small" type="button" data-action="edit-mock-debrief" data-index="${index}">${debrief ? 'Update' : 'Add'} debrief</button><button class="button button-small button-danger" type="button" data-action="delete-mock" data-index="${index}">Delete</button></div></td></tr>`;
             }).join('')}
-          </tbody></table></div>` : '<div class="empty-state">No mocks logged yet.</div>'}
+          </tbody></table></div>` : '<div class="empty-state">No mock attempts logged yet.</div>'}
       </section>
+      ${mockDebriefForm()}
       ${renderResources('mocks')}`;
   }
 
@@ -1723,17 +1859,33 @@
       toast('Choose a valid design case.');
       return;
     }
-    const scores = Object.fromEntries(
-      RUBRIC_DIMENSIONS.map((dimension) => [dimension, Number(values[`score-${dimension}`])])
-    );
-    const attempt = {
-      caseId: values.caseId,
-      durationMinutes: Number(values.durationMinutes),
-      scores,
-      note: values.note,
-      attemptedAt: new Date().toISOString()
-    };
-    commitState({ ...state, designAttempts: [...state.designAttempts, attempt] }, 'Design rubric saved');
+    const phase = ['requirements', 'attempt', 'debrief'].includes(values.phase)
+      ? values.phase
+      : 'attempt';
+    const note = values.note?.trim() || '';
+    if (!note) {
+      toast('Add notes before saving this design evidence.');
+      return;
+    }
+    const attemptedAt = new Date().toISOString();
+    const attempt = phase === 'attempt'
+      ? {
+          caseId: values.caseId,
+          phase,
+          durationMinutes: Number(values.durationMinutes),
+          scores: Object.fromEntries(
+            RUBRIC_DIMENSIONS.map((dimension) => [dimension, Number(values[`score-${dimension}`])])
+          ),
+          note,
+          attemptedAt
+        }
+      : { caseId: values.caseId, phase, note, attemptedAt };
+    const message = phase === 'attempt'
+      ? 'Design rubric saved'
+      : phase === 'requirements'
+        ? 'Design requirements saved'
+        : 'Design debrief saved';
+    commitState({ ...state, designAttempts: [...state.designAttempts, attempt] }, message);
   }
 
   function handleManualStage(form) {
@@ -1761,6 +1913,7 @@
     const existing = editingStoryIndex === null ? null : state.starStories[editingStoryIndex];
     const story = {
       ...existing,
+      promptId: values.promptId?.trim() || null,
       title: values.title,
       situation: values.situation,
       task: values.task,
@@ -1781,9 +1934,31 @@
     commitState({ ...state, starStories: stories }, existing ? 'Story updated' : 'Story saved');
   }
 
+  function handleInventory(form) {
+    const values = formDataObject(form);
+    const title = values.title?.trim() || '';
+    const note = values.note?.trim() || '';
+    if (!title || !note) {
+      toast('Add both a title and evidence note.');
+      return;
+    }
+    const createdAt = new Date().toISOString();
+    const item = {
+      id: window.crypto?.randomUUID?.() || `inventory-${Date.now()}`,
+      title,
+      note,
+      createdAt
+    };
+    commitState({ ...state, storyInventory: [...state.storyInventory, item] }, 'Inventory item saved');
+  }
+
   function handleRehearsal(form) {
     const values = formDataObject(form);
+    const kinds = ['story', 'intro', 'project-deep-dive', 'full-round'];
+    const refId = values.refId?.trim() || '';
     const rehearsal = {
+      kind: kinds.includes(values.kind) ? values.kind : 'story',
+      ...(refId ? { refId } : {}),
       durationMinutes: Number(values.durationMinutes),
       withoutNotes: values.withoutNotes === 'on',
       note: values.note,
@@ -1794,21 +1969,43 @@
 
   function handleMock(form) {
     const values = formDataObject(form);
-    const weakness = values.weakness?.trim()
-      ? [{
-          text: values.weakness.trim(),
-          remediation: values.remediation?.trim() || '',
-          remediationComplete: values.remediationComplete === 'on'
-        }]
-      : [];
     const mock = {
       type: values.type,
       source: values.source,
       wouldAdvance: values.wouldAdvance === 'on',
-      weaknesses: weakness,
+      debrief: null,
       createdAt: new Date().toISOString()
     };
-    commitState({ ...state, mocks: [...state.mocks, mock] }, 'Mock saved');
+    commitState({ ...state, mocks: [...state.mocks, mock] }, 'Mock attempt saved');
+  }
+
+  function handleMockDebrief(form) {
+    const values = formDataObject(form);
+    const index = Number(values.index);
+    if (!Number.isInteger(index) || index < 0 || index >= state.mocks.length) {
+      toast('That mock attempt is unavailable.');
+      return;
+    }
+    const noMaterialWeakness = values.noMaterialWeakness === 'on';
+    const weakness = values.weakness?.trim() || '';
+    const remediation = values.remediation?.trim() || '';
+    if (!noMaterialWeakness && (!weakness || !remediation)) {
+      toast('Add both a weakness and remediation, or mark no material weakness.');
+      return;
+    }
+    const debrief = {
+      weaknesses: noMaterialWeakness ? [] : [{
+        text: weakness,
+        remediation,
+        remediationComplete: values.remediationComplete === 'on'
+      }],
+      noMaterialWeakness,
+      reviewedAt: new Date().toISOString()
+    };
+    const mocks = [...state.mocks];
+    mocks[index] = { ...mocks[index], debrief };
+    editingMockIndex = null;
+    commitState({ ...state, mocks }, 'Mock debrief saved');
   }
 
   function handleApplication(form) {
@@ -1846,8 +2043,10 @@
     if (form.classList.contains('design-attempt-form')) return handleDesignAttempt(form);
     if (form.classList.contains('manual-stage-form')) return handleManualStage(form);
     if (form.id === 'story-form') return handleStory(form);
+    if (form.id === 'inventory-form') return handleInventory(form);
     if (form.id === 'rehearsal-form') return handleRehearsal(form);
     if (form.id === 'mock-form') return handleMock(form);
+    if (form.id === 'mock-debrief-form') return handleMockDebrief(form);
     if (form.id === 'application-form') return handleApplication(form);
 
     if (form.id === 'manual-time-form') {
@@ -1896,6 +2095,11 @@
   async function importData(file) {
     if (!file) return;
     const previousState = state;
+    const previousEditingState = {
+      story: editingStoryIndex,
+      mock: editingMockIndex,
+      application: editingApplicationIndex
+    };
     try {
       const parsed = JSON.parse(await file.text());
       const result = logic.validateImportedState(parsed);
@@ -1903,6 +2107,9 @@
         toast(result.error);
         return;
       }
+      editingStoryIndex = null;
+      editingMockIndex = null;
+      editingApplicationIndex = null;
       if (commitState(result.value, 'Backup imported')) {
         try {
           localStorage.removeItem(STORAGE_KEY_V1);
@@ -1911,6 +2118,9 @@
         }
       } else {
         state = previousState;
+        editingStoryIndex = previousEditingState.story;
+        editingMockIndex = previousEditingState.mock;
+        editingApplicationIndex = previousEditingState.application;
       }
     } catch (_error) {
       toast('The selected file is not valid JSON. Current progress was not changed.');
@@ -1925,12 +2135,24 @@
       toast('Reset cancelled');
       return;
     }
+    const previousEditingState = {
+      story: editingStoryIndex,
+      mock: editingMockIndex,
+      application: editingApplicationIndex
+    };
+    editingStoryIndex = null;
+    editingMockIndex = null;
+    editingApplicationIndex = null;
     if (commitState(logic.createInitialState(), 'Dashboard reset', { syncGuided: false })) {
       try {
         localStorage.removeItem(STORAGE_KEY_V1);
       } catch (_error) {
         // The clean v2 state remains authoritative.
       }
+    } else {
+      editingStoryIndex = previousEditingState.story;
+      editingMockIndex = previousEditingState.mock;
+      editingApplicationIndex = previousEditingState.application;
     }
   }
 
@@ -2018,7 +2240,25 @@
       return;
     }
     if (action === 'delete-story') return removeAt('starStories', control.dataset.index, 'Story deleted');
-    if (action === 'delete-mock') return removeAt('mocks', control.dataset.index, 'Mock deleted');
+    if (action === 'delete-inventory') return removeAt('storyInventory', control.dataset.index, 'Inventory item deleted');
+    if (action === 'edit-mock-debrief') {
+      const index = Number(control.dataset.index);
+      if (!Number.isInteger(index) || index < 0 || index >= state.mocks.length) return;
+      editingMockIndex = index;
+      render();
+      document.querySelector('#mock-debrief-editor')?.scrollIntoView({ block: 'start' });
+      document.querySelector('#mock-debrief-weakness')?.focus();
+      return;
+    }
+    if (action === 'cancel-mock-debrief') {
+      editingMockIndex = null;
+      render();
+      return;
+    }
+    if (action === 'delete-mock') {
+      editingMockIndex = null;
+      return removeAt('mocks', control.dataset.index, 'Mock deleted');
+    }
 
     if (action === 'edit-application') {
       editingApplicationIndex = Number(control.dataset.index);

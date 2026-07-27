@@ -343,6 +343,86 @@
       assignment: 'Read the metric definition, decomposition, comparison with MOTA and IDF1, and interpretation guidance.'
     },
     {
+      id: 'pytorch-distributed-training',
+      title: 'PyTorch Distributed: DDP and FSDP tutorials',
+      provider: 'PyTorch documentation',
+      url: 'https://docs.pytorch.org/tutorials/intermediate/ddp_tutorial.html',
+      access: 'Free',
+      tags: ['foundations', 'system-design'],
+      use: 'Primary implementation guidance for process-per-device DistributedDataParallel and fully sharded parameters, gradients, and optimizer state.',
+      assignment: 'Read the DDP tutorial, then the linked FSDP tutorial; write down communication boundaries, memory ownership, checkpoint format, and failure-recovery assumptions.'
+    },
+    {
+      id: 'deepspeed-zero',
+      title: 'ZeRO: memory-efficient distributed training',
+      provider: 'DeepSpeed documentation',
+      url: 'https://www.deepspeed.ai/tutorials/zero/',
+      access: 'Free',
+      tags: ['foundations', 'system-design'],
+      use: 'Ground the differences among ZeRO stages that shard optimizer state, gradients, and parameters, including offload tradeoffs.',
+      assignment: 'Map ZeRO stages 1–3 to memory saved, collective communication added, checkpoint requirements, and the bottleneck that offload moves to CPU or storage.'
+    },
+    {
+      id: 'mlflow-tracking-registry',
+      title: 'MLflow Tracking and Model Registry',
+      provider: 'MLflow documentation',
+      url: 'https://mlflow.org/docs/latest/ml/model-registry/',
+      access: 'Free',
+      tags: ['foundations', 'system-design'],
+      use: 'Concrete reference for experiment lineage, immutable artifacts, model versions, aliases, promotion metadata, and auditable rollback.',
+      assignment: 'Trace one run from parameters, code and dataset identity through metrics and artifacts to a registered version, staged alias change, deployment, and rollback.'
+    },
+    {
+      id: 'google-mlops-cicd',
+      title: 'MLOps: continuous delivery and automation pipelines in machine learning',
+      provider: 'Google Cloud Architecture Center',
+      url: 'https://cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning',
+      access: 'Free',
+      tags: ['foundations', 'system-design'],
+      use: 'Reference architecture for CI, continuous delivery, continuous training, validation gates, metadata, orchestration, and deployment promotion.',
+      assignment: 'Identify the unit, data, schema, training, model-quality, integration, and serving checks that must pass before an artifact can be promoted.'
+    },
+    {
+      id: 'triton-inference-server',
+      title: 'NVIDIA Triton Inference Server user guide',
+      provider: 'NVIDIA documentation',
+      url: 'https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/',
+      access: 'Free',
+      tags: ['foundations', 'system-design'],
+      use: 'Serving reference for model repositories, dynamic batching, concurrent execution, ensembles, metrics, and accelerator-aware configuration.',
+      assignment: 'Compare one unbatched and dynamically batched deployment under the same p50/p99 latency SLO, throughput, queue delay, GPU memory, and failure policy.'
+    },
+    {
+      id: 'torchserve',
+      title: 'TorchServe documentation',
+      provider: 'PyTorch Serve documentation',
+      url: 'https://docs.pytorch.org/serve/',
+      access: 'Free',
+      tags: ['foundations', 'system-design'],
+      use: 'Study a PyTorch-native model archive, handler, worker, batching, metrics, and deployment contract while noting the project maintenance status before choosing it for a new system.',
+      assignment: 'Trace preprocessing, inference, postprocessing, worker scaling, metrics, and rollback; compare operational fit with Triton rather than selecting by framework familiarity.'
+    },
+    {
+      id: 'vllm-serving',
+      title: 'vLLM serving documentation',
+      provider: 'vLLM project',
+      url: 'https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html',
+      access: 'Free',
+      tags: ['foundations', 'system-design'],
+      use: 'Reference for high-throughput language-model serving, continuous request scheduling, KV-cache pressure, tensor parallelism, and an OpenAI-compatible API.',
+      assignment: 'Profile time to first token, inter-token latency, request throughput, KV-cache utilization, preemption, batching, and quality under the production prompt-length distribution.'
+    },
+    {
+      id: 'evidently-monitoring',
+      title: 'Evidently ML monitoring guides',
+      provider: 'Evidently AI documentation',
+      url: 'https://docs.evidentlyai.com/',
+      access: 'Free',
+      tags: ['foundations', 'system-design'],
+      use: 'Practical reference for data-quality checks, drift reports, delayed-label performance, dashboards, and alerting without equating statistical drift with model harm.',
+      assignment: 'Design one dashboard with service SLOs, schema and feature checks, prediction slices, delayed-label quality, stable references, alert ownership, and a falsifiable retraining trigger.'
+    },
+    {
       id: 'exponent-practice',
       title: 'Exponent Practice (formerly Pramp)',
       provider: 'Exponent',

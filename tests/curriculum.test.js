@@ -33,11 +33,20 @@ const expectedCodingModuleIds = [
   'intervals',
   'backtracking',
   'dynamic-programming',
-  'ml-coding'
+  'ml-coding',
+  'ml-coding-nn',
+  'tries',
+  'bit-manipulation',
+  'math-number-theory',
+  'advanced-dp',
+  'greedy',
+  'strings-kmp',
+  'design-lru-lfu',
+  'divide-and-conquer'
 ];
 
 describe('coding learning modules', () => {
-  test('exports all fifteen concept areas without replacing existing registries', () => {
+  test('exports all twenty-four concept areas without replacing existing registries', () => {
     expect(data.existingRegistryMarker).toBe(true);
     expect(Array.isArray(data.foundationModules)).toBe(true);
     expect(Array.isArray(data.modernCvModules)).toBe(true);
@@ -159,6 +168,142 @@ describe('Phase 1C study content', () => {
     }
   });
 
+  test('locks the complete Tier-2 foundation, modern-CV, and from-scratch coding contract', () => {
+    const tier2FoundationIds = [
+      'dl-architectures',
+      'sequence-attention',
+      'training-stability',
+      'mlops-scale',
+      'classical-ml-advanced',
+      'probability-experimentation'
+    ];
+    const tier2ModernIds = [
+      'self-supervised-vision',
+      'generative-vision',
+      'video-motion',
+      'multimodal-vision',
+      'efficient-vision-transformers'
+    ];
+
+    expect(data.foundationModules.map(({ id }) => id).filter((id) => tier2FoundationIds.includes(id)))
+      .toEqual(tier2FoundationIds);
+    expect(data.modernCvModules.map(({ id }) => id).filter((id) => tier2ModernIds.includes(id)))
+      .toEqual(tier2ModernIds);
+
+    for (const id of tier2FoundationIds) {
+      const module = foundationById.get(id);
+      expect(module?.required).toBe(true);
+      expect(module.summary.length).toBeGreaterThan(80);
+      expect(module.keyPoints.length).toBeGreaterThanOrEqual(5);
+      expect(module.formulas.length).toBeGreaterThanOrEqual(2);
+      expect(module.decisionRules.length).toBeGreaterThanOrEqual(3);
+      expect(module.pitfalls.length).toBeGreaterThanOrEqual(3);
+      expect(module.systemDesignUse.length).toBeGreaterThan(60);
+      expect(module.recall.length).toBeGreaterThanOrEqual(3);
+    }
+
+    const dlText = JSON.stringify(foundationById.get('dl-architectures'));
+    expect(dlText).toMatch(/MLP/);
+    expect(dlText).toMatch(/AlexNet/);
+    expect(dlText).toMatch(/VGG/);
+    expect(dlText).toMatch(/Inception/);
+    expect(dlText).toMatch(/ResNet/);
+    expect(dlText).toMatch(/DenseNet/);
+    expect(dlText).toMatch(/EfficientNet/);
+    expect(dlText).toMatch(/MobileNet/);
+    expect(dlText).toMatch(/1×1/);
+    expect(dlText).toMatch(/pooling/i);
+    expect(dlText).toMatch(/receptive field/i);
+
+    const sequenceText = JSON.stringify(foundationById.get('sequence-attention'));
+    expect(sequenceText).toMatch(/RNN|recurrent/i);
+    expect(sequenceText).toMatch(/LSTM/);
+    expect(sequenceText).toMatch(/GRU/);
+    expect(sequenceText).toMatch(/self-attention|multi-head|scaled attention/i);
+    expect(sequenceText).toMatch(/positional|causal|KV-cache/i);
+
+    const stabilityText = JSON.stringify(foundationById.get('training-stability'));
+    expect(stabilityText).toMatch(/initialization|Xavier|He/i);
+    expect(stabilityText).toMatch(/BatchNorm|LayerNorm|GroupNorm/);
+    expect(stabilityText).toMatch(/dropout|activation/i);
+    expect(stabilityText).toMatch(/mixed precision|loss scaling/i);
+    expect(stabilityText).toMatch(/accumulation|clipping/i);
+
+    const mlopsText = JSON.stringify(foundationById.get('mlops-scale'));
+    for (const topic of [/DDP/, /FSDP/, /ZeRO/, /experiment tracking/i, /registry/i, /CI|continuous delivery/i, /Triton/, /TorchServe/, /vLLM/, /observability|drift/i]) {
+      expect(mlopsText).toMatch(topic);
+    }
+
+    const classicalText = JSON.stringify(foundationById.get('classical-ml-advanced'));
+    for (const topic of [/tree/i, /random forest/i, /XGBoost/i, /Gaussian mixture|GMM/i, /Naive Bayes/i, /DBSCAN/i, /t-SNE/i, /UMAP/i, /stacking/i]) {
+      expect(classicalText).toMatch(topic);
+    }
+
+    const probabilityText = JSON.stringify(foundationById.get('probability-experimentation'));
+    for (const topic of [/Bernoulli/, /Binomial/, /Poisson/, /Exponential/, /Gaussian/, /law of large numbers|LLN/i, /central limit|CLT/i, /t-test/i, /Chi-square/i, /minimum detectable effect|MDE/i, /sample-ratio mismatch|SRM/i, /sequential/i, /Monte Carlo/i, /MCMC/i, /Markov/i, /Simpson/i]) {
+      expect(probabilityText).toMatch(topic);
+    }
+
+    const detectionText = JSON.stringify(modernById.get('detection-segmentation-foundations'));
+    for (const topic of [/R-CNN/, /Fast R-CNN/, /Faster R-CNN/, /RPN/, /RoIAlign/, /SSD/, /RetinaNet/, /FCOS/, /CenterNet/, /YOLO/, /FCN/, /U-Net/, /DeepLab/, /ASPP/, /Mask R-CNN/, /panoptic/i]) {
+      expect(detectionText).toMatch(topic);
+    }
+
+    const modernText = new Map(tier2ModernIds.map((id) => [id, JSON.stringify(modernById.get(id))]));
+    for (const topic of [/SimCLR/, /MoCo/, /BYOL/, /MAE/]) expect(modernText.get('self-supervised-vision')).toMatch(topic);
+    for (const topic of [/GAN/, /VAE/, /diffusion/i, /DDIM/, /ControlNet/, /super-resolution/i, /inpainting/i, /video generation/i]) expect(modernText.get('generative-vision')).toMatch(topic);
+    for (const topic of [/RAFT/, /I3D/, /SlowFast/, /optical flow/i]) expect(modernText.get('video-motion')).toMatch(topic);
+    for (const topic of [/BLIP-2/, /Q-Former/, /Flamingo/, /OWL-ViT/, /caption/i, /VQA/]) expect(modernText.get('multimodal-vision')).toMatch(topic);
+    const efficientVitText = modernText.get('efficient-vision-transformers');
+    expect(efficientVitText).toMatch(/Swin/);
+    expect(efficientVitText).toMatch(/shifted-window|shifts window/i);
+    expect(efficientVitText).toMatch(/hierarchical/i);
+    expect(efficientVitText).toMatch(/patch merging/i);
+    expect(efficientVitText).toMatch(/linear-attention|linear attention/i);
+    expect(efficientVitText).toMatch(/token pruning/i);
+
+    const scratch = JSON.stringify(codingById.get('ml-coding-nn'));
+    for (const topic of [/multi_head_attention/, /conv2d_nchw/, /logsumexp/, /cross_entropy_logits/, /focal_loss_logits/, /info_nce/, /triplet_margin_loss/, /class Value/, /sgd_step/, /adam_step/, /train_one_epoch/, /mean_average_precision/, /linear_regression_gd/, /logistic_regression_gd/, /kmeans/, /def pca/, /knn_predict/]) {
+      expect(scratch).toMatch(topic);
+    }
+
+    const dsaContracts = new Map([
+      ['tries', [/class Trie/, /starts_with/, /find_words/]],
+      ['bit-manipulation', [/single_number/, /popcount/, /reverse_bits/]],
+      ['math-number-theory', [/def gcd/, /primes_through/, /modular_power/]],
+      ['advanced-dp', [/knapsack_01/, /lis_length/, /lcs_length/]],
+      ['greedy', [/maximum_nonoverlapping/, /can_jump/, /exchange/]],
+      ['strings-kmp', [/prefix_function/, /kmp_search/]],
+      ['design-lru-lfu', [/LRUCache/, /LFUCache/]],
+      ['divide-and-conquer', [/merge_sort/, /kth_smallest/, /quickselect/]]
+    ]);
+    for (const [id, contracts] of dsaContracts) {
+      const moduleText = JSON.stringify(codingById.get(id));
+      for (const contract of contracts) expect(moduleText).toMatch(contract);
+    }
+
+    const tier2ResourceIds = [
+      'pytorch-distributed-training',
+      'deepspeed-zero',
+      'mlflow-tracking-registry',
+      'google-mlops-cicd',
+      'triton-inference-server',
+      'torchserve',
+      'vllm-serving',
+      'evidently-monitoring'
+    ];
+    const tier2Resources = data.resources.filter(({ id }) => tier2ResourceIds.includes(id));
+    expect(tier2Resources.map(({ id }) => id)).toEqual(tier2ResourceIds);
+    expect(tier2Resources.every((resource) =>
+      Object.keys(resource).sort().join(',') === 'access,assignment,id,provider,tags,title,url,use' &&
+      resource.tags.length > 0 && resource.use.length > 40 && resource.assignment.length > 40
+    )).toBe(true);
+    const resourceText = JSON.stringify(tier2Resources);
+    for (const topic of [/DDP/, /FSDP/, /ZeRO/, /Tracking/, /Model Registry/, /continuous delivery/i, /Triton/, /TorchServe/, /vLLM/, /monitoring|drift/i]) {
+      expect(resourceText).toMatch(topic);
+    }
+  });
+
   test('gives every modern-CV module substantive architecture and production recall', () => {
     for (const module of data.modernCvModules) {
       expect(module.recall.length).toBeGreaterThanOrEqual(3);
@@ -169,8 +314,34 @@ describe('Phase 1C study content', () => {
   });
 
   test('adds pressure answers, graph interview code, prefix-suffix teaching, and mock packets', () => {
-    expect(data.systemDesignCases).toHaveLength(8);
+    expect(data.systemDesignCases).toHaveLength(13);
+    expect(data.systemDesignCases.map(({ id }) => id)).toEqual([
+      'image-search',
+      'visual-similarity',
+      'detection-service',
+      'video-moderation',
+      'segmentation',
+      'ocr-documents',
+      'active-learning',
+      'multimodal-rag',
+      'ranking-feed',
+      'ads-ctr',
+      'fraud-anomaly',
+      'visual-search-ltr',
+      'feature-store-pipeline'
+    ]);
     for (const item of data.systemDesignCases) {
+      expect(Object.keys(item).sort()).toEqual([
+        'id',
+        'modernCv',
+        'order',
+        'pressureTest',
+        'pressureTestAnswer',
+        'requirements',
+        'scenario',
+        'solutionOutline',
+        'title'
+      ]);
       expect(item.pressureTestAnswer.length).toBeGreaterThan(100);
       const answer = String(item.pressureTestAnswer);
       expect(answer).toContain('Decision:');
@@ -684,7 +855,7 @@ describe('Phase 1C scheduling and remediation graph', () => {
     expect(mlCoding.stage.type).toBe('practice');
     expect(stageForTaskIn(sessionGuides, 'w5-video-cv').stage.reference).toEqual({
       type: 'module',
-      moduleIds: ['video-tracking']
+      moduleIds: ['video-tracking', 'video-motion']
     });
   });
 
@@ -728,6 +899,24 @@ describe('Phase 1C scheduling and remediation graph', () => {
     expect(data.codingPatternConcepts['Arrays: prefix/suffix']).toEqual(['hashing']);
     expect(data.codingPatternConcepts.Heaps).toEqual(['heaps']);
     expect(data.codingPatternConcepts.Intervals).toEqual(['intervals']);
+    expect(patterns.has('String algorithms')).toBe(true);
+    expect(patterns.has('Cache/data-structure design')).toBe(true);
+    expect(patterns.has('Math & number theory')).toBe(true);
+    expect(patterns.has('Divide and conquer')).toBe(true);
+    expect(patterns.has('ML coding primitives')).toBe(true);
+    expect(patterns.has('Greedy')).toBe(true);
+    expect(patterns.has('Bit manipulation')).toBe(true);
+    expect(patterns.has('Tries')).toBe(true);
+    expect(patterns.has('Advanced dynamic programming')).toBe(true);
+    expect(data.codingPatternConcepts['String algorithms']).toEqual(['strings-kmp', 'sliding-window']);
+    expect(data.codingPatternConcepts['Cache/data-structure design']).toEqual(['design-lru-lfu', 'stack-monotonic']);
+    expect(data.codingPatternConcepts['Math & number theory']).toEqual(['math-number-theory', 'stack-monotonic']);
+    expect(data.codingPatternConcepts['Divide and conquer']).toEqual(['divide-and-conquer', 'heaps']);
+    expect(data.codingPatternConcepts['ML coding primitives']).toEqual(['ml-coding-nn', 'heaps']);
+    expect(data.codingPatternConcepts.Greedy).toEqual(['greedy', 'intervals']);
+    expect(data.codingPatternConcepts['Bit manipulation']).toEqual(['bit-manipulation', 'backtracking']);
+    expect(data.codingPatternConcepts.Tries).toEqual(['tries', 'backtracking']);
+    expect(data.codingPatternConcepts['Advanced dynamic programming']).toEqual(['advanced-dp', 'dynamic-programming']);
   });
 
   test('gives every concrete problem set enough honest interview time', () => {

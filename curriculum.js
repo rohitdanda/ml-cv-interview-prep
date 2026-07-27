@@ -17,12 +17,12 @@
     { id: 'best-time-to-buy-and-sell-stock', title: 'Best Time to Buy and Sell Stock', pattern: 'Sliding window', difficulty: 'Easy', url: 'https://leetcode.com/problems/best-time-to-buy-and-sell-stock/' },
     { id: 'longest-substring-without-repeating-characters', title: 'Longest Substring Without Repeating Characters', pattern: 'Sliding window', difficulty: 'Medium', url: 'https://leetcode.com/problems/longest-substring-without-repeating-characters/' },
     { id: 'longest-repeating-character-replacement', title: 'Longest Repeating Character Replacement', pattern: 'Sliding window', difficulty: 'Medium', url: 'https://leetcode.com/problems/longest-repeating-character-replacement/' },
-    { id: 'permutation-in-string', title: 'Permutation in String', pattern: 'Sliding window', difficulty: 'Medium', url: 'https://leetcode.com/problems/permutation-in-string/' },
+    { id: 'permutation-in-string', title: 'Permutation in String', pattern: 'String algorithms', difficulty: 'Medium', url: 'https://leetcode.com/problems/permutation-in-string/' },
     { id: 'minimum-window-substring', title: 'Minimum Window Substring', pattern: 'Sliding window', difficulty: 'Hard', url: 'https://leetcode.com/problems/minimum-window-substring/' },
 
     { id: 'valid-parentheses', title: 'Valid Parentheses', pattern: 'Stack', difficulty: 'Easy', url: 'https://leetcode.com/problems/valid-parentheses/' },
-    { id: 'min-stack', title: 'Min Stack', pattern: 'Stack', difficulty: 'Medium', url: 'https://leetcode.com/problems/min-stack/' },
-    { id: 'evaluate-reverse-polish-notation', title: 'Evaluate Reverse Polish Notation', pattern: 'Stack', difficulty: 'Medium', url: 'https://leetcode.com/problems/evaluate-reverse-polish-notation/' },
+    { id: 'min-stack', title: 'Min Stack', pattern: 'Cache/data-structure design', difficulty: 'Medium', url: 'https://leetcode.com/problems/min-stack/' },
+    { id: 'evaluate-reverse-polish-notation', title: 'Evaluate Reverse Polish Notation', pattern: 'Math & number theory', difficulty: 'Medium', url: 'https://leetcode.com/problems/evaluate-reverse-polish-notation/' },
     { id: 'daily-temperatures', title: 'Daily Temperatures', pattern: 'Stack', difficulty: 'Medium', url: 'https://leetcode.com/problems/daily-temperatures/' },
     { id: 'car-fleet', title: 'Car Fleet', pattern: 'Stack', difficulty: 'Medium', url: 'https://leetcode.com/problems/car-fleet/' },
 
@@ -48,12 +48,12 @@
     { id: 'kth-smallest-element-in-a-bst', title: 'Kth Smallest Element in a BST', pattern: 'Trees', difficulty: 'Medium', url: 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/' },
     { id: 'lowest-common-ancestor-of-a-binary-search-tree', title: 'Lowest Common Ancestor of a BST', pattern: 'Trees', difficulty: 'Medium', url: 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/' },
 
-    { id: 'kth-largest-element-in-an-array', title: 'Kth Largest Element in an Array', pattern: 'Heaps', difficulty: 'Medium', url: 'https://leetcode.com/problems/kth-largest-element-in-an-array/' },
+    { id: 'kth-largest-element-in-an-array', title: 'Kth Largest Element in an Array', pattern: 'Divide and conquer', difficulty: 'Medium', url: 'https://leetcode.com/problems/kth-largest-element-in-an-array/' },
     { id: 'last-stone-weight', title: 'Last Stone Weight', pattern: 'Heaps', difficulty: 'Easy', url: 'https://leetcode.com/problems/last-stone-weight/' },
-    { id: 'k-closest-points-to-origin', title: 'K Closest Points to Origin', pattern: 'Heaps', difficulty: 'Medium', url: 'https://leetcode.com/problems/k-closest-points-to-origin/' },
+    { id: 'k-closest-points-to-origin', title: 'K Closest Points to Origin', pattern: 'ML coding primitives', difficulty: 'Medium', url: 'https://leetcode.com/problems/k-closest-points-to-origin/' },
     { id: 'merge-intervals', title: 'Merge Intervals', pattern: 'Intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/merge-intervals/' },
     { id: 'insert-interval', title: 'Insert Interval', pattern: 'Intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/insert-interval/' },
-    { id: 'non-overlapping-intervals', title: 'Non-overlapping Intervals', pattern: 'Intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/non-overlapping-intervals/' },
+    { id: 'non-overlapping-intervals', title: 'Non-overlapping Intervals', pattern: 'Greedy', difficulty: 'Medium', url: 'https://leetcode.com/problems/non-overlapping-intervals/' },
     { id: 'task-scheduler', title: 'Task Scheduler', pattern: 'Heaps', difficulty: 'Medium', url: 'https://leetcode.com/problems/task-scheduler/' },
 
     { id: 'number-of-islands', title: 'Number of Islands', pattern: 'Graphs', difficulty: 'Medium', url: 'https://leetcode.com/problems/number-of-islands/' },
@@ -64,14 +64,14 @@
     { id: 'rotting-oranges', title: 'Rotting Oranges', pattern: 'Graphs', difficulty: 'Medium', url: 'https://leetcode.com/problems/rotting-oranges/' },
     { id: 'redundant-connection', title: 'Redundant Connection', pattern: 'Graphs', difficulty: 'Medium', url: 'https://leetcode.com/problems/redundant-connection/' },
 
-    { id: 'subsets', title: 'Subsets', pattern: 'Backtracking', difficulty: 'Medium', url: 'https://leetcode.com/problems/subsets/' },
+    { id: 'subsets', title: 'Subsets', pattern: 'Bit manipulation', difficulty: 'Medium', url: 'https://leetcode.com/problems/subsets/' },
     { id: 'combination-sum', title: 'Combination Sum', pattern: 'Backtracking', difficulty: 'Medium', url: 'https://leetcode.com/problems/combination-sum/' },
     { id: 'permutations', title: 'Permutations', pattern: 'Backtracking', difficulty: 'Medium', url: 'https://leetcode.com/problems/permutations/' },
-    { id: 'word-search', title: 'Word Search', pattern: 'Backtracking', difficulty: 'Medium', url: 'https://leetcode.com/problems/word-search/' },
+    { id: 'word-search', title: 'Word Search', pattern: 'Tries', difficulty: 'Medium', url: 'https://leetcode.com/problems/word-search/' },
 
     { id: 'climbing-stairs', title: 'Climbing Stairs', pattern: 'Dynamic programming', difficulty: 'Easy', url: 'https://leetcode.com/problems/climbing-stairs/' },
     { id: 'house-robber', title: 'House Robber', pattern: 'Dynamic programming', difficulty: 'Medium', url: 'https://leetcode.com/problems/house-robber/' },
-    { id: 'coin-change', title: 'Coin Change', pattern: 'Dynamic programming', difficulty: 'Medium', url: 'https://leetcode.com/problems/coin-change/' }
+    { id: 'coin-change', title: 'Coin Change', pattern: 'Advanced dynamic programming', difficulty: 'Medium', url: 'https://leetcode.com/problems/coin-change/' }
   ];
 
   const optionalProblems = [];
@@ -306,7 +306,7 @@
       week: 7,
       phase: 'Build',
       theme: 'OCR, active learning, multimodal systems',
-      goal: 'Complete all eight system-design cases and convert the story inventory into interview answers.',
+      goal: 'Complete all thirteen system-design cases and convert the story inventory into interview answers.',
       sessions: [
         session('w7-mon', '2026-09-07', 'Timed heap and DP set', 'coding', 'Hold the medium interview bar across priority and recurrence problems', 'Cap Linked List Cycle at 15 minutes, then use 25 minutes per medium.', 90, [task('w7-timed-a', 'One warmup and three timed mediums', 'Linked List Cycle, Kth Largest Element in an Array, Task Scheduler, and Coin Change.', 90, 'coding')]),
         session('w7-tue', '2026-09-08', 'Vision-language models and diffusion', 'modern-cv', 'Explain capability without treating models as magic', 'Separate perception, grounding, language generation, and generative priors.', 90, [
@@ -331,7 +331,7 @@
         ]),
         session('w7-sun', '2026-09-13', 'Build-phase checkpoint', 'mocks', 'Prove coverage before simulation', 'Run timed theory and design checks; repair only demonstrated gaps.', 180, [
           task('w7-rapid-fire', 'ML rapid-fire', 'Complete 20 questions without notes; log as a rapid-fire quiz.', 45, 'foundations'),
-          task('w7-design-random', 'Random 40-minute design', 'Select one of eight cases and score all ten rubric dimensions.', 50, 'system-design'),
+          task('w7-design-random', 'Random 40-minute design', 'Select one of thirteen cases and score all ten rubric dimensions.', 50, 'system-design'),
           task('w7-coding-random', 'ML coding lab', 'Implement stable BCE training, vectorized IoU, and greedy NMS while stating shapes and complexity.', 35, 'coding'),
           task('w7-retro', 'Phase retrospective', 'List exact gates that remain red or amber.', 50, 'behavioral')
         ])
@@ -481,13 +481,13 @@
 
     'w2-window-a': stageSpec('practice', references.problems('best-time-to-buy-and-sell-stock', 'longest-substring-without-repeating-characters')),
     'w2-window-b': stageSpec('practice', references.problems('minimum-window-substring')),
-    'w2-window-recall': stageSpec('recall', references.module('sliding-window')),
+    'w2-window-recall': stageSpec('recall', references.module('sliding-window', 'strings-kmp')),
     'w2-probability': stageSpec('learn', references.module('probability')),
-    'w2-distributions': stageSpec('learn', references.module('probability')),
+    'w2-distributions': stageSpec('learn', references.module('probability', 'probability-experimentation')),
     'w2-prob-recall': stageSpec('recall', references.module('probability')),
     'w2-stack-a': stageSpec('practice', references.problems('valid-parentheses', 'min-stack', 'evaluate-reverse-polish-notation')),
     'w2-stack-b': stageSpec('practice', references.problems('daily-temperatures')),
-    'w2-stack-recall': stageSpec('recall', references.module('stack-monotonic')),
+    'w2-stack-recall': stageSpec('recall', references.module('stack-monotonic', 'design-lru-lfu', 'math-number-theory')),
     'w2-binary': stageSpec('practice', references.problems('binary-search', 'search-a-2d-matrix', 'koko-eating-bananas')),
     'w2-linked': stageSpec('practice', references.problems('reverse-linked-list', 'merge-two-sorted-lists')),
     'w2-pointer-check': stageSpec('recall', references.module('binary-search', 'linked-lists')),
@@ -506,12 +506,12 @@
     'w3-gradient-recall': stageSpec('recall', references.module('calculus-backprop')),
     'w3-trees-c': stageSpec('practice', references.problems('binary-tree-level-order-traversal', 'validate-binary-search-tree')),
     'w3-heaps-a': stageSpec('practice', references.problems('last-stone-weight', 'k-closest-points-to-origin')),
-    'w3-heap-recall': stageSpec('recall', references.module('heaps')),
+    'w3-heap-recall': stageSpec('recall', references.module('heaps', 'divide-and-conquer')),
     'w3-graphs-a': stageSpec('practice', references.problems('number-of-islands', 'max-area-of-island')),
     'w3-graphs-b': stageSpec('practice', references.problems('clone-graph', 'rotting-oranges')),
     'w3-graph-recall': stageSpec('recall', references.module('graphs-union-find')),
-    'w3-optimizers': stageSpec('learn', references.module('optimization')),
-    'w3-regularization': stageSpec('learn', references.module('generalization', 'classical-ml')),
+    'w3-optimizers': stageSpec('learn', references.module('optimization', 'training-stability')),
+    'w3-regularization': stageSpec('learn', references.module('generalization', 'classical-ml', 'classical-ml-advanced')),
     'w3-optimization-quiz': stageSpec('verify', references.quiz('rapid-fire-readiness')),
     'w3-graphs-c': stageSpec('practice', references.problems('course-schedule', 'pacific-atlantic-water-flow')),
     'w3-graphs-d': stageSpec('practice', references.problems('redundant-connection')),
@@ -519,11 +519,11 @@
     'w3-retro': stageSpec('reflect', references.instruction()),
 
     'w4-timed-a': stageSpec('practice', references.problems('3sum', 'container-with-most-water', 'permutation-in-string')),
-    'w4-vit': stageSpec('learn', references.module('cnn-vs-transformer', 'vit')),
+    'w4-vit': stageSpec('learn', references.module('cnn-vs-transformer', 'vit', 'dl-architectures', 'sequence-attention', 'efficient-vision-transformers')),
     'w4-detr': stageSpec('learn', references.module('detr')),
     'w4-intervals': stageSpec('practice', references.problems('merge-intervals', 'insert-interval')),
     'w4-backtrack-a': stageSpec('practice', references.problems('subsets', 'permutations')),
-    'w4-state-recall': stageSpec('recall', references.module('intervals', 'backtracking')),
+    'w4-state-recall': stageSpec('recall', references.module('intervals', 'backtracking', 'greedy', 'bit-manipulation', 'tries')),
     'w4-search-requirements': stageSpec('learn', references.design('image-search', 'requirements')),
     'w4-search-architecture': stageSpec('practice', references.design('image-search', 'attempt')),
     'w4-search-review': stageSpec('reflect', references.design('image-search', 'debrief')),
@@ -538,16 +538,16 @@
 
     'w5-timed-a': stageSpec('practice', references.problems('longest-repeating-character-replacement', 'car-fleet', 'find-minimum-in-rotated-sorted-array')),
     'w5-clip': stageSpec('learn', references.module('clip')),
-    'w5-dinov2': stageSpec('learn', references.module('dinov2')),
+    'w5-dinov2': stageSpec('learn', references.module('dinov2', 'self-supervised-vision')),
     'w5-backtrack-b': stageSpec('practice', references.problems('combination-sum', 'word-search')),
     'w5-dp-a': stageSpec('practice', references.problems('climbing-stairs', 'house-robber')),
-    'w5-dp-recall': stageSpec('recall', references.module('dynamic-programming')),
+    'w5-dp-recall': stageSpec('recall', references.module('dynamic-programming', 'advanced-dp')),
     'w5-detection-design': stageSpec('practice', references.design('detection-service', 'attempt')),
     'w5-detection-metrics': stageSpec('learn', references.design('detection-service', 'requirements')),
     'w5-edge-tradeoffs': stageSpec('reflect', references.design('detection-service', 'debrief')),
     'w5-video-design': stageSpec('practice', references.design('video-moderation', 'attempt')),
     'w5-video-debrief': stageSpec('reflect', references.design('video-moderation', 'debrief')),
-    'w5-video-cv': stageSpec('learn', references.module('video-tracking')),
+    'w5-video-cv': stageSpec('learn', references.module('video-tracking', 'video-motion')),
     'w5-story-b': stageSpec('practice', references.story({ savedStoryCount: 4 })),
     'w5-data-quality': stageSpec('learn', references.module('data-debugging')),
     'w5-error-analysis': stageSpec('practice', references.module('data-debugging')),
@@ -572,21 +572,21 @@
     'w6-retro': stageSpec('reflect', references.instruction()),
 
     'w7-timed-a': stageSpec('practice', references.problems('linked-list-cycle', 'kth-largest-element-in-an-array', 'task-scheduler', 'coin-change')),
-    'w7-vlm': stageSpec('learn', references.module('vlm')),
-    'w7-diffusion': stageSpec('learn', references.module('diffusion')),
+    'w7-vlm': stageSpec('learn', references.module('vlm', 'multimodal-vision')),
+    'w7-diffusion': stageSpec('learn', references.module('diffusion', 'generative-vision')),
     'w7-ocr-design': stageSpec('practice', references.design('ocr-documents', 'attempt')),
     'w7-ocr-eval': stageSpec('learn', references.design('ocr-documents', 'requirements')),
     'w7-ocr-failures': stageSpec('reflect', references.design('ocr-documents', 'debrief')),
     'w7-quantization': stageSpec('learn', references.module('compression')),
     'w7-distillation': stageSpec('learn', references.module('compression')),
-    'w7-serving': stageSpec('learn', references.module('compression', 'deployment-monitoring')),
+    'w7-serving': stageSpec('learn', references.module('compression', 'deployment-monitoring', 'mlops-scale')),
     'w7-active-design': stageSpec('practice', references.design('active-learning', 'attempt')),
     'w7-active-debrief': stageSpec('reflect', references.design('active-learning', 'debrief')),
     'w7-multimodal-design': stageSpec('practice', references.design('multimodal-rag', 'attempt')),
     'w7-story-finish': stageSpec('reflect', references.story({ completedStoryCount: 8 })),
     'w7-rapid-fire': stageSpec('verify', references.quiz('rapid-fire-readiness')),
     'w7-design-random': stageSpec('verify', references.instruction('cs329s')),
-    'w7-coding-random': stageSpec('practice', references.module('ml-coding')),
+    'w7-coding-random': stageSpec('practice', references.module('ml-coding', 'ml-coding-nn')),
     'w7-retro': stageSpec('reflect', references.instruction()),
 
     'w8-random-a': stageSpec('verify', references.instruction('leetcode')),
@@ -985,15 +985,24 @@
     'Arrays: prefix/suffix': ['hashing'],
     'Two pointers': ['two-pointers'],
     'Sliding window': ['sliding-window'],
+    'String algorithms': ['strings-kmp', 'sliding-window'],
     'Stack': ['stack-monotonic'],
+    'Cache/data-structure design': ['design-lru-lfu', 'stack-monotonic'],
+    'Math & number theory': ['math-number-theory', 'stack-monotonic'],
     'Binary search': ['binary-search'],
     'Linked lists': ['linked-lists'],
     'Trees': ['trees'],
     'Heaps': ['heaps'],
+    'Divide and conquer': ['divide-and-conquer', 'heaps'],
+    'ML coding primitives': ['ml-coding-nn', 'heaps'],
     'Intervals': ['intervals'],
+    'Greedy': ['greedy', 'intervals'],
     'Graphs': ['graphs-union-find'],
     'Backtracking': ['backtracking'],
-    'Dynamic programming': ['dynamic-programming']
+    'Bit manipulation': ['bit-manipulation', 'backtracking'],
+    'Tries': ['tries', 'backtracking'],
+    'Dynamic programming': ['dynamic-programming'],
+    'Advanced dynamic programming': ['advanced-dp', 'dynamic-programming']
   };
 
   window.InterviewPrepData = {

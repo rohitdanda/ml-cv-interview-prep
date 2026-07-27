@@ -384,6 +384,266 @@
     },
 
     {
+      id: 'dl-architectures',
+      title: 'Deep-learning architecture mechanics and lineage',
+      required: true,
+      summary: 'Senior architecture answers must derive tensor shapes, receptive fields, parameter and activation cost, gradient paths, and the inductive bias of each block before naming a family. The useful lineage from MLPs through modern CNNs explains which bottleneck each architecture changed and which production constraint remains.',
+      keyPoints: [
+        'An MLP alternates affine maps and nonlinearities. Without a nonlinearity, stacked linear layers collapse to one affine map; hidden width controls representation capacity while activation storage often dominates training memory.',
+        'A convolution shares a local kernel across positions. Channels are mixed through the input-channel dimension, stride reduces spatial resolution, dilation spaces kernel taps, and groups restrict channel connectivity.',
+        'AlexNet demonstrated deep ReLU CNNs with GPU training and overlapping pooling; VGG made depth and repeated 3×3 blocks systematic but is parameter-heavy; Inception used parallel receptive fields and 1×1 bottlenecks to control compute.',
+        'A 1×1 convolution performs a learned channel projection at each location. It can reduce or expand channels around an expensive spatial convolution without directly enlarging spatial receptive field.',
+        'ResNet adds identity or projected shortcuts so blocks learn residual corrections and gradients have a short path. DenseNet concatenates all earlier features inside a block, encouraging reuse but increasing activation traffic.',
+        'MobileNet factorizes a dense convolution into depthwise spatial filtering and pointwise channel mixing. Inverted residual blocks expand, filter depthwise, project linearly, and shortcut only when shape permits.',
+        'EfficientNet compound scaling jointly grows depth, width, and input resolution under a compute budget; the coefficients are a searched recipe, not a guarantee that every deployment should scale all three.',
+        'Pooling and strided convolution both reduce resolution. Max pooling preserves a local extreme, average pooling preserves a local mean, and learned striding can alias unless the data and filtering support the sampling change.',
+        'Theoretical receptive field follows kernel, stride, and dilation recurrences, while effective influence is usually concentrated. Dense prediction often needs FPN or skip connections because late features alone lose fine localization.'
+      ],
+      formulas: [
+        'Dense layer: y=φ(Wx+b), with parameter count d_in·d_out+d_out and per-example multiply-add work proportional to d_in·d_out.',
+        'Convolution output: H_out=floor((H+2P−D(K−1)−1)/S+1); parameters=K_hK_wC_inC_out/groups plus optional bias.',
+        'Depthwise-separable K×K convolution uses K²C_in+C_inC_out weights versus K²C_inC_out for a dense convolution when depth multiplier is one.',
+        'Receptive field recurrence: jump_l=jump_{l−1}s_l and RF_l=RF_{l−1}+(k_l−1)d_l·jump_{l−1}.'
+      ],
+      decisionRules: [
+        'Start from a maintained pretrained residual, mobile, or efficient backbone, then choose feature stages and resolution from target-device latency, memory, and smallest-object evidence.',
+        'Use depthwise-separable or bottleneck blocks when measured dense-kernel cost dominates and the runtime has optimized kernels; a lower FLOP count is not sufficient evidence.',
+        'Retain high-resolution skips or a pyramid when boundaries and small instances matter; accept aggressive downsampling only after size-sliced recall remains inside the error budget.',
+        'Compare architecture families under the same preprocessing, pretraining data, optimization budget, precision, batch size, compiler, and target hardware.'
+      ],
+      pitfalls: [
+        'Counting weights but ignoring activations, optimizer state, workspace, memory bandwidth, and kernel launches produces unreliable training and serving estimates.',
+        'A shortcut with mismatched spatial or channel shape is not an identity path; the projection changes parameters, compute, and sometimes information preservation.',
+        'Depthwise convolution does not mix channels, so omitting or bottlenecking the pointwise projection too aggressively can destroy capacity.',
+        'Increasing input resolution changes feature sizes, augmentation, calibration, latency, and often the valid batch size; it is not a free accuracy knob.'
+      ],
+      systemDesignUse: 'State input and feature shapes, stride and receptive-field schedule, checkpoint provenance, normalization, precision, activation and parameter memory, compiler support, and target-hardware p50/p99. Tie every architecture choice to quality by class, size, boundary, and deployment domain.',
+      recall: [
+        { question: 'Why can a stack of affine layers without activations be replaced by one layer?', answer: 'The composition of affine maps is another affine map, so depth adds no new function class until nonlinearities or other non-affine operations separate the maps.' },
+        { question: 'What mechanics make a residual block easier to optimize?', answer: 'The shortcut carries activations and gradients across the block while the residual branch learns a correction, reducing the burden of reconstructing an identity mapping through every nonlinear layer.' },
+        { question: 'How does a MobileNet block reduce convolution cost?', answer: 'It separates per-channel spatial filtering from 1×1 channel mixing, replacing the multiplicative K²C_inC_out cost with K²C_in plus C_inC_out under the simple depthwise-separable form.' },
+        { question: 'Which production evidence justifies an EfficientNet or MobileNet choice?', answer: 'Use identical preprocessing and checkpoints to measure target-runtime latency, throughput, peak memory and energy alongside accuracy, calibration, and small-object or boundary slices.' }
+      ]
+    },
+    {
+      id: 'sequence-attention',
+      title: 'RNNs, gated recurrence, and self-attention',
+      required: true,
+      summary: 'Sequence models differ in how information travels across positions. Senior candidates should derive recurrent state updates and attention shapes, explain gradient and memory paths, and choose recurrence, convolution, or attention from context length, causality, parallelism, streaming state, and deployment cost.',
+      keyPoints: [
+        'A vanilla RNN reuses one transition across time, combining the current input with the prior hidden state. Backpropagation through time multiplies recurrent Jacobians, creating vanishing or exploding gradients over long dependencies.',
+        'An LSTM uses input, forget, and output gates around an additive cell-state path; a GRU combines reset and update gates in a smaller state. Gates improve trainability but do not guarantee unlimited memory.',
+        'Teacher forcing trains an autoregressive decoder on ground-truth previous tokens, while inference consumes its own outputs; scheduled sampling does not automatically solve the resulting distribution mismatch and can bias training.',
+        'Scaled dot-product attention projects queries, keys, and values, scores query-key compatibility, masks illegal positions, normalizes scores, and mixes values. Every mask must define its broadcast axes and whether true means keep or block.',
+        'Multi-head attention splits the model dimension so heads learn different projections, performs attention per head, concatenates head outputs, and applies an output projection. Head count changes per-head width, not the external model width.',
+        'Self-attention uses Q, K, and V from one sequence; cross-attention uses queries from one stream and keys/values from another. Causal self-attention masks future keys but still permits all valid earlier positions.',
+        'Sinusoidal, learned absolute, relative-bias, rotary, and ALiBi-style positional methods inject order differently. Extrapolation beyond trained length is a property to measure, not infer from the formula alone.',
+        'Full attention parallelizes training but materializes an L×L interaction. Autoregressive serving caches past keys and values, reducing repeated projection work while KV-cache memory grows with layers, heads, head width, batch, and context.',
+        'Pre-norm transformer blocks usually improve deep optimization by placing normalization before attention and MLP residual branches; post-norm changes the residual and gradient path and may need different stabilization.'
+      ],
+      formulas: [
+        'Vanilla recurrence: h_t=tanh(W_xx_t+W_hh_{t−1}+b); gradients across k steps contain products of k recurrent Jacobians.',
+        'Scaled attention: Attention(Q,K,V)=softmax((QKᵀ)/√d_k+M)V, where M is 0 for allowed logits and −∞ for blocked logits.',
+        'For B batches, H heads, lengths L_q and L_k, QKᵀ has shape [B,H,L_q,L_k] and full-attention score memory scales as O(BHL_qL_k).',
+        'One LSTM form is c_t=f_t⊙c_{t−1}+i_t⊙g_t and h_t=o_t⊙tanh(c_t), with sigmoid gates f_t,i_t,o_t.'
+      ],
+      decisionRules: [
+        'Use an RNN or compact state-space recurrence when bounded streaming state and per-step latency dominate; use full attention when global pairwise context and parallel training justify quadratic sequence cost.',
+        'Choose causal masking only when the prediction contract forbids future evidence; use bidirectional context for offline encoding where the whole sequence is available.',
+        'Choose positional encoding together with maximum trained and served length, interpolation or extrapolation policy, and export/runtime support.',
+        'For multimodal cross-attention, budget visual and text token counts explicitly and test whether pooling or learned queries preserve task evidence before compressing.'
+      ],
+      pitfalls: [
+        'Applying softmax over the wrong axis makes each query normalize over heads or queries rather than candidate keys while retaining plausible tensor shapes.',
+        'Masking after softmax leaks probability mass to forbidden positions; finite sentinel values can also leak under low precision if they are not sufficiently negative.',
+        'Calling LSTM memory persistent ignores gate saturation, truncation length, state resets, and distribution shift between training and streaming inference.',
+        'KV caching reduces repeated compute but not unbounded memory growth; long contexts can become memory- or bandwidth-bound before arithmetic is saturated.'
+      ],
+      systemDesignUse: 'Specify sequence unit, ordering, causality, context and truncation, state reset, Q/K/V shapes, mask semantics, positional method, KV-cache budget, batching, precision, and overflow behavior. Monitor length slices, attention or gate pathologies, streaming latency, memory, and quality after context or modality compression.',
+      recall: [
+        { question: 'How does the LSTM architecture create a shorter gradient path?', answer: 'Its cell state has an additive update gated by the forget and input terms, so information and gradients need not pass through a fresh full nonlinear transform at every step.' },
+        { question: 'What mechanics turn self-attention into multi-head attention?', answer: 'Learned projections form several lower-width query, key, and value sets; each head scores and mixes independently, then concatenated outputs are projected back to model width.' },
+        { question: 'Why divide attention logits by the square root of key width?', answer: 'Under common independent-component assumptions, unscaled dot-product variance grows with key width, pushing softmax toward saturation; the scaling keeps logits in a more trainable range.' },
+        { question: 'Which production tradeoff decides between recurrence and attention?', answer: 'Measure task quality by dependency length against batch throughput, per-step latency, state or KV-cache memory, streaming reset behavior, compiler kernels, and maximum supported context.' }
+      ]
+    },
+    {
+      id: 'training-stability',
+      title: 'Initialization, normalization, precision, and stable training',
+      required: true,
+      summary: 'Stable training is an end-to-end numerical and statistical contract among data scale, initialization, residual layout, activation, normalization, loss reduction, optimizer, precision, and update cadence. Senior debugging changes one falsifiable cause at a time and records signals before treating a symptom.',
+      keyPoints: [
+        'Xavier initialization targets activation variance for roughly symmetric nonlinearities, while He initialization accounts for ReLU-like gating. Residual-depth scaling and pretrained checkpoints can require architecture-specific initialization.',
+        'Sigmoid and tanh saturate at large magnitude; ReLU can create permanently inactive units; GELU and SiLU are smooth gates with different compute and export behavior. Activation choice interacts with initialization and normalization.',
+        'BatchNorm estimates channel statistics from the training batch and keeps running statistics for inference. LayerNorm normalizes features within each example; GroupNorm groups channels and avoids dependence on batch composition.',
+        'Dropout samples multiplicative masks during training and is disabled in evaluation. It regularizes co-adaptation but changes activation variance and is not a substitute for data, weight decay, or early stopping.',
+        'Mixed precision keeps selected operations and tensors in lower precision while sensitive reductions or master updates use safer precision. Dynamic loss scaling detects overflow and adjusts scale; it does not repair an unstable objective.',
+        'Gradient accumulation divides or otherwise normalizes microbatch losses so several backward passes equal one intended global-batch update. Optimizer step count, scheduler step count, clipping, and zeroing must follow update boundaries.',
+        'Norm clipping rescales the complete gradient vector when its norm exceeds a threshold; value clipping truncates coordinates. Clip after unscaling mixed-precision gradients and before the optimizer step.',
+        'A full debug ladder validates schema and labels, overfits one batch, checks forward ranges and loss reduction, inspects finite gradients and norms, compares train/eval behavior, then increases data and distributed complexity.',
+        'Deterministic seeds do not guarantee bitwise reproducibility across kernels and devices. Record code, data, environment, sampler epoch, world size, precision, and checkpoints before comparing runs.'
+      ],
+      formulas: [
+        'Xavier variance is approximately 2/(fan_in+fan_out); He variance for ReLU-like layers is approximately 2/fan_in.',
+        'LayerNorm(x)=γ⊙(x−μ_features)/sqrt(σ²_features+ε)+β; BatchNorm uses per-channel batch/spatial statistics during training.',
+        'For K equal microbatches, backpropagating loss_k/K and stepping once yields the gradient of the mean over the accumulated examples when all examples and reductions are weighted consistently.',
+        'Global norm clipping uses g←g·min(1,c/(||g||₂+ε)); under Adam, this bounds the presented gradient norm, not necessarily the final parameter-update norm.'
+      ],
+      decisionRules: [
+        'Use BatchNorm for stable sufficiently large convolutional batches, GroupNorm for small dense-prediction batches, and LayerNorm or RMS-style normalization for transformer-like feature dimensions.',
+        'Enable mixed precision only with finite-loss and finite-gradient checks plus target-hardware throughput and quality evidence; keep numerically sensitive reductions in supported higher precision.',
+        'Match scheduler steps, EMA updates, logging, clipping, and checkpoint cadence to optimizer updates rather than raw microbatches when accumulating gradients.',
+        'When instability appears, capture the first bad step and inspect inputs, logits, each loss component, gradient norms, optimizer state, and precision overflow before lowering the learning rate blindly.'
+      ],
+      pitfalls: [
+        'Calling model.eval() does not disable autograd, while inference_mode does not switch BatchNorm and Dropout behavior; production inference usually needs both the intended mode and disabled gradients.',
+        'Accumulating already-mean-reduced microbatch losses without weighting unequal microbatch sizes optimizes a mean of microbatch means rather than the example-weighted objective.',
+        'Clipping every step at a very low threshold can hide exploding gradients and change optimization into chronic direction-only updates.',
+        'BatchNorm running statistics can drift during tiny-batch fine-tuning even when weights are mostly frozen, producing a train-good and serve-bad failure.'
+      ],
+      systemDesignUse: 'Version initialization and checkpoint source, normalization modes, loss reductions, precision policy, accumulation factor, global batch, clipping, optimizer and scheduler update units, seed and environment. Dashboard component losses, finite rates, gradient and update norms, scale overflows, throughput, memory, and validation slices from single-device through distributed runs.',
+      recall: [
+        { question: 'Why does He initialization use a larger variance than basic Xavier for ReLU?', answer: 'ReLU suppresses roughly part of the incoming distribution, so the fan-in scaling compensates for lost second moment to keep activation and gradient variance from shrinking rapidly.' },
+        { question: 'How do BatchNorm and LayerNorm differ mechanically?', answer: 'BatchNorm computes each channel statistic across batch and usually spatial positions and uses running estimates at inference; LayerNorm computes feature statistics independently inside each example.' },
+        { question: 'Where does gradient clipping belong in a mixed-precision accumulated update?', answer: 'Accumulate the correctly scaled losses, unscale the gradients at the update boundary, clip the unscaled global gradient, then call the optimizer and scaler updates before clearing gradients.' },
+        { question: 'Which production evidence shows mixed precision is safe?', answer: 'Compare finite-loss and overflow rates, gradients, convergence, calibration and critical quality slices while measuring target-hardware throughput, p99 step time, peak memory, and recovery from checkpoints.' }
+      ]
+    },
+    {
+      id: 'mlops-scale',
+      title: 'Distributed training, ML lifecycle, and serving at scale',
+      required: true,
+      summary: 'MLOps is the set of versioned contracts and gates that make experiments reproducible, training recoverable, artifacts promotable, serving measurable, and rollback routine. Senior answers distinguish data parallel communication, memory sharding, lineage, deployment automation, inference scheduling, and quality observability instead of drawing one undifferentiated pipeline.',
+      keyPoints: [
+        'DistributedDataParallel replicates parameters on each rank, partitions input data, and all-reduces gradients. It reduces wall time when compute overlaps communication, but each rank still owns a full model, gradients, and optimizer state.',
+        'FSDP shards parameters, gradients, and optimizer state across ranks and all-gathers parameter shards around computation; ZeRO stages progressively shard optimizer state, gradients, then parameters. Both exchange memory for communication and more complex checkpoints.',
+        'Effective global batch is per-device microbatch times accumulation steps times data-parallel world size. Samplers need rank partitioning and an epoch seed; metric reduction must distinguish sums, counts, means, and duplicates.',
+        'Experiment tracking binds code revision, configuration, seeds, environment, data snapshot, metrics, and immutable artifacts to one run. A model registry adds version, approval evidence, stage or alias, lineage, owner, and rollback target.',
+        'ML CI checks code, schemas, feature transformations, deterministic fixtures, data contracts, serialization, and security. Continuous delivery promotes one already-built artifact through offline, integration, shadow, canary, and rollback gates; continuous training is a separate controlled trigger.',
+        'Triton targets multi-framework accelerator serving with model repositories, dynamic batching, concurrency, and ensembles. TorchServe offers PyTorch handlers and workers but its maintenance and operator fit must be checked. vLLM targets autoregressive LLM serving with continuous scheduling and KV-cache management.',
+        'Serving capacity depends on arrival distribution, queue policy, batching delay, model time, memory, concurrency, and downstream work. For generative systems, time to first token and inter-token latency complement request latency and throughput.',
+        'Observability separates service signals, input/schema health, feature and prediction distributions, delayed-label quality, slice metrics, business outcomes, and feedback-loop state. Drift is a diagnostic trigger, not proof that accuracy fell.',
+        'Recovery requires atomic, resumable checkpoints with model, optimizer, scheduler, scaler, sampler/progress, and RNG state as needed. Sharded checkpoint format, resharding across world sizes, and corruption handling must be tested before a long run.'
+      ],
+      formulas: [
+        'Global batch size = microbatch per rank × accumulation steps × data-parallel world size, adjusted when the final batch is incomplete.',
+        'Ring all-reduce communicates approximately 2(P−1)N/P bytes per rank for N gradient bytes across P ranks, ignoring protocol and topology overhead.',
+        'Little’s law for a stable serving stage is average concurrency L=arrival rate λ times average time W; tail behavior still requires the full arrival and service distributions.',
+        'A rough autoregressive KV-cache term grows with batch·sequence·layers·2·KV_heads·head_dim·bytes, before allocator fragmentation and runtime workspace.'
+      ],
+      decisionRules: [
+        'Use DDP when the model and optimizer fit per device and scaling efficiency is acceptable; use FSDP or ZeRO when state memory is the blocker and measured communication or checkpoint complexity is affordable.',
+        'Promote immutable artifacts by evidence and alias changes rather than rebuilding in each environment; keep data, feature, model, threshold, and serving configuration independently versioned but linked.',
+        'Choose Triton, TorchServe, vLLM, or a custom runtime from model family, operator coverage, batching and streaming needs, hardware, observability, maintenance, and team ownership rather than framework loyalty.',
+        'Trigger retraining or rollback from a validated quality, policy, or data-contract failure with an owner and runbook; do not automate retraining from a generic drift statistic alone.'
+      ],
+      pitfalls: [
+        'Logging only scalar metrics without data, code, environment, and artifact identity makes the experiment irreproducible and the registry entry unauditable.',
+        'A distributed mean of per-rank means is biased when ranks see unequal counts; aggregate numerator and denominator according to the metric definition.',
+        'Dynamic batching can increase throughput while violating p99 latency or mixing incompatible shapes; queue delay and batch policy are part of the SLO.',
+        'Resuming weights without optimizer, scheduler, scaler, sampler, or RNG state can silently change the optimization trajectory and repeat or skip data.',
+        'A feature-distribution alert can reflect seasonality, upstream repair, or benign population change; retraining immediately can amplify feedback or poison labels.'
+      ],
+      systemDesignUse: 'Draw separate versioned flows for source and data validation, distributed training and recovery, experiment lineage and registry promotion, serving and capacity, monitoring and delayed labels, and rollback. State ownership, SLOs, security boundaries, artifact compatibility, test gates, and degraded behavior for every transition.',
+      recall: [
+        { question: 'What does DDP replicate that FSDP or ZeRO can shard?', answer: 'Standard DDP keeps a full parameter, gradient, and optimizer-state footprint on each data-parallel rank, while FSDP or higher ZeRO stages partition some or all of those states and communicate them when needed.' },
+        { question: 'What makes a model-registry version deployable rather than merely stored?', answer: 'It needs immutable lineage to code, data, configuration and artifacts plus evaluation evidence, compatibility metadata, approval ownership, a promotion mechanism, and a tested rollback target.' },
+        { question: 'How should serving-framework choice be evaluated?', answer: 'Benchmark the exported model and real request distribution for correctness, operator fallback, batching or streaming behavior, p50/p99 latency, throughput, memory, observability, failure recovery, and maintenance cost.' },
+        { question: 'Why is drift not an automatic retraining command?', answer: 'A statistical input or prediction change does not identify the cause or establish quality loss; it must be tied to stable references, slices, delayed labels or impact proxies, and a controlled response.' }
+      ]
+    },
+    {
+      id: 'classical-ml-advanced',
+      title: 'Trees, ensembles, density models, and unsupervised structure',
+      required: true,
+      summary: 'Classical ML breadth is senior-relevant because tabular baselines, interpretable fallbacks, anomaly systems, and exploratory representations often decide whether deep learning is justified. Strong answers connect each family to its objective, assumptions, leakage boundary, calibration, computational shape, and validation unit.',
+      keyPoints: [
+        'A CART tree greedily partitions features to reduce impurity or squared error. Depth, minimum leaf support, and pruning trade bias against variance; unrestricted trees memorize rare combinations and extrapolate as piecewise constants.',
+        'Random forests bag decorrelated trees through bootstrap samples and feature subsampling, reducing variance and providing out-of-bag estimates under sampling assumptions. Class probabilities are vote fractions and may still need calibration.',
+        'Gradient-boosted trees fit successive learners to loss gradients. XGBoost adds regularized tree objectives, shrinkage, row and column subsampling, missing-value routing, and efficient split search; boosting remains sensitive to leakage and temporal shift.',
+        'Naive Bayes models class priors and conditionally independent feature likelihoods. Its independence assumption can be badly false while rankings remain useful, especially for sparse counts with smoothing.',
+        'A Gaussian mixture models data as a weighted sum of Gaussian components and EM alternates responsibilities with parameter updates. Components are density terms, not guaranteed semantic clusters, and covariance choice controls capacity and singularity risk.',
+        'DBSCAN defines dense core points through ε neighborhoods and minimum support, expands density-connected components, and marks sparse points as noise. It handles nonconvex shapes but one global density scale struggles across varying density and high dimension.',
+        't-SNE preserves local neighbor probabilities through a heavy-tailed low-dimensional embedding; global distances, cluster sizes, and different-run geometry are not trustworthy. UMAP builds a neighborhood graph and optimizes a low-dimensional fuzzy-set representation with its own metric and stochastic choices.',
+        'Stacking trains a meta-model on out-of-fold predictions from base learners. In-fold predictions leak base-model fit and make the stacker learn unrealistically confident errors.',
+        'Feature scaling matters for distance, kernel, and regularized linear models but not ordinary tree split ordering. Missing-value semantics, categorical encoding, monotonic constraints, and train/serve feature parity remain part of the estimator.'
+      ],
+      formulas: [
+        'Gini impurity is 1−Σ_k p_k²; a split gain is parent impurity minus the child impurities weighted by child sample fractions.',
+        'A random-forest prediction averages T trees: f̂(x)=T⁻¹Σ_t f_t(x), reducing uncorrelated variance more than highly correlated variance.',
+        'GMM density is p(x)=Σ_k π_k N(x|μ_k,Σ_k), and responsibility r_ik=π_kN(x_i|μ_k,Σ_k)/Σ_jπ_jN(x_i|μ_j,Σ_j).',
+        'Boosting update: F_m(x)=F_{m−1}(x)+ηh_m(x), where h_m approximates the negative loss gradient at the current ensemble.'
+      ],
+      decisionRules: [
+        'Start with regularized linear and tree baselines; use boosted trees for heterogeneous tabular interactions, forests for robust low-tuning ensembles, and a single tree when inspectability dominates quality.',
+        'Use Naive Bayes for sparse count-like features or a fast probabilistic baseline when its likelihood family is meaningful; calibrate and compare against logistic regression.',
+        'Choose GMM when an explicit soft density model and ellipsoidal components are useful; choose DBSCAN when noise and arbitrary density-connected shapes matter and a credible neighborhood scale exists.',
+        'Use t-SNE or UMAP for exploratory visualization and neighbor diagnostics only; validate any downstream clustering or decision in the original or separately justified feature space.',
+        'Build stacking features strictly out of fold and preserve group or temporal independence through every base learner and meta-learner split.'
+      ],
+      pitfalls: [
+        'Target encoding, imputation, scaling, feature selection, and outlier treatment fitted before the fold split leak validation labels or population statistics.',
+        'Tree impurity and gain importances favor high-cardinality or interchangeable features and do not establish causality; correlated features can divide importance arbitrarily.',
+        'Choosing DBSCAN ε from a pretty plot, or interpreting t-SNE island distance as semantic separation, turns visualization hyperparameters into unsupported conclusions.',
+        'GMM likelihood can diverge when a covariance collapses around one point; regularization, covariance constraints, initialization, and held-out likelihood are required.',
+        'A stacker trained on in-sample base predictions sees a much easier distribution than production predictions and usually overfits.'
+      ],
+      systemDesignUse: 'Use classical ensembles as production baselines, routers, tabular rankers, anomaly models, and interpretable fallbacks. Version every transformation with the estimator; report calibration and quality by time, group, missingness, and density slice; profile update cost, feature availability, p99 latency, and explanation stability.',
+      recall: [
+        { question: 'How do random forests and gradient boosting differ mechanically?', answer: 'Forests train decorrelated trees largely independently and average them to reduce variance, whereas boosting trains trees sequentially so each new learner follows residual loss gradients left by the current ensemble.' },
+        { question: 'What objective does Gaussian-mixture EM optimize?', answer: 'The E-step computes posterior component responsibilities under current parameters and the M-step maximizes the corresponding expected complete-data log likelihood, monotonically improving observed likelihood under exact updates but only to a local optimum.' },
+        { question: 'Why can DBSCAN label a valid cluster as noise?', answer: 'Its fixed radius and minimum-neighbor density may not match sparse regions, anisotropic metrics, high-dimensional distance concentration, or varying sampling density.' },
+        { question: 'How do you evaluate a production stacking ensemble without leakage?', answer: 'Create meta-features from group- or time-correct out-of-fold base predictions, refit base models only after meta-model selection, and test calibration, latency, diversity, and slice gains on a final untouched split.' }
+      ]
+    },
+    {
+      id: 'probability-experimentation',
+      title: 'Distributions, statistical tests, experiments, and causal traps',
+      required: true,
+      summary: 'Senior probability fluency means choosing a distribution from the data-generating process, stating independence and sampling assumptions, quantifying uncertainty and power, and separating randomized causal evidence from observational association. Formulas matter only with the unit, estimand, stopping rule, and failure checks attached.',
+      keyPoints: [
+        'Bernoulli models one binary trial and Binomial counts successes across a fixed number of conditionally independent equal-probability trials. Overdispersion or dependence invalidates the simple Binomial variance.',
+        'Poisson models counts over exposure when events occur independently at a constant rate; Exponential models memoryless waiting time under a homogeneous Poisson process. Seasonality, clustering, censoring, and zero inflation require a richer model.',
+        'A Gaussian is defined by mean and variance, but normal-looking averages do not imply raw observations are Gaussian. Standardization changes location and scale, not distributional shape.',
+        'The law of large numbers concerns convergence of sample averages; the central limit theorem concerns a normalized sum approaching a limiting distribution under conditions. Neither repairs biased or dependent sampling.',
+        'A t-test compares means using estimated standard error; Welch handles unequal variances. Paired tests operate on within-unit differences. Chi-square tests compare categorical counts to expected counts and need adequate expected support and independent units.',
+        'Minimum detectable effect is a design target determined by baseline variance or rate, allocation, α, desired power, and test. Sample-ratio mismatch is a pipeline alarm that randomization or exposure logging may be broken.',
+        'Repeated peeking inflates false positives under fixed-horizon tests. Sequential probability or group-sequential designs use planned boundaries or always-valid inference; stopping rules and guardrails must be declared before looking.',
+        'Monte Carlo estimates expectations with samples and uncertainty falls at the usual 1/sqrt(N) rate absent variance reduction. MCMC constructs a Markov chain with a target stationary distribution; burn-in, mixing, autocorrelation, and convergence diagnostics determine effective samples.',
+        'A Markov chain assumes the next-state distribution depends on the current state under the chosen state representation. Stationarity and ergodicity are properties to establish, not defaults.',
+        'Randomization identifies an intention-to-treat effect under a valid assignment and interference assumptions. Simpson’s paradox occurs when aggregated and stratified associations differ because group composition and within-group relationships are mixed; the causal graph and estimand decide which comparison matters.'
+      ],
+      formulas: [
+        'Bernoulli mean and variance are p and p(1−p); Binomial(n,p) has mean np and variance np(1−p) under independent equal-p trials.',
+        'Poisson(λ exposure) has equal mean and variance λ exposure; Exponential(rate λ) has survival P(T>t)=exp(−λt) and mean 1/λ.',
+        'CLT form: sqrt(n)(x̄−μ)/σ converges in distribution to N(0,1) under suitable independence or weak-dependence and finite-variance conditions.',
+        'Monte Carlo standard error is s/sqrt(N) for independent draws; for correlated MCMC draws it is approximately s/sqrt(N_eff), where N_eff accounts for autocorrelation.',
+        'For a two-arm mean difference, planned standard error is sqrt(σ_A²/n_A+σ_B²/n_B); MDE is the effect magnitude that reaches the chosen α and power under this design.'
+      ],
+      decisionRules: [
+        'Choose Bernoulli/Binomial for binary outcomes, Poisson/negative-binomial-style count models for exposure-adjusted counts, Exponential or survival models for time-to-event, and Gaussian approximations only after checking the estimand and support.',
+        'Use Welch rather than pooled t-tests by default for independent means, paired tests for repeated units, and randomization or permutation inference when design-based assumptions are clearer than parametric ones.',
+        'Set MDE from product value and risk before calculating sample size; monitor SRM, logging loss, novelty, guardrails, and heterogeneous effects before interpreting the primary metric.',
+        'Use a predeclared fixed horizon or a valid sequential design. Correct multiple primary or exploratory tests according to the decision cost rather than reporting the smallest p-value.',
+        'Use Monte Carlo for tractable independent simulation and MCMC when direct sampling is unavailable; report effective sample size and diagnostics rather than raw iteration count.'
+      ],
+      pitfalls: [
+        'Treating page views or video frames as independent users understates uncertainty and inflates significance; randomization and analysis units must respect clustering.',
+        'A nonsignificant result does not prove equivalence, and a significant result can be smaller than the MDE or practical decision threshold.',
+        'Passing a marginal SRM check does not prove treatment delivery is correct inside platform, geography, or eligibility slices.',
+        'MCMC trace plots that look dense can still have poor mixing, multimodal trapping, or high autocorrelation; independent chains and diagnostics are necessary.',
+        'Conditioning on a mediator or collider can introduce bias, while aggregating confounded groups can create Simpson reversals; more covariates are not automatically safer.'
+      ],
+      systemDesignUse: 'Define the randomization and analysis unit, estimand, exposure and outcome windows, distributional model, MDE, power, duration, SRM and logging checks, sequential rule, guardrails, multiplicity policy, heterogeneous slices, interference risks, and causal assumptions before launch. Preserve assignment and exposure logs for replay and audit.',
+      recall: [
+        { question: 'When does a Binomial model fail for conversion counts?', answer: 'It fails when trials have unequal probabilities, dependence, changing exposure, clustering, overdispersion, or an ill-defined fixed number of opportunities.' },
+        { question: 'What is the difference between the LLN and the CLT?', answer: 'The LLN says an average converges to its expectation under conditions, while the CLT describes the scaled sampling distribution around that expectation; neither guarantees unbiased sampling.' },
+        { question: 'Why is sample-ratio mismatch a release blocker?', answer: 'A statistically implausible allocation can signal broken randomization, exposure logging, eligibility, or selective loss, so the treatment-effect estimate may not represent the intended experiment.' },
+        { question: 'How should an MCMC result be evaluated for production decision support?', answer: 'Check target and transition correctness, multiple-chain convergence, autocorrelation and effective sample size, sensitivity to initialization and priors, Monte Carlo error, and stability of the actual decision quantity.' },
+        { question: 'What creates Simpson’s paradox in an experiment analysis?', answer: 'Different group mixtures can reverse an aggregate association relative to within-group associations; assignment, post-treatment conditioning, the causal graph, and the intended estimand determine the valid aggregation.' }
+      ]
+    },
+    {
       id: 'matrix-decompositions',
       title: 'Academic: matrix decompositions and geometry',
       required: false,
@@ -1399,6 +1659,885 @@ assert kept.tolist() == [0, 2]` }
         { question: 'What invariant makes greedy NMS correct for its stated policy?', answer: 'The highest-scoring remaining box is kept first, and only lower-scoring boxes whose IoU exceeds the chosen threshold are removed before repeating.' },
         { question: 'Which production tradeoff should you test around NMS?', answer: 'Evaluate threshold and class-aware policy by object density and size while measuring duplicate precision, crowded-scene recall, latency, and downstream tracking behavior.' }
       ]
+    },
+    {
+      id: 'ml-coding-nn',
+      title: 'ML coding from scratch: neural networks, losses, training, metrics, and classical models',
+      required: true,
+      summary: 'From-scratch ML interviews test whether you can make shapes, normalization axes, stability, gradient flow, optimizer state, data iteration, metric matching, and algorithmic assumptions explicit without hiding behind a framework call. Start with contracts, implement the simplest correct version, then vectorize or scale deliberately.',
+      recognitionCues: [
+        'A prompt asks for attention, convolution, a loss, backpropagation, or an optimizer without using the corresponding high-level framework primitive.',
+        'A training-loop or mAP prompt requires state transitions and evaluation semantics, not only a formula.',
+        'A classical-model prompt asks you to derive and implement linear or logistic regression, k-means, PCA, or kNN directly from arrays.'
+      ],
+      invariant: 'Every operation preserves its declared batch, sequence, channel, spatial, class, or feature axes; reductions occur over the intended axis; exponentials use a subtracted maximum; autodiff accumulates all downstream contributions in reverse topological order; optimizer state advances exactly once per update; evaluation never mutates training state; and classical estimators fit preprocessing and statistics only from training data.',
+      template: [
+        'State shapes, dtype, device, reduction, mask semantics, coordinate convention, and empty-input policy before implementing the forward computation.',
+        'Derive a scalar reference, stabilize max-sensitive expressions, check numerical and shape edge cases, then vectorize without changing the invariant.',
+        'For training, iterate batches, move data, clear gradients at the update boundary, forward, reduce loss, backward, clip if required, step optimizer and scheduler at their declared cadence, then evaluate under eval/inference mode.',
+        'For classical algorithms, state the objective or neighborhood rule, initialization, stopping criterion, fitted statistics, complexity, and behavior for ties, empty clusters, rank deficiency, or unscaled features.'
+      ],
+      code: [
+        { label: 'Attention, multi-head attention, and NCHW conv2d from primitives', body: `import math
+import numpy as np
+
+def stable_softmax(x, axis=-1):
+    x = np.asarray(x, dtype=np.float64)
+    shifted = x - np.max(x, axis=axis, keepdims=True)
+    exp = np.exp(shifted)
+    return exp / exp.sum(axis=axis, keepdims=True)
+
+def scaled_dot_product_attention(q, k, v, keep_mask=None):
+    # q:[B,H,Lq,D], k/v:[B,H,Lk,D or Dv]; True mask means visible.
+    if q.shape[:-2] != k.shape[:-2] or k.shape[:-2] != v.shape[:-2]:
+        raise ValueError("batch and head axes must match")
+    if q.shape[-1] != k.shape[-1] or k.shape[-2] != v.shape[-2]:
+        raise ValueError("key width and key/value length must match")
+    scores = q @ np.swapaxes(k, -1, -2) / math.sqrt(q.shape[-1])
+    if keep_mask is not None:
+        scores = np.where(keep_mask, scores, -np.inf)
+        if np.any(~np.any(keep_mask, axis=-1)):
+            raise ValueError("every query needs at least one visible key")
+    weights = stable_softmax(scores, axis=-1)
+    return weights @ v, weights
+
+def multi_head_attention(x, wq, wk, wv, wo, num_heads, keep_mask=None):
+    # x:[B,L,D], projection matrices:[D,D]
+    batch, length, width = x.shape
+    if width % num_heads:
+        raise ValueError("model width must be divisible by head count")
+    head_width = width // num_heads
+    def split(projected):
+        return projected.reshape(batch, length, num_heads, head_width).transpose(0, 2, 1, 3)
+    q, k, v = split(x @ wq), split(x @ wk), split(x @ wv)
+    heads, weights = scaled_dot_product_attention(q, k, v, keep_mask)
+    merged = heads.transpose(0, 2, 1, 3).reshape(batch, length, width)
+    return merged @ wo, weights
+
+def conv2d_nchw(x, weight, bias=None, stride=1, padding=0):
+    # x:[N,Cin,H,W], weight:[Cout,Cin,Kh,Kw]
+    n, cin, height, width = x.shape
+    cout, wcin, kh, kw = weight.shape
+    if cin != wcin or stride <= 0 or padding < 0:
+        raise ValueError("invalid channels, stride, or padding")
+    hout = (height + 2 * padding - kh) // stride + 1
+    wout = (width + 2 * padding - kw) // stride + 1
+    if hout <= 0 or wout <= 0:
+        raise ValueError("kernel does not fit padded input")
+    padded = np.pad(x, ((0, 0), (0, 0), (padding, padding), (padding, padding)))
+    out = np.empty((n, cout, hout, wout), dtype=np.result_type(x, weight))
+    for b in range(n):
+        for oc in range(cout):
+            for oy in range(hout):
+                for ox in range(wout):
+                    patch = padded[b, :, oy * stride:oy * stride + kh, ox * stride:ox * stride + kw]
+                    out[b, oc, oy, ox] = np.sum(patch * weight[oc])
+            if bias is not None:
+                out[b, oc] += bias[oc]
+    return out` },
+        { label: 'Stable logsumexp, cross-entropy, focal, InfoNCE, and triplet losses', body: `import numpy as np
+
+def logsumexp(x, axis=-1, keepdims=False):
+    x = np.asarray(x, dtype=np.float64)
+    maximum = np.max(x, axis=axis, keepdims=True)
+    value = maximum + np.log(np.exp(x - maximum).sum(axis=axis, keepdims=True))
+    return value if keepdims else np.squeeze(value, axis=axis)
+
+def cross_entropy_logits(logits, targets, reduction="mean"):
+    if logits.ndim != 2 or targets.shape != (logits.shape[0],):
+        raise ValueError("expected logits [B,C] and integer targets [B]")
+    if np.any((targets < 0) | (targets >= logits.shape[1])):
+        raise ValueError("target class is out of range")
+    losses = logsumexp(logits, axis=1) - logits[np.arange(len(targets)), targets]
+    return losses.mean() if reduction == "mean" else losses
+
+def focal_loss_logits(logits, targets, gamma=2.0, alpha=None):
+    log_probs = logits - logsumexp(logits, axis=1, keepdims=True)
+    log_pt = log_probs[np.arange(len(targets)), targets]
+    weight = (1.0 - np.exp(log_pt)) ** gamma
+    if alpha is not None:
+        weight = weight * np.asarray(alpha)[targets]
+    return np.mean(-weight * log_pt)
+
+def info_nce(query, key, temperature=0.07):
+    if query.shape != key.shape or temperature <= 0:
+        raise ValueError("paired embeddings need equal shape and positive temperature")
+    query = query / np.clip(np.linalg.norm(query, axis=1, keepdims=True), 1e-12, None)
+    key = key / np.clip(np.linalg.norm(key, axis=1, keepdims=True), 1e-12, None)
+    logits = query @ key.T / temperature
+    targets = np.arange(len(query))
+    return 0.5 * (cross_entropy_logits(logits, targets) + cross_entropy_logits(logits.T, targets))
+
+def triplet_margin_loss(anchor, positive, negative, margin=0.2):
+    d_pos = np.sum((anchor - positive) ** 2, axis=1)
+    d_neg = np.sum((anchor - negative) ** 2, axis=1)
+    return np.maximum(0.0, d_pos - d_neg + margin).mean()` },
+        { label: 'Scalar reverse-mode autograd plus SGD and Adam state updates', body: `import math
+
+class Value:
+    def __init__(self, data, parents=(), backward=lambda: None):
+        self.data = float(data)
+        self.grad = 0.0
+        self.parents = tuple(parents)
+        self._backward = backward
+
+    def __add__(self, other):
+        other = other if isinstance(other, Value) else Value(other)
+        out = Value(self.data + other.data, (self, other))
+        def backward():
+            self.grad += out.grad
+            other.grad += out.grad
+        out._backward = backward
+        return out
+
+    def __mul__(self, other):
+        other = other if isinstance(other, Value) else Value(other)
+        out = Value(self.data * other.data, (self, other))
+        def backward():
+            self.grad += other.data * out.grad
+            other.grad += self.data * out.grad
+        out._backward = backward
+        return out
+
+    def tanh(self):
+        value = math.tanh(self.data)
+        out = Value(value, (self,))
+        def backward():
+            self.grad += (1.0 - value * value) * out.grad
+        out._backward = backward
+        return out
+
+    def backward(self):
+        topo, seen = [], set()
+        def visit(node):
+            if id(node) in seen:
+                return
+            seen.add(id(node))
+            for parent in node.parents:
+                visit(parent)
+            topo.append(node)
+        visit(self)
+        self.grad = 1.0
+        for node in reversed(topo):
+            node._backward()
+
+def sgd_step(parameters, learning_rate):
+    for parameter in parameters:
+        parameter.data -= learning_rate * parameter.grad
+
+def adam_step(parameters, state, step, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-8):
+    for index, parameter in enumerate(parameters):
+        first, second = state.setdefault(index, [0.0, 0.0])
+        first = beta1 * first + (1 - beta1) * parameter.grad
+        second = beta2 * second + (1 - beta2) * parameter.grad ** 2
+        state[index] = [first, second]
+        m_hat = first / (1 - beta1 ** step)
+        v_hat = second / (1 - beta2 ** step)
+        parameter.data -= learning_rate * m_hat / (math.sqrt(v_hat) + eps)` },
+        { label: 'Complete dataloader epoch and detection mAP at explicit IoU thresholds', body: `import numpy as np
+import torch
+
+def train_one_epoch(model, dataloader, optimizer, loss_fn, device, grad_clip=None):
+    model.train()
+    total_loss, total_examples = 0.0, 0
+    for features, targets in dataloader:
+        features = features.to(device, non_blocking=True)
+        targets = targets.to(device, non_blocking=True)
+        optimizer.zero_grad(set_to_none=True)
+        logits = model(features)
+        loss = loss_fn(logits, targets)
+        if loss.ndim != 0 or not torch.isfinite(loss):
+            raise ValueError("loss must be one finite scalar")
+        loss.backward()
+        if grad_clip is not None:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+        optimizer.step()
+        batch = targets.shape[0]
+        total_loss += loss.detach().item() * batch
+        total_examples += batch
+    return total_loss / max(total_examples, 1)
+
+def box_iou_xyxy(a, b):
+    top_left = np.maximum(a[:2], b[:2])
+    bottom_right = np.minimum(a[2:], b[2:])
+    intersection = np.prod(np.maximum(bottom_right - top_left, 0.0))
+    area_a = np.prod(np.maximum(a[2:] - a[:2], 0.0))
+    area_b = np.prod(np.maximum(b[2:] - b[:2], 0.0))
+    union = area_a + area_b - intersection
+    return intersection / union if union > 0 else 0.0
+
+def interpolated_ap(tp, fp, positives):
+    if positives == 0:
+        return None
+    tp, fp = np.cumsum(tp), np.cumsum(fp)
+    recall = tp / positives
+    precision = tp / np.maximum(tp + fp, 1)
+    return np.mean([np.max(precision[recall >= r], initial=0.0) for r in np.linspace(0, 1, 101)])
+
+def mean_average_precision(predictions, targets, class_ids, iou_thresholds=(0.5, 0.75)):
+    # Each prediction/target: {image_id, class_id, box}; predictions also contain score.
+    aps = []
+    for class_id in class_ids:
+        truths = [item for item in targets if item["class_id"] == class_id]
+        by_image = {}
+        for truth in truths:
+            by_image.setdefault(truth["image_id"], []).append(truth["box"])
+        ranked = sorted((p for p in predictions if p["class_id"] == class_id), key=lambda p: -p["score"])
+        for threshold in iou_thresholds:
+            matched = {image_id: set() for image_id in by_image}
+            tp, fp = [], []
+            for prediction in ranked:
+                image_id = prediction["image_id"]
+                used = matched.setdefault(image_id, set())
+                boxes = by_image.get(image_id, [])
+                candidates = [
+                    (box_iou_xyxy(prediction["box"], box), index)
+                    for index, box in enumerate(boxes)
+                    if index not in used
+                ]
+                best_iou, best = max(candidates, default=(-1.0, -1))
+                is_match = best_iou >= threshold
+                tp.append(int(is_match)); fp.append(int(not is_match))
+                if is_match:
+                    used.add(best)
+            ap = interpolated_ap(tp, fp, len(truths))
+            if ap is not None:
+                aps.append(ap)
+    return float(np.mean(aps)) if aps else float("nan")` },
+        { label: 'Linear and logistic regression, k-means, PCA, and kNN from NumPy', body: `import numpy as np
+
+def linear_regression_gd(x, y, steps=1000, learning_rate=1e-2):
+    x = np.c_[np.ones(len(x)), np.asarray(x, dtype=float)]
+    weights = np.zeros(x.shape[1])
+    for _ in range(steps):
+        weights -= learning_rate * (x.T @ (x @ weights - y)) / len(x)
+    return weights
+
+def logistic_regression_gd(x, y, steps=1000, learning_rate=1e-2, l2=0.0):
+    x = np.c_[np.ones(len(x)), np.asarray(x, dtype=float)]
+    weights = np.zeros(x.shape[1])
+    for _ in range(steps):
+        logits = x @ weights
+        probabilities = np.empty_like(logits)
+        nonnegative = logits >= 0
+        probabilities[nonnegative] = 1.0 / (1.0 + np.exp(-logits[nonnegative]))
+        negative_exp = np.exp(logits[~nonnegative])
+        probabilities[~nonnegative] = negative_exp / (1.0 + negative_exp)
+        regularizer = np.r_[0.0, weights[1:]] * l2
+        weights -= learning_rate * ((x.T @ (probabilities - y)) / len(x) + regularizer)
+    return weights
+
+def kmeans(x, k, iterations=100, seed=0):
+    x = np.asarray(x, dtype=float)
+    rng = np.random.default_rng(seed)
+    centers = x[rng.choice(len(x), k, replace=False)].copy()
+    labels = np.full(len(x), -1, dtype=int)
+    for _ in range(iterations):
+        new_labels = np.argmin(((x[:, None, :] - centers[None, :, :]) ** 2).sum(axis=2), axis=1)
+        if np.array_equal(new_labels, labels):
+            break
+        labels = new_labels
+        for cluster in range(k):
+            members = x[labels == cluster]
+            centers[cluster] = members.mean(axis=0) if len(members) else x[rng.integers(len(x))]
+    return centers, labels
+
+def pca(x, components):
+    x = np.asarray(x, dtype=float)
+    mean = x.mean(axis=0)
+    _, singular_values, vt = np.linalg.svd(x - mean, full_matrices=False)
+    basis = vt[:components]
+    return (x - mean) @ basis.T, mean, basis, singular_values[:components]
+
+def knn_predict(train_x, train_y, query_x, k=5):
+    distances = ((query_x[:, None, :] - train_x[None, :, :]) ** 2).sum(axis=2)
+    neighbors = np.argpartition(distances, kth=k - 1, axis=1)[:, :k]
+    predictions = []
+    for row in neighbors:
+        labels, counts = np.unique(train_y[row], return_counts=True)
+        predictions.append(labels[np.argmax(counts)])
+    return np.asarray(predictions)` }
+      ],
+      complexity: [
+        'Full self-attention is O(BHL²D_h) time and O(BHL²) score memory for equal query/key length L; naive conv2d is O(NC_outH_outW_outC_inK_hK_w).',
+        'Reverse-mode autograd is linear in executed graph nodes plus local-operation cost and retains forward values needed by backward; Adam stores two state tensors per parameter in addition to gradients.',
+        'One dense k-means iteration costs O(nkd), PCA by full SVD costs roughly O(min(nd²,n²d)), brute-force kNN query costs O(nd), and dense gradient descent costs O(nd) per step.',
+        'Detection matching is dominated by sorting predictions and pairwise IoU work per class and image; the exact mAP runtime depends on classes, thresholds, detections, and ground truths.'
+      ],
+      pitfalls: [
+        'A stable softmax subtracts the maximum along the same axis that will be normalized; subtracting one global maximum can be numerically safe but changes broadcasting expectations and obscures row contracts.',
+        'InfoNCE batch negatives may contain semantic positives, and triplet loss is ineffective when mining produces only trivial or mislabeled triplets.',
+        'Autograd must accumulate with += because one node can feed several paths; executing backward in discovery order misses downstream contributions.',
+        'Adam bias correction uses the optimizer update count, not the sample, microbatch, or epoch count; clearing state or incrementing it at the wrong cadence changes the algorithm.',
+        'mAP is undefined for absent-class slices unless a policy is stated, and changing IoU thresholds, interpolation, max detections, ignore regions, or class averaging changes the metric.',
+        'PCA and kNN require training-fitted centering or scaling; k-means needs empty-cluster and initialization policy; logistic regression needs stable sigmoid/log-loss arithmetic.'
+      ],
+      recall: [
+        { question: 'Why is attention softmax normalized over the key axis?', answer: 'For each query and head, the weights must form a distribution over candidate key-value positions; normalizing another axis mixes unrelated queries or heads.' },
+        { question: 'What makes logsumexp numerically stable?', answer: 'Subtracting the maximum before exponentiation prevents overflow, then adding that maximum back preserves the exact logarithm because it factors out of the exponential sum.' },
+        { question: 'Why does reverse-mode autodiff need reverse topological order?', answer: 'A node can propagate its complete gradient to parents only after every downstream consumer has contributed to that node, which reverse topological execution guarantees.' },
+        { question: 'What contract makes a dataloader training loop complete?', answer: 'It controls model mode, device transfer, gradient lifecycle, scalar reduction, finite checks, optional clipping, optimizer and scheduler cadence, example-weighted logging, validation mode, checkpoints, and partial batches.' },
+        { question: 'How is detection mAP different from classification accuracy?', answer: 'Predictions are score-ranked and greedily matched to ground truths under class and IoU rules, precision-recall is integrated for each class and threshold, then valid AP values are averaged under an explicit protocol.' },
+        { question: 'Which assumptions distinguish k-means, PCA, and kNN?', answer: 'k-means minimizes Euclidean within-cluster squares, PCA preserves linear variance after centering, and kNN assumes local distance predicts the target; all are sensitive to representation and scaling.' }
+      ]
+    },
+    {
+      id: 'tries',
+      title: 'Tries and prefix-indexed search',
+      required: true,
+      summary: 'A trie stores keys by successive symbols so common prefixes share state. It is useful when queries ask about prefixes, dictionaries, autocomplete, or pruning a board search, but its memory overhead can exceed hashing when prefix sharing is weak.',
+      recognitionCues: [
+        'The prompt asks for insert, exact lookup, prefix lookup, autocomplete, or wildcard search over many strings.',
+        'A DFS must prune paths that are not prefixes of any dictionary word, as in board word search.'
+      ],
+      invariant: 'The node reached after consuming a prefix represents exactly that prefix; every outgoing edge appends one symbol, and an explicit terminal marker distinguishes a stored word from a shared internal prefix.',
+      template: [
+        'Define the alphabet, normalization, duplicate semantics, terminal payload, and whether deletion or ranking is required.',
+        'Walk or create one edge per symbol; exact search additionally requires terminal state, while prefix search stops after the path exists.',
+        'For trie-guided DFS, carry the current node, mark board state reversibly, emit terminal words once under the duplicate policy, and prune exhausted branches.'
+      ],
+      code: [
+        { label: 'Dictionary trie with exact and prefix lookup', body: `class TrieNode:
+    def __init__(self):
+        self.children = {}
+        self.terminal = False
+
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+
+    def insert(self, word):
+        node = self.root
+        for char in word:
+            node = node.children.setdefault(char, TrieNode())
+        node.terminal = True
+
+    def search(self, word):
+        node = self._walk(word)
+        return node is not None and node.terminal
+
+    def starts_with(self, prefix):
+        return self._walk(prefix) is not None
+
+    def _walk(self, text):
+        node = self.root
+        for char in text:
+            if char not in node.children:
+                return None
+            node = node.children[char]
+        return node` },
+        { label: 'Trie-pruned board search with reversible marking', body: `def find_words(board, words):
+    trie = Trie()
+    for word in words:
+        trie.insert(word)
+    found, rows, cols = set(), len(board), len(board[0])
+
+    def dfs(row, col, node, path):
+        char = board[row][col]
+        if char == "#" or char not in node.children:
+            return
+        child = node.children[char]
+        path += char
+        if child.terminal:
+            found.add(path)
+        board[row][col] = "#"
+        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nr, nc = row + dr, col + dc
+            if 0 <= nr < rows and 0 <= nc < cols:
+                dfs(nr, nc, child, path)
+        board[row][col] = char
+
+    for row in range(rows):
+        for col in range(cols):
+            dfs(row, col, trie.root, "")
+    return list(found)` }
+      ],
+      complexity: [
+        'Insert and exact or prefix lookup take O(L) expected time for key length L with hash-map children; deterministic array children trade alphabet-sized memory for direct indexing.',
+        'Trie storage is O(total created prefix nodes × child representation); board search is exponential in path length in the worst case but prefix pruning can remove most branches.'
+      ],
+      pitfalls: [
+        'Forgetting the terminal marker makes a prefix indistinguishable from a complete stored key.',
+        'Allocating a full alphabet array per sparse node can dominate memory; Unicode normalization and case policy also change key identity.',
+        'Board DFS must restore the visited cell for sibling paths and deduplicate outputs when one word has several paths.'
+      ],
+      recall: [
+        { question: 'Why is a terminal flag required in a trie?', answer: 'A path can exist only because a longer word shares that prefix, so terminal state records whether the prefix itself was inserted as a complete key.' },
+        { question: 'When is a trie preferable to a hash set?', answer: 'When prefix queries or shared-prefix pruning are central and the added node and pointer memory is justified; hash lookup is usually simpler for exact-only membership.' },
+        { question: 'How does a trie improve board word search?', answer: 'The DFS stops as soon as the current character path is not a dictionary prefix, avoiding exploration of branches that cannot complete any word.' }
+      ]
+    },
+    {
+      id: 'bit-manipulation',
+      title: 'Bit manipulation and finite-width invariants',
+      required: true,
+      summary: 'Bit problems use XOR cancellation, masks, shifts, and low-bit identities to encode compact state. Correctness depends on integer width and signedness; Python has unbounded signed integers, so fixed-width interview semantics must be stated explicitly.',
+      recognitionCues: [
+        'The task asks about parity, powers of two, unique values, subsets, bit counts, masks, or constant-space state over bounded flags.',
+        'Values cancel in pairs or a transition depends on setting, clearing, testing, or extracting particular bit positions.'
+      ],
+      invariant: 'Each mask bit has one named meaning, updates preserve unrelated bits, and XOR represents parity because equal contributions cancel while order does not matter.',
+      template: [
+        'State the integer width, signedness, overflow behavior, and mapping from bit positions to domain state.',
+        'Use x&(x−1) to clear the lowest set bit, x&−x to isolate it under two-complement semantics, and XOR only when parity or reversible toggling proves correct.',
+        'Trace zero, the highest supported bit, negative inputs, duplicates, and shifts at or beyond the width.'
+      ],
+      code: [
+        { label: 'XOR cancellation and Kernighan bit count', body: `def single_number(nums):
+    answer = 0
+    for value in nums:
+        answer ^= value
+    return answer
+
+def popcount_nonnegative(value):
+    if value < 0:
+        raise ValueError("finite-width policy required for negative values")
+    count = 0
+    while value:
+        value &= value - 1
+        count += 1
+    return count` },
+        { label: 'Bit DP and explicit 32-bit reversal', body: `def count_bits(limit):
+    counts = [0] * (limit + 1)
+    for value in range(1, limit + 1):
+        counts[value] = counts[value >> 1] + (value & 1)
+    return counts
+
+def reverse_bits_32(value):
+    value &= 0xFFFFFFFF
+    result = 0
+    for _ in range(32):
+        result = (result << 1) | (value & 1)
+        value >>= 1
+    return result` }
+      ],
+      complexity: [
+        'A scan with XOR is O(n) time and O(1) auxiliary space; Kernighan counting is O(number of set bits).',
+        'Bitmask subset enumeration visits 2ⁿ masks and therefore needs Ω(2ⁿ) time even though each mask uses one integer for bounded n.'
+      ],
+      pitfalls: [
+        'XOR cancellation solves exact parity assumptions, not arbitrary duplicate counts or recovery of several unique values without additional structure.',
+        'Right-shifting negative Python integers sign-extends indefinitely; mask to the intended width before emulating unsigned arithmetic.',
+        'Using bit positions without documenting width can collide states or silently discard flags beyond the assumed bound.'
+      ],
+      recall: [
+        { question: 'Why does x and x minus one clear the lowest set bit?', answer: 'Subtracting one flips the lowest one to zero and all lower zeros to ones; AND keeps higher bits and clears that changed suffix.' },
+        { question: 'What algebra makes XOR useful for paired duplicates?', answer: 'XOR is associative and commutative, x XOR x is zero, and x XOR zero is x, so paired values cancel regardless of order.' },
+        { question: 'Why must signed bit problems state a width?', answer: 'Negative mathematical integers do not have a finite leading-bit representation, while interview tasks usually assume a fixed two-complement word whose masks and shifts have different behavior.' }
+      ]
+    },
+    {
+      id: 'math-number-theory',
+      title: 'Interview math and number theory',
+      required: true,
+      summary: 'Number-theory interview tasks reduce large searches through divisibility, Euclid, prime factorization, modular arithmetic, or combinatorial counting. State numeric bounds and overflow semantics before importing identities from fixed-width languages.',
+      recognitionCues: [
+        'The prompt asks for gcd, lcm, primes, factors, modular powers, divisibility, cycles, or counting under a modulus.',
+        'A brute-force arithmetic loop can shrink by square-root factor bounds, repeated squaring, or an invariant under Euclidean remainder.'
+      ],
+      invariant: 'Every transformation preserves the represented congruence, divisor set, or count; Euclid preserves gcd under (a,b)→(b,a mod b), and modular multiplication reduces without changing the residue class.',
+      template: [
+        'State input domain, zero and negative policy, modulus properties, and whether exact arithmetic or fixed-width overflow applies.',
+        'Apply Euclid for gcd, sieve for all primes through a bound, trial division through sqrt(n) for one factorization, and binary exponentiation for a large exponent.',
+        'Prove bounds, normalize residues, and test zero, one, primes, repeated factors, coprime inputs, and maximum values.'
+      ],
+      code: [
+        { label: 'Euclid, lcm, and sieve of Eratosthenes', body: `def gcd(a, b):
+    a, b = abs(a), abs(b)
+    while b:
+        a, b = b, a % b
+    return a
+
+def lcm(a, b):
+    divisor = gcd(a, b)
+    return 0 if divisor == 0 else abs((a // divisor) * b)
+
+def primes_through(limit):
+    if limit < 2:
+        return []
+    prime = bytearray(b"\\x01") * (limit + 1)
+    prime[0:2] = b"\\x00\\x00"
+    candidate = 2
+    while candidate * candidate <= limit:
+        if prime[candidate]:
+            prime[candidate * candidate:limit + 1:candidate] = b"\\x00" * (((limit - candidate * candidate) // candidate) + 1)
+        candidate += 1
+    return [value for value, is_prime in enumerate(prime) if is_prime]` },
+        { label: 'Binary modular exponentiation and prime factorization', body: `def modular_power(base, exponent, modulus):
+    if exponent < 0 or modulus <= 0:
+        raise ValueError("requires nonnegative exponent and positive modulus")
+    result, base = 1 % modulus, base % modulus
+    while exponent:
+        if exponent & 1:
+            result = (result * base) % modulus
+        base = (base * base) % modulus
+        exponent >>= 1
+    return result
+
+def prime_factors(value):
+    if value == 0:
+        raise ValueError("zero has no finite prime factorization")
+    value, factors = abs(value), []
+    divisor = 2
+    while divisor * divisor <= value:
+        while value % divisor == 0:
+            factors.append(divisor)
+            value //= divisor
+        divisor += 1 if divisor == 2 else 2
+    if value > 1:
+        factors.append(value)
+    return factors` }
+      ],
+      complexity: [
+        'Euclid is O(log min(a,b)); binary exponentiation is O(log exponent) modular multiplications.',
+        'A sieve through n is O(n log log n) time and O(n) space; simple trial division factorization is O(sqrt(n)) worst-case.'
+      ],
+      pitfalls: [
+        'Computing a*b before dividing by gcd can overflow fixed-width integers; divide one factor first even though Python integers grow.',
+        'One is not prime, zero has infinitely many divisors, and negative inputs need an explicit sign convention.',
+        'Modular division requires an inverse that may not exist; Fermat-style inverses additionally require a prime modulus and a nonzero residue.'
+      ],
+      recall: [
+        { question: 'Why does Euclid preserve the greatest common divisor?', answer: 'The common divisors of a and b are exactly the common divisors of b and a minus any multiple of b, including the remainder a mod b.' },
+        { question: 'Why can sieve marking begin at p squared?', answer: 'Every smaller composite multiple of p has another factor below p and was already marked when that smaller factor was processed.' },
+        { question: 'How does binary exponentiation reduce work?', answer: 'It decomposes the exponent into bits, repeatedly squares the base, and multiplies only for set bits, reducing linear repeated multiplication to logarithmic steps.' }
+      ]
+    },
+    {
+      id: 'advanced-dp',
+      title: 'Advanced dynamic programming: grids, knapsack, LIS, and LCS',
+      required: true,
+      summary: 'Advanced DP interviews test state design across two dimensions, capacities, and paired sequences. The key is to define what each cell means, prove dependency order, distinguish reuse from one-time choice, and compress space without overwriting a value still needed.',
+      recognitionCues: [
+        'The prompt compares two prefixes, moves through a grid, allocates bounded capacity, or asks for a longest increasing or common subsequence.',
+        'Naive recursion branches on take/skip or match/skip and revisits the same pair of indices or remaining capacity.'
+      ],
+      invariant: 'Each DP entry is the complete answer for its named prefixes, coordinates, or capacity, and every transition reads only states representing strictly smaller solved subproblems under the intended item-reuse policy.',
+      template: [
+        'Define state dimensions and whether indices are inclusive, identify base row and column, then write the recurrence from the final decision.',
+        'Choose iteration order from dependencies: reverse capacity for 0/1 items, forward capacity for unbounded reuse, and row/column order for sequence or grid prefixes.',
+        'Estimate states times transitions, reconstruct choices only if requested, and compress a dimension only after proving overwrite order.'
+      ],
+      code: [
+        { label: 'Zero-one knapsack and quadratic LIS', body: `def knapsack_01(weights, values, capacity):
+    best = [0] * (capacity + 1)
+    for weight, value in zip(weights, values):
+        for remaining in range(capacity, weight - 1, -1):
+            best[remaining] = max(best[remaining], best[remaining - weight] + value)
+    return best[capacity]
+
+def lis_length(nums):
+    if not nums:
+        return 0
+    best = [1] * len(nums)
+    for right in range(len(nums)):
+        for left in range(right):
+            if nums[left] < nums[right]:
+                best[right] = max(best[right], best[left] + 1)
+    return max(best)` },
+        { label: 'Longest common subsequence and obstacle-grid paths', body: `def lcs_length(a, b):
+    if len(a) < len(b):
+        a, b = b, a
+    previous = [0] * (len(b) + 1)
+    for char_a in a:
+        current = [0] * (len(b) + 1)
+        for column, char_b in enumerate(b, start=1):
+            if char_a == char_b:
+                current[column] = previous[column - 1] + 1
+            else:
+                current[column] = max(previous[column], current[column - 1])
+        previous = current
+    return previous[-1]
+
+def unique_paths_with_obstacles(grid):
+    paths = [0] * len(grid[0])
+    paths[0] = 1
+    for row in grid:
+        for column, blocked in enumerate(row):
+            if blocked:
+                paths[column] = 0
+            elif column > 0:
+                paths[column] += paths[column - 1]
+    return paths[-1]` }
+      ],
+      complexity: [
+        '0/1 knapsack is O(nC) time and O(C) space for capacity C; LCS is O(mn) time and O(min(m,n)) length-only space.',
+        'Quadratic LIS is O(n²), while patience-sorting tails yields O(n log n) length but needs extra predecessor state to reconstruct an actual subsequence.'
+      ],
+      pitfalls: [
+        'Forward capacity iteration in 0/1 knapsack reuses the same item within its row and silently turns the recurrence into unbounded knapsack.',
+        'Updating a compressed LCS or grid row in the wrong direction overwrites the diagonal or previous-row value before it is consumed.',
+        'Confusing subsequence with substring adds or removes the skip transitions and solves a different problem.'
+      ],
+      recall: [
+        { question: 'Why does zero-one knapsack iterate capacity backward?', answer: 'Backward iteration ensures every transition reads the previous item layer; forward iteration could read a value updated by the same item and reuse it multiple times.' },
+        { question: 'What does one LCS table cell represent?', answer: 'It is the longest common subsequence length for one prefix of the first sequence and one prefix of the second, enabling match-diagonal or skip-one-prefix transitions.' },
+        { question: 'When can a two-dimensional DP be compressed to one row?', answer: 'When the current layer depends only on a bounded set of prior-layer and current-layer values and an iteration order preserves each value until its final use.' }
+      ]
+    },
+    {
+      id: 'greedy',
+      title: 'Greedy algorithms and exchange proofs',
+      required: true,
+      summary: 'A greedy algorithm commits to a locally preferred choice without revisiting it. The implementation is often short; the interview signal is the proof that an optimal solution can exchange its first differing choice with the greedy one or that a maintained frontier never discards a feasible optimum.',
+      recognitionCues: [
+        'The task asks for a maximum count, minimum removals, reachability, scheduling, or resource allocation where one sorted order may make decisions final.',
+        'A local choice appears dominant and future feasibility can be summarized by one boundary, balance, or farthest reachable position.'
+      ],
+      invariant: 'After each commitment, the partial solution is feasible and there exists an optimal completion consistent with every greedy choice made so far.',
+      template: [
+        'Identify the candidate local rule, then search for a counterexample before coding.',
+        'Prove by exchange, stays-ahead, cut, or frontier argument that replacing the first different optimal choice does not worsen the objective.',
+        'Choose the sort key that supports the proof, maintain only the frontier needed for future feasibility, and state tie behavior.'
+      ],
+      code: [
+        { label: 'Earliest-finish interval scheduling', body: `def maximum_nonoverlapping(intervals):
+    chosen, end = [], float("-inf")
+    for start, finish in sorted(intervals, key=lambda interval: interval[1]):
+        if start >= end:
+            chosen.append((start, finish))
+            end = finish
+    return chosen` },
+        { label: 'Farthest-reachable jump frontier', body: `def can_jump(nums):
+    farthest = 0
+    for index, jump in enumerate(nums):
+        if index > farthest:
+            return False
+        farthest = max(farthest, index + jump)
+        if farthest >= len(nums) - 1:
+            return True
+    return len(nums) <= 1` }
+      ],
+      complexity: [
+        'Greedy interval scheduling is O(n log n) for sorting and O(n) for the scan; a pre-sorted input reduces the algorithmic scan to O(n).',
+        'A frontier greedy such as Jump Game is O(n) time and O(1) auxiliary space because each position is finalized once.'
+      ],
+      pitfalls: [
+        'A plausible local heuristic is not greedy correctness; without an exchange or frontier proof it may fail on a small adversarial input.',
+        'Sorting by start time instead of finish time solves a different interval policy and invalidates the earliest-finish proof.',
+        'Greedy coin change works for some denominations but not arbitrary systems, where dynamic programming may be required.'
+      ],
+      recall: [
+        { question: 'What does an exchange argument prove?', answer: 'It shows that an optimal solution differing at the first greedy choice can replace its choice with the greedy one without becoming infeasible or worse, preserving an optimal completion.' },
+        { question: 'Why does earliest finish maximize interval count?', answer: 'Replacing the first interval of any optimal schedule with the no-later-finishing greedy interval leaves at least as much room for every remaining interval.' },
+        { question: 'How does the Jump Game frontier stay correct?', answer: 'Every index at or before the frontier is reachable through processed positions, and processing one of those indices can only extend the farthest reachable boundary.' }
+      ]
+    },
+    {
+      id: 'strings-kmp',
+      title: 'String algorithms and Knuth–Morris–Pratt',
+      required: true,
+      summary: 'String matching becomes linear when mismatch work is reused rather than restarting. KMP precomputes the longest proper prefix that is also a suffix for each pattern prefix, then preserves the longest viable matched prefix while scanning the text once.',
+      recognitionCues: [
+        'The prompt asks for repeated substring search, pattern occurrences, borders, periodicity, or streaming matching.',
+        'Naive matching repeatedly rechecks text characters after overlapping partial matches.'
+      ],
+      invariant: 'Before processing the next character, matched is the length of the longest pattern prefix equal to a suffix of the text consumed so far; fallback follows prefix links without moving the text index backward.',
+      template: [
+        'Define byte, Unicode code-point, grapheme, normalization, case, and empty-pattern semantics before matching.',
+        'Build the prefix-function array by falling back through earlier borders until the next symbol matches or the border becomes empty.',
+        'Scan text with the same fallback, emit a match at full pattern length, then fall back to allow overlapping matches.'
+      ],
+      code: [
+        { label: 'KMP prefix function', body: `def prefix_function(pattern):
+    prefix = [0] * len(pattern)
+    matched = 0
+    for index in range(1, len(pattern)):
+        while matched and pattern[index] != pattern[matched]:
+            matched = prefix[matched - 1]
+        if pattern[index] == pattern[matched]:
+            matched += 1
+        prefix[index] = matched
+    return prefix` },
+        { label: 'All KMP match positions including overlaps', body: `def kmp_search(text, pattern):
+    if pattern == "":
+        return list(range(len(text) + 1))
+    prefix = prefix_function(pattern)
+    matches, matched = [], 0
+    for index, char in enumerate(text):
+        while matched and char != pattern[matched]:
+            matched = prefix[matched - 1]
+        if char == pattern[matched]:
+            matched += 1
+        if matched == len(pattern):
+            matches.append(index - len(pattern) + 1)
+            matched = prefix[matched - 1]
+    return matches` }
+      ],
+      complexity: [
+        'Prefix construction is O(m), search is O(n), and auxiliary space is O(m) because each fallback decreases matched and each successful comparison advances it.',
+        'Returning all positions additionally costs O(z) output space for z matches; streaming search can keep only prefix state and the current matched length.'
+      ],
+      pitfalls: [
+        'Falling back to zero immediately loses overlapping prefix information and can restore quadratic behavior or miss matches.',
+        'After a full match, resetting matched to zero misses overlapping occurrences; fall back through the final prefix link instead.',
+        'Indexing Unicode code points is not the same as user-perceived grapheme matching, and normalization can change equality.'
+      ],
+      recall: [
+        { question: 'What does the KMP prefix value at index i mean?', answer: 'It is the length of the longest proper prefix of the pattern prefix ending at i that is also a suffix of that same prefix.' },
+        { question: 'Why does KMP run in linear time?', answer: 'The text index never retreats, and across construction or search the matched-prefix pointer can increase only with processed characters and fall only through strictly shorter prefix links.' },
+        { question: 'How does KMP find overlapping matches?', answer: 'After emitting a full match it sets matched to the longest proper border of the pattern, preserving the suffix that can begin the next occurrence.' }
+      ]
+    },
+    {
+      id: 'design-lru-lfu',
+      title: 'Data-structure design: LRU and LFU caches',
+      required: true,
+      summary: 'Cache-design interviews combine API semantics with coordinated indexes. LRU needs O(1) key lookup plus recency updates; LFU additionally maintains frequency buckets and an LRU order within each frequency so eviction remains O(1) under a declared tie policy.',
+      recognitionCues: [
+        'The prompt requires get and put in O(1) while evicting the least recently used entry at capacity.',
+        'Eviction prefers the lowest access frequency and breaks ties by recency, requiring two levels of ordering.'
+      ],
+      invariant: 'Every live key appears exactly once in the value index and exactly once in its ordering structure; LRU order matches most recent access, LFU bucket membership matches stored frequency, empty buckets are removed, and min-frequency names a nonempty bucket when the cache is nonempty.',
+      template: [
+        'Clarify capacity zero, whether updates count as access, LFU tie-breaking, thread safety, TTL, and what O(1) means for the language containers.',
+        'For LRU, combine a dictionary with a doubly linked list or ordered map; move on every qualifying access and evict from the least-recent end.',
+        'For LFU, map key to value/frequency, map frequency to an LRU-ordered key bucket, advance keys between buckets, and update minimum frequency exactly when its bucket empties.'
+      ],
+      code: [
+        { label: 'O(1) LRU using OrderedDict semantics', body: `from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.items = OrderedDict()
+
+    def get(self, key):
+        if key not in self.items:
+            return -1
+        self.items.move_to_end(key)
+        return self.items[key]
+
+    def put(self, key, value):
+        if self.capacity <= 0:
+            return
+        if key in self.items:
+            self.items.move_to_end(key)
+        self.items[key] = value
+        if len(self.items) > self.capacity:
+            self.items.popitem(last=False)` },
+        { label: 'O(1) LFU with LRU tie-breaking inside frequency buckets', body: `from collections import defaultdict, OrderedDict
+
+class LFUCache:
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.values = {}
+        self.frequencies = {}
+        self.buckets = defaultdict(OrderedDict)
+        self.minimum = 0
+
+    def _touch(self, key):
+        frequency = self.frequencies[key]
+        del self.buckets[frequency][key]
+        if not self.buckets[frequency]:
+            del self.buckets[frequency]
+            if self.minimum == frequency:
+                self.minimum += 1
+        self.frequencies[key] = frequency + 1
+        self.buckets[frequency + 1][key] = None
+
+    def get(self, key):
+        if key not in self.values:
+            return -1
+        self._touch(key)
+        return self.values[key]
+
+    def put(self, key, value):
+        if self.capacity <= 0:
+            return
+        if key in self.values:
+            self.values[key] = value
+            self._touch(key)
+            return
+        if len(self.values) == self.capacity:
+            evicted, _ = self.buckets[self.minimum].popitem(last=False)
+            if not self.buckets[self.minimum]:
+                del self.buckets[self.minimum]
+            del self.values[evicted], self.frequencies[evicted]
+        self.values[key], self.frequencies[key], self.minimum = value, 1, 1
+        self.buckets[1][key] = None` }
+      ],
+      complexity: [
+        'Dictionary plus linked-order operations make LRU get and put O(1) expected time with O(capacity) space.',
+        'LFU get and put are O(1) expected when frequency buckets provide O(1) ordered insertion, deletion, and oldest eviction; unbounded frequency counters can require aging in long-lived systems.'
+      ],
+      pitfalls: [
+        'Updating a value without moving or touching it may violate the stated access policy; decide whether put counts as use.',
+        'LFU minimum frequency cannot be found by scanning buckets if O(1) is required, and it must advance only when the current bucket becomes empty.',
+        'These interview implementations are not thread-safe and omit TTL, size-weighted capacity, admission, and stampede control needed in production.'
+      ],
+      recall: [
+        { question: 'Why does LRU require both a map and a linked order?', answer: 'The map finds a key in O(1), while the linked order removes, moves, and evicts nodes in O(1); either structure alone makes one required operation linear.' },
+        { question: 'How does LFU break ties without losing O(1) operations?', answer: 'Each frequency owns an LRU-ordered bucket, so eviction removes the oldest key from the current minimum-frequency bucket directly.' },
+        { question: 'What invariant is easiest to break in LFU?', answer: 'Moving a key must update its frequency map, remove it from the old bucket, delete empty buckets, maintain minimum frequency, and insert it as most recent in the new bucket exactly once.' }
+      ]
+    },
+    {
+      id: 'divide-and-conquer',
+      title: 'Divide and conquer, merge sort, and selection',
+      required: true,
+      summary: 'Divide and conquer splits a problem into smaller independent or nearly independent pieces, solves them recursively, and combines results. Senior answers define the subproblem contract, recurrence, base case, combine cost, and worst-case behavior rather than assuming every halving recursion is efficient.',
+      recognitionCues: [
+        'The input can be partitioned into smaller ranges whose answers combine, as in sorting, inversion counting, closest pair, or tree construction.',
+        'The prompt asks for an order statistic where partitioning can discard one side without fully sorting.'
+      ],
+      invariant: 'Each recursive call returns the complete answer for its exact half-open subrange; the combine or partition step preserves all elements and establishes the property needed to discard or merge subproblems.',
+      template: [
+        'Use half-open intervals, define the smallest base case, and prove that every recursive range is strictly smaller.',
+        'Write the combine or partition invariant before recursion, then derive T(n) from subproblem sizes and nonrecursive work.',
+        'State whether input is mutated, how pivots are chosen, how duplicates behave, and what prevents worst-case recursion depth.'
+      ],
+      code: [
+        { label: 'Stable merge sort over half-open slices', body: `def merge_sort(values):
+    if len(values) <= 1:
+        return values[:]
+    middle = len(values) // 2
+    left = merge_sort(values[:middle])
+    right = merge_sort(values[middle:])
+    merged, i, j = [], 0, 0
+    while i < len(left) and j < len(right):
+        if left[i] <= right[j]:
+            merged.append(left[i]); i += 1
+        else:
+            merged.append(right[j]); j += 1
+    merged.extend(left[i:]); merged.extend(right[j:])
+    return merged` },
+        { label: 'Randomized iterative quickselect', body: `import random
+
+def kth_smallest(values, k):
+    if not 0 <= k < len(values):
+        raise IndexError("k is outside the array")
+    left, right = 0, len(values) - 1
+    while True:
+        pivot_index = random.randrange(left, right + 1)
+        values[pivot_index], values[right] = values[right], values[pivot_index]
+        pivot, store = values[right], left
+        for index in range(left, right):
+            if values[index] < pivot:
+                values[store], values[index] = values[index], values[store]
+                store += 1
+        values[store], values[right] = values[right], values[store]
+        if store == k:
+            return values[store]
+        if k < store:
+            right = store - 1
+        else:
+            left = store + 1` }
+      ],
+      complexity: [
+        'Merge sort satisfies T(n)=2T(n/2)+O(n)=O(n log n), uses O(n) auxiliary merge space here, and is stable because equal left elements are emitted first.',
+        'Randomized quickselect is O(n) expected time and O(n²) worst-case time; the iterative version uses O(1) stack space but mutates the input.'
+      ],
+      pitfalls: [
+        'Overlapping or non-shrinking subranges cause duplicate work or infinite recursion; half-open boundaries make the partition explicit.',
+        'Quicksort and quickselect can degrade to quadratic time and linear recursion depth under consistently bad pivots; randomization changes expectation, not the worst-case bound.',
+        'A partition with many values equal to the pivot can make poor progress unless equality handling or three-way partitioning is deliberate.'
+      ],
+      recall: [
+        { question: 'How does the Master-style recurrence explain merge sort?', answer: 'Two half-size recursive calls contribute across logarithmically many levels, and each level merges a total of n elements, yielding O(n log n).' },
+        { question: 'Why can quickselect discard one partition?', answer: 'After partitioning, the pivot has its final rank, so comparing that rank with k proves the desired element lies entirely on one side or is the pivot.' },
+        { question: 'What makes the shown merge sort stable?', answer: 'When keys compare equal it takes the element from the left half first, preserving the original cross-half order of equal elements.' }
+      ]
     }
   ];
 
@@ -1675,37 +2814,52 @@ assert kept.tolist() == [0, 2]` }
       ]
     },
     {
-      id: 'detection-segmentation-foundations', title: 'Detection and segmentation foundations', required: true,
-      summary: 'Dense prediction turns backbone features into boxes, classes, or pixel masks. Strong answers connect FPN scale handling, label assignment, proposal or anchor choices, NMS, U-Net skip connections, task losses, and evaluation units to the actual cost of misses and false alarms.',
+      id: 'detection-segmentation-foundations', title: 'Detection and segmentation architecture internals', required: true,
+      summary: 'Dense prediction turns shared image features into boxes, classes, instance masks, or complete pixel labels. Senior fluency means tracing proposal, assignment, pooling, feature-pyramid, decoder, loss, and postprocessing mechanics across canonical families, then choosing a model from object scale, boundary cost, annotation type, latency, calibration, and runtime evidence.',
       keyPoints: [
-        'Feature Pyramid Networks combine semantically strong coarse features with higher-resolution lateral features so heads can detect objects across scales.',
-        'Anchor-based detectors assign boxes by IoU and tune scales/aspect ratios; anchor-free detectors predict centers, corners, or distances but still require assignment policy.',
-        'Two-stage detectors propose regions then classify/refine them; one-stage detectors predict densely and usually offer a simpler low-latency path.',
-        'Greedy NMS keeps a high-score box and suppresses overlapping lower-score boxes; threshold, class policy, and crowded scenes control the precision/recall tradeoff.',
-        'U-Net-style decoders upsample while skip connections restore spatial detail from encoder stages for dense masks.',
-        'Detection and segmentation imbalance may need focal loss, sampling, Dice/IoU terms, or class weighting, but each changes calibration and failure incentives.',
-        'Semantic segmentation assigns a class per pixel; instance segmentation separates each countable object and is evaluated with mask AP; panoptic segmentation assigns every pixel a class and instance where applicable, distinguishes things from stuff, and is evaluated with PQ=SQ×RQ.'
+        'R-CNN generated external region proposals and ran a CNN per crop; Fast R-CNN shared one image backbone and pooled proposal features, but still depended on an external proposal algorithm; Faster R-CNN added a learned Region Proposal Network over shared features.',
+        'An RPN predicts objectness and box deltas for anchors at each feature location, assigns positive/negative/ignore labels by overlap policy, filters and ranks proposals, then applies NMS before the second-stage classifier and regressor.',
+        'RoIPool quantizes proposal boundaries into discrete bins, while RoIAlign samples fractional locations with interpolation and avoids that quantization, which is especially important for accurate instance masks and small objects.',
+        'Feature Pyramid Networks combine a top-down semantic pathway with lateral backbone features so heads operate at several meaningful resolutions. Proposal or object assignment to levels is part of the scale contract.',
+        'SSD predicts class and box offsets densely from several feature maps using default boxes. RetinaNet retains a one-stage anchor design and uses focal loss to reduce the contribution of abundant easy background examples.',
+        'FCOS removes anchor boxes and predicts per-location classes, distances to box sides, and centerness; CenterNet-style methods represent objects by centers and regress size or offsets. Anchor-free removes anchor shapes, not label assignment, duplicate handling, or scale choices.',
+        'The YOLO lineage moved from one grid-level regression system through anchors, multiscale necks, stronger assignment and augmentation, and in several modern families anchor-free or decoupled heads. Version names do not define one stable architecture, license, export path, or latency profile.',
+        'Greedy NMS keeps the highest-scoring candidate and suppresses lower-scoring same-policy overlaps. Soft-NMS, class-aware policies, weighted fusion, or set prediction alter duplicate handling, but crowded-scene recall and calibration still need direct evaluation.',
+        'FCN replaces classification-only heads with spatial prediction and learned upsampling; U-Net combines a contracting encoder with same-scale skip features; DeepLab uses atrous convolution and ASPP to aggregate several context scales while preserving denser output.',
+        'Mask R-CNN adds an RoIAlign-based per-instance mask branch to Faster R-CNN and predicts class-specific or class-agnostic masks in aligned proposal coordinates before mapping them back to the image.',
+        'Semantic segmentation assigns one class per pixel, instance segmentation separates countable objects, and panoptic segmentation gives every pixel a semantic label plus instance identity for things. Panoptic fusion must resolve overlaps and unmatched thing/stuff predictions.',
+        'Detection losses combine classification/objectness, assignment, and box regression such as L1, IoU, GIoU, DIoU, or distributional variants. Segmentation may combine cross-entropy with Dice, focal, boundary, or region losses, each changing emphasis and calibration.',
+        'Evaluation protocol is part of the model: AP depends on class, IoU thresholds, interpolation, max detections and ignore rules; mask metrics need empty-case policy; panoptic quality decomposes matched-segment quality from recognition quality.'
       ],
       formulas: [
-        'GIoU=IoU−area(C∖(A∪B))/area(C), where C is the smallest enclosing box; the penalty applies for overlapping and non-overlapping boxes, although its key advantage is a useful signal when IoU is zero.',
-        'Dice=2TP/(2TP+FP+FN), while IoU=TP/(TP+FP+FN); both require an explicit empty-mask convention.',
-        'Focal loss scales cross-entropy by (1-p_t)^γ so well-classified examples contribute less.'
+        'Anchor box deltas commonly use t_x=(x−x_a)/w_a, t_y=(y−y_a)/h_a, t_w=log(w/w_a), and t_h=log(h/h_a), with a precisely matched decode transform.',
+        'Focal loss is FL(p_t)=−α_t(1−p_t)^γ log p_t, reducing well-classified examples while retaining the cross-entropy target.',
+        'GIoU=IoU−area(C∖(A∪B))/area(C), where C is the smallest enclosing box, providing a nonzero optimization signal even for disjoint boxes.',
+        'Dice=2TP/(2TP+FP+FN), IoU=TP/(TP+FP+FN), and both require an explicit aggregation and empty-target convention.',
+        'Panoptic quality is PQ=Σ IoU(p,g)/( |TP|+0.5|FP|+0.5|FN| ) over matched segments, and decomposes as SQ×RQ under the protocol.'
       ],
       decisionRules: [
-        'Choose one-stage for a measured latency/throughput advantage; choose two-stage when proposal-level refinement improves the hard slices enough to justify cost.',
-        'Use mask and boundary metrics plus object-level sensitivity when pixel overlap alone can hide missing small critical objects.',
-        'Tune assignment, score threshold, and NMS jointly on a deployment-like validation set, then calibrate per class or slice only with enough support.'
+        'Choose a two-stage detector when proposal refinement, per-instance features, or mask quality materially improves hard slices; choose one-stage or center-based heads when the measured latency and throughput advantage dominates.',
+        'Use FPN or another multiscale path when object-size range is broad; retain a higher-resolution stage or tiling only when small-object recall gains justify memory, duplicate stitching, and latency.',
+        'Choose semantic, instance, or panoptic output from the downstream decision: category area, separate object identity, or complete scene understanding, not from benchmark fashion.',
+        'Tune assignment, focal or sampling policy, score thresholds, NMS, and max detections jointly on deployment-like density and size slices, then remeasure calibration and event-level behavior.',
+        'Benchmark canonical and modern candidates under identical resize, augmentation, checkpoint, precision, compiler, postprocessing, and target hardware before accepting paper AP or FLOPs.'
       ],
       pitfalls: [
-        'Comparing mAP numbers across different IoU ranges, image resizing, or postprocessing settings is not an apples-to-apples model comparison.',
-        'Aggregate Dice can improve while tiny or rare objects disappear; report by size, class, site, and empty/nonempty case.',
-        'Training on resized boxes or masks without transforming coordinates consistently corrupts labels while still producing plausible loss curves.'
+        'Calling Faster R-CNN end-to-end does not remove staged assignment and NMS; proposals, second-stage labels, score thresholds, and coordinate transforms remain coupled.',
+        'Using RoIPool where mask boundaries matter introduces coordinate quantization; applying RoIAlign with a mismatched spatial scale is equally wrong.',
+        'Anchor-free is not hyperparameter-free: center sampling, positive regions, strides, regression ranges, centerness, and duplicate policy replace anchor-shape decisions.',
+        'Aggregate AP or Dice can improve while tiny, crowded, rare, boundary-critical, or empty-mask cases regress; protocol and slice tables must travel with the number.',
+        'Resizing images without identically transforming boxes, masks, ignore regions, and the inverse postprocessing map creates plausible training curves and systematically wrong outputs.',
+        'Panoptic fusion can silently drop low-score things, double-label overlaps, or overwrite stuff; evaluate the final fused map rather than independent heads only.'
       ],
-      systemDesignUse: 'Define annotation units, feature scale, assignment and postprocessing contracts, event-level decision rules, and human review. Benchmark the complete resize-to-alert path and monitor class/size slices rather than only aggregate mAP or Dice.',
+      systemDesignUse: 'Define annotation ontology and ignore rules, image and coordinate transforms, backbone stages, FPN levels, anchor or center assignment, RPN/proposal limits, RoIAlign scale, decoder and upsampling, losses, thresholds, NMS or fusion, metric protocol, event aggregation, target-runtime profiling, human review, drift slices, rollout, and rollback as one versioned contract.',
       recall: [
-        { question: 'How does FPN architecture support small and large objects?', answer: 'A top-down pathway and lateral connections combine coarse semantic features with finer spatial maps, giving prediction heads multiple meaningful resolutions.' },
-        { question: 'What mechanics distinguish one-stage and two-stage detectors?', answer: 'One-stage models classify and regress dense locations directly; two-stage models first generate proposals and then run per-proposal classification and refinement.' },
-        { question: 'How would you evaluate the production NMS and mask tradeoff?', answer: 'Measure event and object precision/recall by density and size, duplicate rate, boundary quality, latency, and downstream alert or review cost at the chosen thresholds.' }
+        { question: 'How did the R-CNN architecture evolve into Faster R-CNN?', answer: 'R-CNN ran a CNN for external proposal crops; Fast R-CNN shared one image feature map and pooled each proposal; Faster R-CNN added a learned shared-feature RPN before the per-proposal head.' },
+        { question: 'What mechanics distinguish RoIAlign from RoIPool?', answer: 'RoIAlign preserves fractional proposal coordinates and interpolates sampled feature values, whereas RoIPool quantizes boundaries and bins, introducing alignment error that hurts precise masks.' },
+        { question: 'How do RetinaNet and FCOS address one-stage detection differently?', answer: 'RetinaNet uses anchor-based dense predictions plus focal loss for foreground-background imbalance; FCOS predicts per-location class, box-side distances and centerness without anchor shapes but still needs assignment.' },
+        { question: 'What architecture differences separate FCN, U-Net, DeepLab, and Mask R-CNN?', answer: 'FCN makes dense fully convolutional predictions, U-Net restores detail through symmetric skips, DeepLab adds atrous multiscale context such as ASPP, and Mask R-CNN predicts aligned masks for individual proposals.' },
+        { question: 'How would you evaluate a detector or segmenter for production selection?', answer: 'Match preprocessing and postprocessing, then measure target-hardware p50/p99, memory and throughput with AP, calibration, boundary and object metrics by size, density, class, domain, and downstream event cost.' }
       ]
     },
     {
@@ -1951,6 +3105,212 @@ assert kept.tolist() == [0, 2]` }
         { question: 'How can structured pruning change the architecture?', answer: 'Removing whole channels, heads, or blocks changes tensor dimensions and can reduce dense kernel work, unlike arbitrary zeros that hardware may still process.' },
         { question: 'Which production evaluation proves a compression win?', answer: 'Benchmark p50/p99 latency, throughput, peak memory, energy and cold start on target hardware together with calibration and quality by critical slice.' }
       ]
+    },
+    {
+      id: 'self-supervised-vision', title: 'Self-supervised vision: SimCLR, MoCo, BYOL, and MAE', required: true,
+      summary: 'Self-supervised vision learns representations from view relationships or reconstruction targets instead of manual class labels. Senior answers should compare contrastive negatives, momentum teachers, collapse prevention, augmentation invariances, masking ratios, dense-transfer behavior, distributed batch effects, and the evidence needed before replacing supervised pretraining.',
+      keyPoints: [
+        'SimCLR encodes two augmented views, projects them through a contrastive head, and uses other batch views as negatives. Its result depends strongly on augmentation, temperature, batch composition, projection-head design, and distributed all-gather correctness.',
+        'MoCo maintains a queue of encoded keys and a momentum-updated key encoder, decoupling negative-set size from the current minibatch while requiring consistent queue age, shuffle or normalization behavior, and checkpointed state.',
+        'BYOL trains an online encoder and predictor to match a stop-gradient target encoder updated by exponential moving average, avoiding explicit negatives. Asymmetry, predictor, normalization, augmentation, and target dynamics are part of empirical collapse prevention.',
+        'Masked Autoencoders remove a high fraction of image patches, encode only visible tokens, and use a lightweight decoder to reconstruct masked content. They move much of the pretraining compute away from full-resolution encoding but optimize pixel reconstruction rather than direct semantic discrimination.',
+        'Contrastive methods define positives through augmentations and can make semantically related examples false negatives; teacher-student methods avoid explicit negatives but still encode invariances and data bias through their view and target pipelines.',
+        'Linear probes test linearly accessible frozen features, kNN probes test local geometry, and full fine-tuning tests adaptability. Detection, segmentation, depth, and retrieval transfer may rank checkpoints differently from classification.',
+        'Patch-level or multiscale objectives tend to support dense transfer better than a global-only objective, but preprocessing, layer choice, token resolution, and feature normalization can dominate downstream results.',
+        'Large unlabeled corpora still require deduplication, privacy and license review, domain coverage, leakage controls, and compute accounting; self-supervised does not mean unsupervised system design.'
+      ],
+      formulas: [
+        'NT-Xent for positive pair (i,j): −log[exp(sim(z_i,z_j)/τ)/Σ_{k≠i}exp(sim(z_i,z_k)/τ)], with the exact denominator and symmetric averaging stated.',
+        'Momentum target update: θ_target←mθ_target+(1−m)θ_online, where m near one makes targets change slowly.',
+        'MAE minimizes reconstruction loss over masked patch set M, commonly |M|⁻¹Σ_{i∈M}||x_i−x̂_i||² after a declared patch normalization.'
+      ],
+      decisionRules: [
+        'Choose contrastive pretraining when semantic retrieval and controlled negative sampling fit; choose teacher-student methods when explicit negatives are problematic; choose MAE-style masking when scalable ViT pretraining and reconstruction transfer are validated.',
+        'Start with a maintained pretrained checkpoint and frozen probes, then unfreeze progressively only when domain and dense-task gaps justify compute and overfitting risk.',
+        'Evaluate objectives under the same unlabeled data, augmentations, backbone, training compute, and downstream protocol rather than comparing headline results from different regimes.',
+        'For dense tasks, compare several feature layers and spatial resolutions and verify small-object or boundary behavior before committing to a global embedding checkpoint.'
+      ],
+      pitfalls: [
+        'An augmentation can destroy the label signal needed downstream, so pretraining invariance may be harmful rather than universally robust.',
+        'Distributed contrastive code can treat the positive as a negative, omit remote negatives, or mismatch target indices while the loss still decreases.',
+        'A non-collapsed embedding with high variance is not automatically useful; representation quality needs downstream and neighbor evidence.',
+        'Linear-probe gains do not guarantee fine-tuned, dense-task, low-data, or shifted-domain gains, and repeated downstream tuning can overfit the benchmark.'
+      ],
+      systemDesignUse: 'Version unlabeled-data provenance, deduplication and leakage policy, augmentations, view sampling, queue or EMA state, masking and patch normalization, distributed batch semantics, checkpoints, probe protocols, and feature extraction layers. Track pretraining stability, compute, downstream slices, embedding drift, and retraining compatibility.',
+      recall: [
+        { question: 'What objective mechanics distinguish SimCLR, MoCo, BYOL, and MAE?', answer: 'SimCLR uses in-batch contrastive negatives, MoCo adds a momentum encoder and key queue, BYOL predicts stop-gradient EMA targets without explicit negatives, and MAE reconstructs masked patches.' },
+        { question: 'How does the MoCo architecture make a large negative set practical?', answer: 'A slowly updated key encoder produces consistent-enough features stored in a queue, so the dictionary spans prior minibatches instead of requiring one enormous current batch.' },
+        { question: 'Why does MAE encode only visible patches?', answer: 'Dropping masked tokens from the encoder reduces its token count and expensive attention, while a lighter decoder combines visible latents and mask tokens to reconstruct missing patches.' },
+        { question: 'How should self-supervised pretraining be evaluated for production transfer?', answer: 'Compare frozen, kNN and fine-tuned quality by task and domain slice alongside pretraining compute, feature latency and memory, data governance, embedding stability, and checkpoint migration cost.' }
+      ]
+    },
+    {
+      id: 'generative-vision', title: 'Generative vision: GANs, VAEs, diffusion, control, restoration, and video', required: true,
+      summary: 'Generative vision spans adversarial density learning, latent-variable likelihood bounds, iterative denoising, conditional control, restoration, editing, and temporal synthesis. Senior answers compare objectives, conditioning contracts, sampling cost, fidelity-diversity-grounding tradeoffs, and whether generated evidence is valid for the downstream product.',
+      keyPoints: [
+        'A GAN trains a generator against a discriminator through a minimax or related adversarial objective. It can produce sharp samples quickly after training but may suffer mode dropping, unstable dynamics, and metric gaming.',
+        'A VAE encodes an approximate posterior, samples a latent with the reparameterization trick, and decodes it while balancing reconstruction against KL regularization to a prior. Its likelihood-oriented objective often yields smoother outputs but a structured latent space.',
+        'Diffusion adds noise according to a forward schedule and trains a denoiser to predict noise, velocity, score, or another target; iterative reverse updates create samples. Latent diffusion performs this process in an autoencoder latent to reduce spatial cost.',
+        'DDIM defines a non-Markovian sampling family with the same training marginals as a DDPM; its η=0 path is deterministic given the initial noise and can use fewer steps, trading speed against approximation and diversity behavior.',
+        'Classifier-free guidance combines conditional and unconditional predictions to strengthen conditioning at the cost of diversity, saturation, artifacts, and additional denoiser work unless batched.',
+        'ControlNet-style conditioning adds a trainable condition branch with zero-initialized connections around a strong pretrained diffusion model, enabling edge, depth, pose, or segmentation guidance without discarding the base prior.',
+        'Super-resolution and inpainting must preserve known pixels, identity, text, geometry, and uncertainty rather than merely look sharp. Perceptual or adversarial losses can hallucinate plausible detail that is false for measurement or evidence tasks.',
+        'Video generation must model spatial fidelity plus motion, identity, temporal consistency, camera dynamics, and long-horizon causality. Temporal attention, 3D blocks, and cascaded generation shift compute and failure modes rather than solving them.',
+        'Evaluation combines FID/KID-style distribution metrics, diversity, prompt or condition alignment, human preference, identity and geometry checks, temporal metrics, safety, memorization, and real-only downstream validation.'
+      ],
+      formulas: [
+        'Original GAN objective: min_G max_D E_x[log D(x)]+E_z[log(1−D(G(z)))], with practical variants changing generator and discriminator losses.',
+        'VAE ELBO: E_{qφ(z|x)}[log pθ(x|z)]−KL(qφ(z|x)||p(z)), optimized with z=μ+σ⊙ε for ε∼N(0,I).',
+        'A DDPM forward marginal is x_t=sqrt(ᾱ_t)x_0+sqrt(1−ᾱ_t)ε; a common objective minimizes E||ε−ε_θ(x_t,t,c)||².',
+        'Classifier-free guidance combines predictions as ε_guided=ε_uncond+s(ε_cond−ε_uncond), where scale s changes condition strength and sample distribution.'
+      ],
+      decisionRules: [
+        'Use a GAN when one-pass sampling and domain-specific fidelity dominate and training stability is manageable; use a VAE when latent structure matters; use diffusion when conditional quality and broad coverage justify iterative cost.',
+        'Choose DDIM or distilled few-step sampling only after measuring quality, diversity, condition fidelity, and latency under the actual guidance and resolution settings.',
+        'Use ControlNet-style or mask/image conditioning when spatial constraints must be explicit; retain deterministic validation so the generator cannot silently alter protected regions or labels.',
+        'Use synthetic data only when a fixed real-only holdout shows downstream slice gains and audits reject leakage, shortcuts, privacy memorization, and unrealistic label-condition pairs.',
+        'For super-resolution, inpainting, or video evidence, expose uncertainty and prohibit hallucinated pixels from being treated as measurement truth unless independently validated.'
+      ],
+      pitfalls: [
+        'Low FID does not prove sample diversity, prompt adherence, factual geometry, temporal consistency, privacy, or downstream usefulness.',
+        'A VAE reconstruction-versus-KL balance can cause posterior collapse or an uninformative latent; a sharp decoder output does not prove latent coverage.',
+        'High guidance can improve prompt scores while reducing diversity and creating oversaturated or implausible samples.',
+        'Inpainting or super-resolution can fabricate plausible detail, so generated pixels are unsafe as forensic, medical, or industrial evidence without a separate contract.',
+        'Random frame splits overstate video-generator generalization and can conceal memorization of identities, scenes, or near-duplicate clips.'
+      ],
+      systemDesignUse: 'Specify training provenance and consent, latent or pixel representation, objective and noise schedule, sampler and step count, condition encoders, guidance, ControlNet or mask contract, safety filters, provenance, cache and hardware budget, human review, and rollback. Evaluate real-only downstream effects, memorization, identity, spatial and temporal fidelity, p99 latency, throughput, and cost.',
+      recall: [
+        { question: 'What objective and architecture differences separate GANs, VAEs, and diffusion models?', answer: 'GANs learn through an adversarial discriminator, VAEs optimize reconstruction plus latent KL with an encoder-decoder, and diffusion trains a time-conditioned denoiser used repeatedly to reverse noise.' },
+        { question: 'How does DDIM change diffusion sampling mechanics?', answer: 'It uses a non-Markovian reverse family consistent with the same forward marginals and can take a deterministic η=0 path through fewer chosen timesteps, trading sampling cost against approximation behavior.' },
+        { question: 'What does a ControlNet-style branch contribute?', answer: 'It injects trainable spatial-condition features such as edges, depth or pose into a strong pretrained denoiser through initially zero-effect connections, preserving the base model at initialization.' },
+        { question: 'How should a generative model be evaluated for production?', answer: 'Measure distribution and diversity metrics, condition and spatial fidelity, temporal consistency where relevant, human/task outcomes, memorization and safety, target-hardware latency and cost, and gains on untouched real data.' }
+      ]
+    },
+    {
+      id: 'video-motion', title: 'Optical flow and video architectures: RAFT, I3D, and SlowFast', required: true,
+      summary: 'Video understanding requires explicit choices about motion representation, temporal sampling, clip duration, state, and event aggregation. Optical flow estimates per-pixel correspondence; RAFT iteratively refines flow from all-pairs correlation, while I3D and SlowFast model actions through different spatiotemporal compute allocations.',
+      keyPoints: [
+        'Classical optical flow starts from brightness constancy and small motion, producing one equation for two velocity components; spatial smoothness, local windows, pyramids, and robust penalties make the problem solvable but introduce boundary and motion assumptions.',
+        'Occlusion, disocclusion, reflections, lighting change, blur, aperture ambiguity, repeated texture, rolling shutter, and large displacement violate simple flow assumptions. Forward-backward consistency can flag but not fully solve invalid correspondence.',
+        'RAFT extracts features, builds an all-pairs correlation volume, indexes multiscale correlation neighborhoods, and recurrently updates a dense flow field. It keeps one high-resolution flow representation rather than a conventional coarse-to-fine flow estimate.',
+        'I3D inflates pretrained 2D convolution filters and pooling into 3D so spatial and temporal dimensions are processed jointly; clip length, frame rate, temporal stride, and initialization define the effective motion evidence.',
+        'SlowFast uses a low-frame-rate Slow pathway with higher channel capacity for semantics and a high-frame-rate Fast pathway with lighter channels for motion, connected by lateral fusion.',
+        'Two-stream models explicitly combine RGB and optical-flow evidence, while modern 3D CNNs and video transformers can learn motion from frames. Precomputed flow adds storage and latency and may amplify flow-domain errors.',
+        'Sampling determines observability: uniform or sparse clips miss brief events, dense clips waste compute on static content, and adaptive sampling can bias the observed event distribution.',
+        'Flow uses endpoint error and occlusion-aware masks; action recognition uses clip/video classification plus temporal localization; production systems need event recall, time-to-detect, duplicate alerts, and compute by duration slice.',
+        'Online video systems must define state reset, late and dropped frames, timestamp alignment, backpressure, window finalization, and whether future frames are allowed before an alert.'
+      ],
+      formulas: [
+        'Brightness-constancy linearization gives I_xu+I_yv+I_t=0, an underdetermined constraint requiring neighborhood or regularization assumptions.',
+        'Endpoint error for valid pixels is EPE=|V|⁻¹Σ_{p∈V}sqrt((u_p−û_p)²+(v_p−v̂_p)²), with the valid and occlusion mask stated.',
+        'A 3D convolution output follows the spatial formula on T,H,W independently; dense work scales with K_tK_hK_wC_inC_outT_outH_outW_out.',
+        'For sampling rate r frames/s and L sampled frames, the nominal observed span is approximately (L−1)/r before decode and window-alignment details.'
+      ],
+      decisionRules: [
+        'Use explicit flow when dense correspondence, motion boundaries, stabilization, or geometry is the product signal; use learned clip features when end-task recognition matters more than interpretable displacement.',
+        'Choose RAFT or another learned flow model only after range-, speed-, occlusion-, and domain-sliced gains justify its correlation memory and target-resolution latency.',
+        'Choose I3D when joint 3D filters and pretrained inflation fit; choose SlowFast when high-rate motion deserves a lighter dedicated pathway under the compute budget.',
+        'Set frame rate, clip span, stride, and aggregation from the shortest and longest target events and alert-latency SLO, then evaluate missed-event probability under actual decode behavior.',
+        'For streaming, prefer causal windows and explicit state when decisions cannot wait; use bidirectional or long-context models only where future evidence is legal.'
+      ],
+      pitfalls: [
+        'A smooth plausible flow field can be wrong at occlusions and repeated texture; downstream warping quality and occlusion masks must be evaluated, not visualization alone.',
+        'Resizing frames changes displacement units; flow vectors must be scaled consistently with spatial transforms.',
+        'Random clips from the same source video across train and test leak scene, actor, camera, and near-duplicate temporal evidence.',
+        'Reporting clip accuracy can hide missed short events, repeated alerts, or unacceptable time-to-detect in the full streaming pipeline.',
+        'Higher frame rate increases decode, memory, and correlation cost and can reduce temporal span at fixed clip length.'
+      ],
+      systemDesignUse: 'Define timestamps, decode and resize, frame and clip sampling, causality, flow units and valid masks, RAFT correlation resolution, I3D or SlowFast pathways, window state, aggregation, event deduplication, backpressure, target-runtime precision, and reset behavior. Monitor flow and event quality by motion, occlusion, duration, camera, drop rate, and domain with p99 latency and cost.',
+      recall: [
+        { question: 'What architecture mechanics distinguish RAFT from a conventional coarse-to-fine flow pyramid?', answer: 'RAFT builds all-pairs feature correlation, repeatedly looks up multiscale neighborhoods, and uses a recurrent update operator to refine one dense high-resolution flow field.' },
+        { question: 'How do I3D and SlowFast allocate temporal compute differently?', answer: 'I3D applies inflated 3D kernels over a clip, while SlowFast couples a semantically rich low-rate pathway with a lighter high-rate motion pathway through lateral fusion.' },
+        { question: 'Why is optical flow underdetermined from brightness constancy alone?', answer: 'One local brightness equation constrains two motion components, so aperture ambiguity remains until neighborhoods, smoothness, matching, or learned priors add information.' },
+        { question: 'How should a production video model be evaluated?', answer: 'Measure event recall and precision, temporal localization, short-event misses, time-to-detect, duplicates, flow or tracking validity, decode/model p99, state resets, dropped frames, and domain slices.' }
+      ]
+    },
+    {
+      id: 'multimodal-vision', title: 'Multimodal vision: BLIP-2, Flamingo, OWL-ViT, captioning, and VQA', required: true,
+      summary: 'Multimodal architectures differ in how visual evidence is compressed, aligned, fused, and decoded. Senior answers should trace BLIP-2 Q-Former queries, Flamingo interleaved cross-attention, OWL-ViT region-text matching, and the limitations of caption, VQA, retrieval, and grounding metrics before choosing a general VLM over specialist perception.',
+      keyPoints: [
+        'BLIP-2 keeps a pretrained image encoder and language model largely frozen and trains a lightweight Q-Former bridge. Learned query tokens cross-attend to image features, compress visual evidence, and align it to language-facing representations through staged objectives.',
+        'A Q-Former bottleneck caps the number of visual tokens passed onward, reducing language-model cost but potentially losing small text, counts, fine spatial relations, or evidence outside learned query coverage.',
+        'Flamingo uses a Perceiver-style resampler to produce a fixed set of visual tokens and inserts gated cross-attention layers into a pretrained language model, enabling interleaved image or video and text sequences with few-shot prompting.',
+        'OWL-ViT treats detection as image-patch representations matched against text-query embeddings, enabling open-vocabulary queries. Query wording, region resolution, calibration, and unseen-domain semantics still bound detection.',
+        'Dual encoders support scalable retrieval by precomputing modality embeddings, while fusion or cross-attention models rerank with richer interactions at higher per-pair cost. A common system uses two-stage retrieval and reranking.',
+        'Captioning metrics measure different proxies: BLEU emphasizes n-gram precision, METEOR adds alignment and recall signals, CIDEr weights consensus n-grams, and SPICE compares scene-graph-like semantics. None proves factual grounding.',
+        'VQA exact match is brittle; common consensus scoring gives partial credit based on annotator agreement. Results need question-type, answer-frequency, OCR, counting, language, and unanswerable slices plus counterfactual image tests.',
+        'Grounding requires region, citation, pointing, or evidence tests. A fluent answer can exploit language priors while ignoring the image, so image ablation and mismatched-image controls are necessary.',
+        'Deployment must cap image tiles and frames, isolate untrusted retrieved content from instructions, enforce ACLs before retrieval, validate structured outputs, and expose abstention or review for unsupported evidence.'
+      ],
+      formulas: [
+        'Cross-attention from Q learned queries to N visual tokens forms score tensors proportional to Q×N per head; the bridge output length is Q rather than N.',
+        'Dual-encoder retrieval commonly scores normalized embeddings with s(i,t)=v_iᵀt/τ and evaluates Recall@K or ranking metrics over an explicitly sampled corpus.',
+        'A common VQA consensus score for one answer is min(number of matching human answers/3,1), averaged under the benchmark protocol.',
+        'CIDEr compares TF-IDF-weighted n-gram vectors against multiple references, making frequent corpus n-grams contribute less than distinctive consensus phrases.'
+      ],
+      decisionRules: [
+        'Use a dual encoder for large-corpus candidate retrieval and a fusion or generative model only where reranking or language-conditioned reasoning adds measured value.',
+        'Use a Q-Former or resampler bottleneck when fixed visual-token cost is essential, but increase resolution, tiling, OCR, or specialist routes when fine evidence is demonstrably lost.',
+        'Use OWL-ViT-style open-vocabulary detection for flexible discovery or bootstrapping; use a calibrated closed-set detector when ontology, throughput, and error cost are stable.',
+        'Choose caption and VQA metrics as a panel with human, grounding, counterfactual, safety, latency, and cost evaluation rather than optimizing one lexical score.',
+        'Require citations, region evidence, schema validation, abstention, and deterministic policy checks before a multimodal generator can trigger a consequential action.'
+      ],
+      pitfalls: [
+        'A fixed query bottleneck can omit tiny or repeated evidence even when the language output is coherent; more language capacity cannot recover unseen pixels.',
+        'Caption metrics reward overlap with limited references and can penalize valid paraphrases or reward unsupported consensus phrases.',
+        'VQA datasets contain language and answer-frequency shortcuts, so aggregate score may remain high when images are shuffled or removed.',
+        'Open-vocabulary text similarity does not guarantee calibrated localization, counting, or truly novel concept understanding.',
+        'Retrieved images, OCR, and captions are untrusted data; treating them as executable instructions creates an indirect prompt-injection path.'
+      ],
+      systemDesignUse: 'Specify image encoder and resolution, Q-Former or resampler token budget, fusion points, text model, retrieval/rerank split, OWL-ViT query ontology, OCR and tiling, metric panel, grounding and abstention, ACL and injection boundaries, caching, quantization, target-hardware p99, review, and rollback. Version prompts, checkpoints, indexes, and preprocessing traceably.',
+      recall: [
+        { question: 'What architecture role does the BLIP-2 Q-Former play?', answer: 'Learned query tokens cross-attend to frozen image features and compress them into a small language-aligned representation that bridges a pretrained vision encoder and language model.' },
+        { question: 'How does Flamingo fuse interleaved visual and textual context?', answer: 'A Perceiver-style resampler converts variable visual features to fixed tokens, and gated cross-attention layers inserted in the language model let text states attend to those tokens.' },
+        { question: 'What mechanics make OWL-ViT an open-vocabulary detector?', answer: 'It produces spatial image representations and scores candidate regions or patches against text-query embeddings rather than relying only on a fixed learned class-weight matrix.' },
+        { question: 'How should captioning and VQA be evaluated for production?', answer: 'Combine lexical or consensus metrics with factual and region grounding, image-ablation controls, answerability, question and domain slices, human review, calibration, safety, latency, and cost.' }
+      ]
+    },
+    {
+      id: 'efficient-vision-transformers', title: 'Efficient vision transformers and token scaling', required: true,
+      summary: 'Efficient vision transformers reduce quadratic global attention or token count through hierarchy, local windows, patch merging, convolutional stems, linearized attention, mobile blocks, pruning, or distillation. Senior selection requires tracing information paths and realized kernels because lower asymptotic work or FLOPs can still lose on memory movement, shape overhead, or dense-task quality.',
+      keyPoints: [
+        'Hierarchical transformers progressively merge patches and increase channels, producing multiscale features analogous to CNN stages and reducing token count before later blocks.',
+        'Swin confines attention to local windows for near-linear image-size scaling and shifts window partitions between blocks so information crosses previous boundaries. Window size and padding create discrete latency and receptive-field effects.',
+        'Pyramid-style transformers combine overlapping or strided patch embeddings with spatial-reduction attention to serve dense tasks, trading fine token detail for reduced key/value length.',
+        'MobileViT-like hybrids use convolution for local features and transformer blocks for broader interactions; other mobile families use convolutional stems, reduced-resolution attention, distillation, and hardware-aware widths. A family name does not guarantee target-runtime efficiency.',
+        'Linear-attention variants reorder or approximate the softmax interaction through kernels, low rank, sparsity, or restricted patterns. They change normalization and expressivity and only help when implementation avoids the full N×N matrix.',
+        'Token pruning or merging drops or combines low-importance tokens dynamically. It can save later-layer work but adds scoring, gather/scatter, irregular shapes, and risk of deleting small objects or rare evidence.',
+        'Distillation can transfer CNN locality or a larger transformer teacher into a compact student; teacher bias, augmentation, labels, and the distillation loss remain training assumptions.',
+        'Resolution and patch size set initial token count. Halving patch width quadruples tokens for a fixed 2D image and can raise full-attention work about sixteenfold before hierarchy or locality intervenes.',
+        'Efficiency includes preprocessing, activations, memory bandwidth, kernel fusion, compilation, batch and sequence shape, export support, p99 latency, energy, and dense-task accuracy by object size.'
+      ],
+      formulas: [
+        'For H×W input and P×P patches, N=(H/P)(W/P); full attention is O(N²d), while fixed-window attention with M×M-token windows is O(NM²d).',
+        'Merging each 2×2 token neighborhood reduces token count by four; channel expansion determines whether activation bytes and projection work actually fall proportionally.',
+        'A low-rank or kernelized approximation that maps Q and K to r features targets O(Nrd) interaction work, but r, normalization, and materialized intermediates determine realized cost.',
+        'End-to-end speedup is bounded by Amdahl’s law: 1/[(1−f)+f/s] when fraction f of original latency is accelerated by factor s.'
+      ],
+      decisionRules: [
+        'Use hierarchical or windowed attention for high-resolution dense tasks when multiscale checkpoints and optimized kernels exist; use global attention when token count is modest and unrestricted context produces measured gains.',
+        'Use a mobile hybrid when convolution kernels and static shapes dominate the target runtime; compare against an equally optimized CNN rather than a research-only baseline.',
+        'Adopt token pruning or linear attention only after accuracy by object size and rare evidence survives and dynamic-shape overhead is measured at production batch distributions.',
+        'Choose patch, window, stage widths, and resolution jointly from the smallest relevant structure and device budget, then profile compiled p50/p99 rather than ranking by FLOPs.',
+        'Treat distillation as a new objective with teacher and data dependencies; retain a hard-label or task-loss path and test shift where teacher errors may concentrate.'
+      ],
+      pitfalls: [
+        'Window-local attention without shifts or another cross-window path traps information inside partitions and creates boundary artifacts.',
+        'An O(N) attention claim can hide a large feature rank, sequential scan, unfused kernel, or memory-bound intermediate that is slower at practical image sizes.',
+        'Token pruning often removes small, low-contrast, or unusual regions because salience is learned from dominant training examples.',
+        'Changing resolution or patch size invalidates positional, window, padding, and feature-stride assumptions and can break dense heads.',
+        'Paper throughput at large batches can conceal single-request p99, cold start, compiler fallback, preprocessing, and peak memory on the deployment device.'
+      ],
+      systemDesignUse: 'Record patch and stage geometry, window and shift policy, global-information path, token pruning or linear-attention approximation, distillation source, positional interpolation, dense-head strides, precision, compiler and kernel versions, and target-device batches. Gate on p50/p99, throughput, peak memory, energy, calibration, and quality by size, boundary, domain, and rare evidence.',
+      recall: [
+        { question: 'How does shifted-window attention exchange information across windows?', answer: 'One block attends within a fixed partition, the next shifts that partition so tokens formerly separated by a boundary share a window, with masking preserving the intended wrapped layout.' },
+        { question: 'What architecture mechanics make a hierarchical vision transformer efficient for dense prediction?', answer: 'Patch merging reduces spatial token count across stages while channels grow and multiscale outputs feed a pyramid or decoder, limiting expensive attention at high resolution.' },
+        { question: 'Why can linear or pruned attention be slower despite fewer theoretical operations?', answer: 'Feature-map construction, gathers, irregular dynamic shapes, memory traffic, weak kernel fusion, and practical sequence sizes can cost more than an optimized dense attention kernel.' },
+        { question: 'How should an efficient ViT be evaluated for production?', answer: 'Benchmark the exported compiled end-to-end path on target hardware across real batch and resolution distributions, then pair latency, throughput, memory and energy with calibration and size-, boundary-, and domain-sliced quality.' }
+      ]
     }
   ];
 
@@ -2026,6 +3386,51 @@ assert kept.tolist() == [0, 2]` }
       modernCv: 'Use CLIP-like retrieval for cross-modal candidates and a VLM for synthesis; add OCR/layout routes for documents and never treat generation as retrieval evidence.',
       pressureTest: 'A user can retrieve another tenant’s image through semantically similar search. Where must authorization be enforced?',
       pressureTestAnswer: 'Decision: enforce tenant ACLs before candidate retrieval when the index supports it and again after every retrieval/rerank/cache boundary; never rely on prompt instructions. A post-generation filter alternative fails because data has already leaked. Verify adversarial cross-tenant queries, cache keys, index filters, logs, and deny-by-default tests.'
+    },
+    {
+      id: 'ranking-feed', order: 9, title: 'Personalized feed and ranking system',
+      scenario: 'Rank a fresh, personalized feed from millions of eligible items for hundreds of millions of users while controlling latency, diversity, creator exposure, safety, and feedback loops.',
+      requirements: ['Define the user action, session surface, inventory, freshness, and eligibility rules', 'Estimate active users, request QPS, candidates per stage, p95/p99 latency, regions, and availability', 'Separate short-term engagement, long-term value, safety, diversity, and creator constraints', 'Define cold-start, logged-out, exploration, and degraded-mode behavior', 'Specify impression, position, propensity, outcome, and deletion-consent logging'],
+      solutionOutline: ['Event and content pipelines with point-in-time-correct features and explicit impression IDs', 'Multi-source candidate generation from follows, retrieval, trends, and exploration with per-source budgets', 'Lightweight pre-ranker then richer multitask ranker with calibrated scores and constrained slate construction', 'Offline Recall@K, NDCG and calibration by slice plus interleaved or randomized online experiments with guardrails', 'Feature freshness, candidate coverage, score/position drift, feedback-loop, exposure, and safety monitoring', 'Regional caches, timeouts, per-stage fallbacks, shadow/canary rollout, model-feature compatibility checks, and rollback'],
+      modernCv: 'For image or video feeds, precompute versioned visual and multimodal embeddings and use expensive VLM or video features offline; keep online ranking bounded by freshness and target-runtime evidence.',
+      pressureTest: 'A new ranker raises watch time but concentrates exposure on a small creator set and lowers next-week retention. Would you launch it?',
+      pressureTestAnswer: 'Decision: do not broad-launch; keep a small reversible canary while adding retention and creator-exposure constraints to the decision rule and diagnosing which ranker or slate stage caused the shift. The alternative of optimizing watch time alone fails through position and feedback-loop amplification. Verify randomized long-horizon retention, exposure and safety slices, calibration, counterfactual replays, latency, and rollback thresholds.'
+    },
+    {
+      id: 'ads-ctr', order: 10, title: 'Ads click-through and conversion prediction',
+      scenario: 'Predict click and conversion value for an ad auction under millisecond latency, delayed and censored labels, sparse high-cardinality features, budget constraints, and strict experimentation requirements.',
+      requirements: ['Clarify auction objective, bid and budget semantics, click versus conversion windows, and attribution policy', 'Estimate auction QPS, candidates, feature lookup budget, p99 scoring latency, regions, and availability', 'Define advertiser, user, placement, policy, and privacy constraints plus cold-start behavior', 'Set calibration, revenue, user-experience, advertiser-value, fairness, and invalid-traffic guardrails', 'Specify delayed-label joins, negative maturation, deduplication, and point-in-time feature correctness'],
+      solutionOutline: ['Streaming impression/click/conversion logs joined by durable IDs with delayed-label correction', 'Regularized logistic or tree baseline followed by wide-and-deep or multitask ranking if justified', 'Candidate-independent user/context features cached separately from candidate features and bounded cross features', 'Probability calibration by placement and cohort, then auction value combining predicted outcomes, bid, quality, and constraints', 'Time-based offline log loss, PR-AUC and calibration plus randomized auction experiments and budget pacing checks', 'Feature/model version contracts, shadow score logging, canary, drift and calibration monitoring, fallback scores, and rollback'],
+      modernCv: 'Visual ad and landing-page encoders can improve cold-start quality, but embeddings should be precomputed, governed for policy and privacy, and ablated against metadata under the auction latency budget.',
+      pressureTest: 'Offline AUC improves, yet a canary overcharges a cohort because predicted CTR is systematically too high on one placement. What changes?',
+      pressureTestAnswer: 'Decision: halt the canary, restore the previous calibrated model, and treat placement calibration and auction-value error as release gates rather than accepting ranking AUC. The alternative of globally lowering bids fails because it hides a cohort-specific data or calibration defect. Verify point-in-time joins, placement reliability curves and expected calibration error, spend and value by cohort, counterfactual auction replay, and a guarded re-canary.'
+    },
+    {
+      id: 'fraud-anomaly', order: 11, title: 'Real-time fraud and anomaly detection',
+      scenario: 'Score payments or account actions for fraud in real time while positives are rare, labels arrive late, attackers adapt, and false positives block legitimate users.',
+      requirements: ['Define fraud taxonomy, decision actions, review queue, loss horizon, and false-positive cost', 'Estimate event QPS, entities and graph size, feature freshness, scoring p99, availability, and manual-review capacity', 'Specify confirmed, chargeback, disputed, and unlabeled outcomes with delay and selection bias', 'Define user and merchant friction, regional policy, explainability, privacy, and appeal requirements', 'Set incident containment, rule override, degraded mode, and adversarial monitoring expectations'],
+      solutionOutline: ['Online velocity and entity features with point-in-time offline parity plus graph or sequence features where justified', 'Rules and calibrated supervised baseline, anomaly score for novel patterns, then a policy layer mapping risk to allow, challenge, review, or block', 'Cost-sensitive training with hard negatives, delayed-positive correction, exploration or random review samples, and leakage-safe temporal splits', 'Precision-recall and expected loss at review capacity, recall by attack and value band, calibration, friction, and appeal overturns', 'Feature health, score/action mix, attack clusters, label delay, reviewer agreement, adversarial probes, and case feedback monitoring', 'Champion-challenger shadowing, staged policy rollout, rule kill switches, immutable decisions, and tested rollback'],
+      modernCv: 'For document, selfie, or transaction-image signals, use specialist OCR, liveness, or similarity models behind independent quality gates; never let an opaque VLM explanation substitute for evidence.',
+      pressureTest: 'A novel attack is causing losses, but blocking the high-risk score band would reject many legitimate users before labels mature. How do you respond?',
+      pressureTestAnswer: 'Decision: deploy a narrow reversible rule on verified attack features, step up authentication or review for the uncertain band, preserve random samples, and collect expedited labels before retraining. The alternative of a broad score cutoff risks severe false-positive harm and adaptive displacement. Verify expected loss, attack recall, legitimate-user friction, reviewer yield, appeals, feature stability, and automatic rule expiry or rollback.'
+    },
+    {
+      id: 'visual-search-ltr', order: 12, title: 'Visual search with learning to rank',
+      scenario: 'Retrieve and rank products from an image or multimodal query, combining visual similarity, text, metadata, inventory, personalization, and business constraints at catalog scale.',
+      requirements: ['Define query modes, relevance grades, localization needs, filters, and the difference between visual match and substitutability', 'Estimate catalog size and churn, embedding throughput, index memory, query QPS, fan-out, regions, p99 latency, and freshness', 'Specify click, purchase, human-judgment, exposure, and no-result labels with position and selection bias', 'Set inventory, policy, diversity, seller fairness, personalization, and cold-start constraints', 'Define embedding/index/model version compatibility and migration SLOs'],
+      solutionOutline: ['Query preprocessing and optional object crop or segmentation with versioned image/text encoders', 'ANN candidate retrieval using a metric matched to training plus metadata filtering and source recall budgets', 'Learning-to-rank stage combining similarity, text, attributes, quality, inventory, and user context with debiased judgments', 'Recall@K for retrieval and NDCG/MRR plus calibrated human graded relevance for ranking, followed by online conversion and no-result tests', 'Hard-negative mining, query/category/size slices, index freshness, coverage, exposure, latency, and feedback-loop monitoring', 'Dual-index shadow migration, cache version keys, partial-result fallback, canary alias switch, and rollback'],
+      modernCv: 'Compare CLIP or SigLIP-style cross-modal embeddings, DINO-style fine-grained visual features, and domain fine-tuning; use grounding or segmentation only when query evidence shows background contamination.',
+      pressureTest: 'The reranker improves NDCG on clicks but buries exact visual matches in favor of popular items. Which labels and architecture change?',
+      pressureTestAnswer: 'Decision: separate graded visual relevance from engagement, add blinded judgments and exact-match hard negatives, and constrain business features to rerank only after a relevance floor. The alternative of raw click learning fails from position, popularity, and exposure bias. Verify retrieval recall, human NDCG by query type, exact-match rate, long-tail exposure, conversion guardrails, latency, and an ablation of every feature group.'
+    },
+    {
+      id: 'feature-store-pipeline', order: 13, title: 'Feature store and ML data pipeline',
+      scenario: 'Build a reusable feature platform that serves batch and low-latency online features with point-in-time correctness, lineage, freshness, privacy, and safe schema evolution across many models.',
+      requirements: ['Inventory producers, entities, event time, availability time, windows, consumers, and ownership boundaries', 'Estimate offline history, daily ingest, online key cardinality, read QPS, p99 latency, regions, availability, and freshness SLOs', 'Define point-in-time joins, late and duplicate events, backfills, deletion, retention, access control, and residency', 'Specify schema, null, default, type, unit, vocabulary, and compatibility contracts', 'Define training snapshot reproducibility, online fallback, cost allocation, incident response, and audit requirements'],
+      solutionOutline: ['Canonical event log with event and processing timestamps, durable IDs, validation, deduplication, and replay', 'Declarative feature definitions compiled to shared batch and streaming transformations where semantics permit', 'Offline columnar store for training snapshots and online keyed store for materialized low-latency values', 'Point-in-time dataset builder using feature availability time, versioned definitions, entity keys, and immutable manifests', 'Freshness, nulls, distributions, join coverage, offline-online parity, access, cost, and downstream quality monitoring', 'Schema compatibility gates, shadow backfills, dual reads, per-feature fallback and TTL, canary consumers, lineage-aware rollback'],
+      modernCv: 'Large image, video, and embedding artifacts belong in versioned object or vector stores with references in the feature layer; preprocessing and encoder versions must travel with each embedding rather than masquerading as a scalar feature.',
+      pressureTest: 'A backfill raises offline validation sharply, but the feature did not exist at prediction time and online values disagree. Can the model ship?',
+      pressureTestAnswer: 'Decision: block promotion, rebuild the dataset with availability-time point-in-time joins, and repair the shared transformation or materialization path before retraining. The alternative of accepting the offline gain fails through future leakage and train-serve skew. Verify replayed historical availability, offline-online parity by entity and time, null and freshness slices, shadow predictions, dependent-model impact, and rollback of the feature version.'
     }
   ];
 
@@ -2074,7 +3479,7 @@ assert kept.tolist() == [0, 2]` }
     {
       id: 'cv-system-design', title: 'CV system-design packet', durationMinutes: 60,
       interviewerScript: [
-        { minute: 0, prompt: 'Select one of eight cases and require explicit requirements before architecture.' },
+        { minute: 0, prompt: 'Select one of thirteen cases and require explicit requirements before architecture.' },
         { minute: 8, prompt: 'Ask for scale, data and labels, baseline, model path, and offline and online metrics.' },
         { minute: 30, prompt: 'Introduce the case pressure test and probe the weakest rubric dimension.' },
         { minute: 52, prompt: 'Request rollout, monitoring, failure handling, and a final tradeoff summary.' }

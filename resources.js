@@ -204,13 +204,13 @@
     },
     {
       id: 'pytorch-quantization',
-      title: 'Quantization in PyTorch',
-      provider: 'PyTorch documentation',
-      url: 'https://pytorch.org/docs/stable/quantization.html',
+      title: 'torchao quantization and PyTorch quantization flows',
+      provider: 'PyTorch torchao documentation',
+      url: 'https://docs.pytorch.org/ao/stable/index.html',
       access: 'Free',
       tags: ['modern-cv', 'system-design'],
-      use: 'Ground production discussion of PTQ, QAT, backends, and operator support.',
-      assignment: 'Read the conceptual overview and current recommended APIs; do not implement a side project during the sprint.'
+      use: 'Ground production discussion of torchao quantization, current PT2E and eager flows, calibration/QAT, backends, and operator support.',
+      assignment: 'Read the torchao overview and choose the current PT2E or eager tutorial that matches the target stack; do not treat the legacy quantization landing page as the current API guide.'
     },
     {
       id: 'exponent-practice',
@@ -224,13 +224,13 @@
     },
     {
       id: 'interviewing-io',
-      title: 'Machine learning and coding mock interviews',
+      title: 'Free machine-learning mock interview replays',
       provider: 'interviewing.io',
       url: 'https://interviewing.io/mocks?focus=machine-learning',
-      access: 'Optional paid',
+      access: 'Free',
       tags: ['mocks', 'coding', 'system-design', 'behavioral'],
-      use: 'Anonymous expert mocks with Senior/Staff interviewers and explicit feedback.',
-      assignment: 'Buy only when peer mocks no longer provide enough calibration or before target-tier loops.'
+      use: 'Replay library of recorded machine-learning interviews for observing question flow, candidate reasoning, and interviewer feedback; this linked page is not a paid live-mock booking page.',
+      assignment: 'Watch one relevant replay, pause to answer each question first, then compare the candidate’s structure and feedback with your own response.'
     }
   ];
 

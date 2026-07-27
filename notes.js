@@ -67,7 +67,7 @@
       recall: [
         { question: 'Why can a 99%-accurate test have low precision?', answer: 'If the positive class is extremely rare, false positives from the large negative population can outnumber true positives despite high sensitivity and specificity.' },
         { question: 'What is the difference between uncertainty and entropy?', answer: 'Entropy is one numerical summary of a predictive distribution. Uncertainty is broader and includes data noise, parameter uncertainty, distribution shift, and ambiguity.' },
-        { question: 'Does temperature scaling improve ranking?', answer: 'No. It rescales logits to improve calibration while preserving class ordering, so ranking metrics usually remain unchanged.' }
+        { question: 'What does temperature scaling preserve?', answer: 'Dividing every logit by the same positive temperature preserves the per-example argmax and, for a binary score, the ordering of logit differences across examples. Multiclass class probabilities can reorder across examples, so probability-based ranking metrics must be remeasured.' }
       ]
     },
     {
@@ -356,10 +356,23 @@
         'Condition number measures sensitivity to perturbation. Poor conditioning slows gradient methods and amplifies numerical errors.',
         'SVD exposes left/right singular directions and scales; pseudoinverse handles rectangular or rank-deficient systems.'
       ],
-      formulas: ['Normal equations: XᵀXβ=Xᵀy.', 'Pseudoinverse from SVD: X⁺=VΣ⁺Uᵀ.', 'Condition number κ₂(A)=σ_max/σ_min for full-rank A.'],
+      formulas: [
+        'Normal equations: XᵀXβ=Xᵀy.',
+        'Pseudoinverse from SVD: X⁺=VΣ⁺Uᵀ.',
+        'Condition number κ₂(A)=σ_max/σ_min for full-rank A.',
+        'Worked application — low-rank embeddings: for centered X=UΣVᵀ, Xₖ=UₖΣₖVₖᵀ is the best rank-k approximation in Frobenius norm. The retained squared-energy fraction is Σᵢ₌₁ᵏσᵢ² / Σᵢσᵢ², so k can be chosen from a reconstruction or memory budget.'
+      ],
       decisionRules: ['Use QR/SVD for stable least squares; use truncated/randomized methods for large low-rank approximation.'],
-      pitfalls: ['Explicit matrix inversion is rarely the best numerical implementation of solving a linear system.'],
-      recall: [{ question: 'Why does XᵀX worsen conditioning?', answer: 'Its condition number is squared relative to X, making numerical error more severe.' }]
+      pitfalls: [
+        'Explicit matrix inversion is rarely the best numerical implementation of solving a linear system.',
+        'Applying PCA/SVD without the intended centering—and sometimes feature scaling—can make the leading component describe the mean or units rather than useful variation.',
+        'Individual singular vectors are unstable when singular values are repeated or nearly tied; compare the subspace or reconstruction instead of overinterpreting one direction.'
+      ],
+      recall: [
+        { question: 'Why does XᵀX worsen conditioning?', answer: 'Its condition number is squared relative to X, making numerical error more severe.' },
+        { question: 'How would you choose the rank for a compressed embedding table?', answer: 'Inspect the singular-value energy or downstream validation curve, then choose the smallest k that meets reconstruction, task-quality, memory, and latency requirements.' },
+        { question: 'Why does the pseudoinverse give a useful rank-deficient least-squares solution?', answer: 'It inverts only nonzero singular directions, producing the minimum-norm solution among all coefficient vectors that attain the minimum residual.' }
+      ]
     },
     {
       id: 'probability-derivations',
@@ -372,10 +385,22 @@
         'Latent-variable models marginalize unobserved variables. EM alternates expected latent assignments and parameter improvement.',
         'Jensen’s inequality explains evidence lower bounds and why variational inference optimizes a tractable surrogate.'
       ],
-      formulas: ['θ_MLE=argmaxθ ∏ᵢp(xᵢ|θ)=argminθ -Σᵢlog p(xᵢ|θ).', 'θ_MAP=argmaxθ [log p(D|θ)+log p(θ)].'],
+      formulas: [
+        'θ_MLE=argmaxθ ∏ᵢp(xᵢ|θ)=argminθ -Σᵢlog p(xᵢ|θ).',
+        'θ_MAP=argmaxθ [log p(D|θ)+log p(θ)].',
+        'Worked derivation — binary classification: with p(y=1|x)=σ(z), -log p(y|x)=-[y log σ(z)+(1-y)log(1-σ(z))], which is binary cross-entropy; a Gaussian prior on weights adds a coefficient-scaled ||w||₂² penalty to the summed negative log-likelihood.'
+      ],
       decisionRules: ['Use probabilistic derivations to check whether a loss matches the assumed observation noise and output distribution.'],
-      pitfalls: ['A prior is not only a philosophical statement; it changes finite-data estimation and optimization.'],
-      recall: [{ question: 'Why does Gaussian noise imply MSE?', answer: 'The Gaussian negative log-likelihood reduces to squared residuals plus constants when variance is fixed.' }]
+      pitfalls: [
+        'A prior is not only a philosophical statement; it changes finite-data estimation and optimization.',
+        'Changing a loss from a sum to a mean changes the relative strength of a fixed regularization coefficient, so MAP-style penalty scaling must match the reduction convention and dataset size.',
+        'EM only guarantees non-decreasing likelihood under exact updates and can converge to a poor local optimum; initialization and multiple restarts still matter.'
+      ],
+      recall: [
+        { question: 'Why does Gaussian noise imply MSE?', answer: 'The Gaussian negative log-likelihood reduces to squared residuals plus constants when variance is fixed.' },
+        { question: 'Why optimize log-likelihood instead of likelihood products?', answer: 'The logarithm preserves the maximizer, turns products into sums, improves numerical stability, and makes gradients decompose over examples.' },
+        { question: 'How does MAP differ from MLE as data grows?', answer: 'MAP adds log-prior evidence. With a fixed proper prior, the likelihood usually dominates as the sample grows, while the prior can materially regularize finite-data estimates.' }
+      ]
     },
     {
       id: 'statistical-inference-deep',
@@ -388,10 +413,21 @@
         'Multiple comparisons inflate false discoveries; family-wise and false-discovery-rate controls answer different goals.',
         'Randomized experiments identify causal effects under compliance and interference assumptions; observational correlations require stronger modeling assumptions.'
       ],
-      formulas: ['Benjamini–Hochberg controls false discovery rate by comparing ordered p-values p(k) to kα/m.'],
+      formulas: [
+        'Benjamini–Hochberg controls false discovery rate by comparing ordered p-values p(k) to kα/m.',
+        'Worked application — clustered metric uncertainty: sample patients with replacement, keep every image from each sampled patient, recompute the metric difference for each bootstrap replicate, and form a percentile or appropriately corrected interval from the replicate distribution.'
+      ],
       decisionRules: ['Resample the deployment-independent unit, not individual correlated observations.'],
-      pitfalls: ['A naive image-level bootstrap underestimates uncertainty when images cluster by patient or video.'],
-      recall: [{ question: 'Unbiased or lower MSE?', answer: 'Prediction usually values lower expected error; a small bias can be worthwhile if it substantially reduces variance.' }]
+      pitfalls: [
+        'A naive image-level bootstrap underestimates uncertainty when images cluster by patient or video.',
+        'A p-value is not the probability that the null hypothesis is true, and statistical significance does not establish practical effect size or deployment value.',
+        'Repeatedly selecting models against the same holdout turns it into training data; use nested validation or a fresh final test set for an honest estimate.'
+      ],
+      recall: [
+        { question: 'Unbiased or lower MSE?', answer: 'Prediction usually values lower expected error; a small bias can be worthwhile if it substantially reduces variance.' },
+        { question: 'What unit should a bootstrap resample?', answer: 'The unit that is approximately independent at deployment—such as patient, user, site, or video—while retaining dependent observations inside that unit.' },
+        { question: 'Benjamini–Hochberg versus Bonferroni?', answer: 'Bonferroni controls the probability of any family-wise false positive and is conservative; Benjamini–Hochberg controls the expected false-discovery proportion among rejected hypotheses and usually has more power.' }
+      ]
     },
     {
       id: 'multivariable-optimization',
@@ -404,10 +440,22 @@
         'Lagrange multipliers convert equality constraints into stationary conditions; KKT extends to inequalities under regularity assumptions.',
         'Natural gradient and second-order methods change geometry or curvature scaling but add computation and approximation cost.'
       ],
-      formulas: ['Second-order approximation: f(x+Δ)≈f(x)+∇fᵀΔ+½ΔᵀHΔ.', 'Lagrangian: L(x,λ)=f(x)+λᵀg(x).'],
+      formulas: [
+        'Second-order approximation: f(x+Δ)≈f(x)+∇fᵀΔ+½ΔᵀHΔ.',
+        'Lagrangian: L(x,λ)=f(x)+λᵀg(x).',
+        'Worked derivation — minimize x²+y² subject to x+y=1: ∇L=(2x+λ,2y+λ)=0 gives x=y; applying the constraint gives x=y=1/2, the closest feasible point to the origin.'
+      ],
       decisionRules: ['Use curvature concepts to reason about conditioning and step size, not to claim simple sharpness-generalization laws.'],
-      pitfalls: ['A zero gradient can indicate a saddle point, plateau, or minimum; curvature and neighborhood behavior distinguish them.'],
-      recall: [{ question: 'Why are saddle points common in high dimensions?', answer: 'There are many directions with mixed curvature, making stationary points with both positive and negative Hessian eigenvalues combinatorially common.' }]
+      pitfalls: [
+        'A zero gradient can indicate a saddle point, plateau, or minimum; curvature and neighborhood behavior distinguish them.',
+        'A positive-semidefinite Hessian at one point is only a local second-order condition and does not prove a non-convex objective is globally minimized.',
+        'KKT conditions require primal feasibility, dual feasibility, stationarity, and complementary slackness; their sufficiency also depends on convexity and regularity assumptions.'
+      ],
+      recall: [
+        { question: 'Why are saddle points common in high dimensions?', answer: 'There are many directions with mixed curvature, making stationary points with both positive and negative Hessian eigenvalues combinatorially common.' },
+        { question: 'What does the Lagrange multiplier mean locally?', answer: 'Under regularity conditions, it is the sensitivity of the optimum value to relaxing the corresponding constraint, up to the sign convention used in the Lagrangian.' },
+        { question: 'What do Hessian eigenvalues tell you near a stationary point?', answer: 'All positive values indicate a strict local minimum, any negative direction rules out a local minimum, and zero values require higher-order or neighborhood analysis.' }
+      ]
     },
     {
       id: 'information-theory',
@@ -420,10 +468,23 @@
         'Mutual information measures dependence as the KL divergence between the joint and product of marginals.',
         'Contrastive objectives often optimize bounds related to mutual information, but practical behavior depends heavily on sampling and representations.'
       ],
-      formulas: ['H(P)=-Σp(x)log p(x).', 'H(P,Q)=-Σp(x)log q(x)=H(P)+KL(P||Q).', 'I(X;Y)=KL(P(X,Y)||P(X)P(Y)).'],
+      formulas: [
+        'H(P)=-Σp(x)log p(x).',
+        'H(P,Q)=-Σp(x)log q(x)=H(P)+KL(P||Q).',
+        'I(X;Y)=KL(P(X,Y)||P(X)P(Y)).',
+        'Worked application — calibration loss: if a binary population has P(y=1)=0.8 but a model always predicts q=0.6, its cross-entropy is -[0.8 log 0.6+0.2 log 0.4]; the excess above H(P) is exactly KL(P||Q), the avoidable coding and predictive penalty.'
+      ],
       decisionRules: ['Use entropy as a prediction-distribution summary, not a universal epistemic-uncertainty estimator.'],
-      pitfalls: ['Low entropy can be confidently wrong under shift.'],
-      recall: [{ question: 'Why is KL not a distance?', answer: 'It is asymmetric and does not satisfy the triangle inequality.' }]
+      pitfalls: [
+        'Low entropy can be confidently wrong under shift.',
+        'Differential entropy for continuous variables can be negative and changes under reparameterization; discrete-entropy intuitions do not transfer unchanged.',
+        'Naive finite-sample mutual-information estimates can be strongly biased, and high estimated dependence does not establish a causal or task-useful representation.'
+      ],
+      recall: [
+        { question: 'Why is KL not a distance?', answer: 'It is asymmetric and does not satisfy the triangle inequality.' },
+        { question: 'Why does minimizing cross-entropy minimize KL for fixed targets?', answer: 'H(P,Q)=H(P)+KL(P||Q), and H(P) is constant with respect to the model distribution Q.' },
+        { question: 'When is mutual information zero?', answer: 'For well-defined distributions, I(X;Y)=0 exactly when the joint factorizes as P(X,Y)=P(X)P(Y), meaning X and Y are independent.' }
+      ]
     }
   ];
 
@@ -614,16 +675,18 @@ for i in range(len(nums)):
       id: 'sliding-window',
       title: 'Sliding windows',
       required: true,
-      summary: 'A sliding window maintains state for a contiguous range while its boundaries move forward. It is useful only when invalidity can be repaired monotonically by shrinking from one side.',
+      summary: 'A sliding window maintains state for a contiguous range as boundaries move forward. Fixed-width windows use rolling add/remove updates; variable-width windows additionally require that violations can be repaired monotonically by advancing one boundary.',
       recognitionCues: [
         'The target is a longest, shortest, count, or feasibility property over contiguous subarrays or substrings.',
-        'Adding the rightmost item changes compact state, and removing leftmost items can restore a violated constraint.'
+        'A fixed-size range needs a rolling aggregate, frequency table, or deque as one item enters and one leaves.',
+        'For variable width, adding the rightmost item changes compact state and removing leftmost items must monotonically restore a violated constraint.'
       ],
-      invariant: 'After the shrink loop, the current window satisfies the declared validity condition, and the maintained counts or aggregate describe exactly that window.',
+      invariant: 'The maintained state describes exactly the current range. A fixed-width answer is recorded only after the range reaches its required size; a variable-width answer is recorded only after its repair loop restores validity.',
       template: [
-        'Choose fixed or variable width and define the state needed to test window validity in O(1) or bounded time.',
-        'Expand the right boundary and update state; while invalid, remove the left item and advance left.',
-        'Record the answer only where the invariant guarantees the window is a valid candidate.'
+        'Choose fixed or variable width and define state that can be updated in O(1) or bounded time.',
+        'For fixed width, add the entering item, remove the item that falls outside the width, then record once the window has the required size.',
+        'For variable width, expand right and update state; while invalid, remove the left item and advance left.',
+        'Record the answer only where the chosen invariant guarantees the window is a valid candidate.'
       ],
       code: [
         { label: 'Expand right, shrink left while invalid', body: `def window(s):
@@ -651,11 +714,13 @@ for i in range(len(nums)):
         'Space is O(k) for the number of distinct symbols or tracked categories, or O(1) when the alphabet is fixed.'
       ],
       pitfalls: [
-        'Using a window when negative values or non-monotonic validity prevent leftward shrinking from predictably repairing the condition.',
-        'Updating the answer before validity is restored or leaving zero-count keys can produce incorrect sizes and stale state.'
+        'Using a variable window when negative values or non-monotonic validity prevent leftward shrinking from predictably repairing the condition.',
+        'Applying a shrink-until-valid loop to a fixed-width problem instead of removing exactly the item that left the range.',
+        'Updating the answer before the fixed window is full or variable-window validity is restored, or leaving zero-count keys that create stale state.'
       ],
       recall: [
         { question: 'What property makes a variable sliding window possible?', answer: 'Once expansion violates the constraint, advancing the left edge must move the window monotonically toward validity without requiring reconsideration of removed starts.' },
+        { question: 'How does a fixed-width window differ?', answer: 'Its size is prescribed: each step adds the entering item and, after the width is exceeded, removes exactly the departing item. It does not need a monotonic validity-repair condition.' },
         { question: 'Why is the usual two-boundary window O(n)?', answer: 'The right boundary enters each item once and the left boundary removes each item at most once, so the combined number of moves is at most 2n.' }
       ]
     },
@@ -768,20 +833,24 @@ for i in range(len(nums)):
         'Nodes must be inserted, removed, reversed, merged, or reordered without random access.',
         'The task asks about a cycle, midpoint, or distance from the end, suggesting fast and slow pointers.'
       ],
-      invariant: 'Before each rewiring step, the processed prefix has its final links, the current pointer starts the untouched suffix, and every needed successor reference has been saved.',
+      invariant: 'Every needed successor is saved before a link is overwritten. For deletion of the nth node from the end, a dummy predecessor is retained and the fast pointer stays n+1 links ahead of slow until fast reaches null.',
       template: [
         'Draw node identities and assign one role to each pointer; introduce a dummy node when the head may change.',
         'Save the next node before overwriting a link, perform the local rewire, then advance pointers in dependency order.',
         'Dry-run empty, one-node, two-node, odd-length, and even-length cases and verify termination or cycle behavior.'
       ],
       code: [
-        { label: 'Save next before you rewire; use a dummy head', body: `def transform(head):
-    dummy = ListNode(0, head)   # stable predecessor of the head
-    prev, cur = dummy, head
-    while cur:
-        nxt = cur.next          # save the suffix before rewiring
-        # ... relink prev / cur here ...
-        prev, cur = cur, nxt
+        { label: 'Dummy-node operation — Remove Nth Node From End', body: `def remove_nth_from_end(head, n):
+    dummy = ListNode(0, head)   # deletion always has a predecessor
+    fast = slow = dummy
+
+    for _ in range(n + 1):     # maintain an n+1-link gap
+        fast = fast.next
+    while fast:
+        fast = fast.next
+        slow = slow.next
+
+    slow.next = slow.next.next  # slow precedes the target
     return dummy.next` },
         { label: 'Worked example — Reverse Linked List', body: `def reverse_list(head):
     prev, cur = None, head
@@ -1114,7 +1183,7 @@ def last_stone_weight(stones):
         'Transformers often scale predictably with data and compute and transfer well from large pretraining corpora.',
         'Hybrid and hierarchical models blur the boundary: local windows, convolutions, multiscale stages, and attention can coexist.'
       ],
-      formulas: ['Full self-attention over N tokens costs O(N²d) interactions; doubling image resolution roughly quadruples each dimension’s token count and can increase attention cost dramatically.'],
+      formulas: ['Full self-attention over N tokens costs O(N²d). At fixed patch size, doubling both H and W makes N 4× larger and the O(N²d) attention term roughly 16× larger.'],
       decisionRules: ['Choose from latency, data, resolution, transfer checkpoint, hardware, and dense-task requirements; do not choose by benchmark fashion.'],
       pitfalls: ['“Transformers see globally” does not remove the need for multiscale features, positional information, and memory control.'],
       systemDesignUse: 'For edge detection with tight latency, a compact CNN or hybrid may beat a larger ViT. For reusable large-scale pretraining, transformer representations may win.',

@@ -46,6 +46,7 @@ describe('createInitialState', () => {
       applications: [],
       readinessOverride: null,
       preferences: { theme: 'system' },
+      remediationAssignments: {},
       studyProgress: { activeFocus: null, reviews: {}, studied: {} }
     });
   });
@@ -1320,6 +1321,135 @@ describe('guided stage evidence', () => {
     expect(getFirstIncompleteStage(guide, state, evidenceContent)).toBe(second);
     state.completedTasks['task-second'] = true;
     expect(getFirstIncompleteStage(guide, state, evidenceContent)).toBeNull();
+  });
+});
+
+describe('remediation evidence', () => {
+  const stageFor = (target) => makeStage('repair', 'practice', {
+    type: 'remediation',
+    target
+  });
+
+  test('requires a later retained recall rating and preserves the failed review time', () => {
+    const failedAt = '2026-09-01T10:00:00.000Z';
+    const passedAt = '2026-09-02T10:00:00.000Z';
+    const target = {
+      kind: 'recall', sourceId: 'module-a', promptIndex: 0,
+      failedAt, assignedAt: failedAt, isCalibration: false
+    };
+    const failed = scheduleRecallReview(makeV3State(), 'module-a', 0, 'again', failedAt);
+
+    expect(calculateStageStatus(stageFor(target), failed, evidenceContent)).toMatchObject({
+      complete: false,
+      evidence: 'typed',
+      kind: 'remediation',
+      quality: 'needs-reattempt'
+    });
+
+    const passed = scheduleRecallReview(failed, 'module-a', 0, 'hard', passedAt);
+    expect(passed.studyProgress.reviews['recall:module-a:0'].lastFailedAt).toBe(failedAt);
+    expect(calculateStageStatus(stageFor(target), passed, evidenceContent).complete).toBe(true);
+
+    const tooEarlyTarget = { ...target, failedAt: passedAt, assignedAt: passedAt };
+    expect(calculateStageStatus(stageFor(tooEarlyTarget), passed, evidenceContent).complete).toBe(false);
+  });
+
+  test('requires the same quiz to pass after its selected failure', () => {
+    const failedAt = '2026-09-01T10:00:00.000Z';
+    const stage = stageFor({
+      kind: 'quiz', sourceId: 'quiz-a', quizId: 'quiz-a',
+      failedAt, assignedAt: failedAt, isCalibration: false
+    });
+    const state = makeV3State({
+      quizAttempts: [{ quizId: 'quiz-a', score: 60, attemptedAt: failedAt }]
+    });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(false);
+
+    state.quizAttempts.push({ quizId: 'quiz-b', score: 100, attemptedAt: '2026-09-02T09:00:00.000Z' });
+    state.quizAttempts.push({ quizId: 'quiz-a', score: 80, attemptedAt: failedAt });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(false);
+
+    state.quizAttempts.push({ quizId: 'quiz-a', score: 80, attemptedAt: '2026-09-02T10:00:00.000Z' });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
+  });
+
+  test('requires a later independent problem solution with explanation and correct complexity', () => {
+    const failedAt = '2026-09-01T10:00:00.000Z';
+    const stage = stageFor({
+      kind: 'problem', sourceId: 'two-sum', problemId: 'two-sum',
+      failedAt, assignedAt: failedAt, isCalibration: false
+    });
+    const state = makeV3State({
+      problemAttempts: [{ problemId: 'two-sum', usedHint: true, attemptedAt: failedAt }]
+    });
+    const later = '2026-09-02T10:00:00.000Z';
+
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(false);
+    state.problemAttempts.push({
+      problemId: 'two-sum', solvedIndependently: true,
+      explainedAloud: false, complexityCorrect: true, attemptedAt: later
+    });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(false);
+    state.problemAttempts.push({
+      problemId: 'two-sum', solvedIndependently: true,
+      explainedAloud: true, complexityCorrect: true, attemptedAt: later
+    });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
+  });
+
+  test('requires a later valid timed design rubric with the selected dimension at four', () => {
+    const failedAt = '2026-09-01T10:00:00.000Z';
+    const stage = stageFor({
+      kind: 'design', sourceId: 'case-a', caseId: 'case-a', dimension: 'metrics',
+      failedAt, assignedAt: failedAt, isCalibration: false
+    });
+    const state = makeV3State({
+      designAttempts: [{
+        caseId: 'case-a', phase: 'attempt', durationMinutes: 40,
+        scores: { requirements: 4, metrics: 2 }, attemptedAt: failedAt
+      }]
+    });
+    const later = '2026-09-02T10:00:00.000Z';
+
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(false);
+    state.designAttempts.push({
+      caseId: 'case-a', phase: 'attempt', durationMinutes: 0,
+      scores: { requirements: 4, metrics: 4 }, attemptedAt: later
+    });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(false);
+    state.designAttempts.push({
+      caseId: 'case-a', phase: 'attempt', durationMinutes: 38,
+      scores: { requirements: 4, metrics: 4 }, attemptedAt: later
+    });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
+  });
+
+  test('keeps a fresh calibration target incomplete until evidence arrives after assignment', () => {
+    const stage = stageFor({
+      kind: 'quiz', sourceId: 'quiz-a', quizId: 'quiz-a', failedAt: null,
+      assignedAt: null, isCalibration: true
+    });
+    const fresh = makeV3State();
+    expect(calculateStageStatus(stage, fresh, evidenceContent).complete).toBe(false);
+
+    const calibrated = makeV3State({
+      quizAttempts: [{ quizId: 'quiz-a', score: 85, attemptedAt: '2026-09-01T10:00:00.000Z' }]
+    });
+    expect(calculateStageStatus(stage, calibrated, evidenceContent).complete).toBe(true);
+  });
+
+  test('preserves valid remediation assignments through schema-v3 import', () => {
+    const assignment = {
+      kind: 'problem', sourceId: 'two-sum', problemId: 'two-sum',
+      failedAt: '2026-09-01T10:00:00.000Z',
+      assignedAt: '2026-09-01T10:00:00.000Z', isCalibration: false
+    };
+    const result = validateImportedState(makeV3State({
+      remediationAssignments: { 'w10-gap-work': assignment }
+    }));
+
+    expect(result.ok).toBe(true);
+    expect(result.value.remediationAssignments).toEqual({ 'w10-gap-work': assignment });
   });
 });
 

@@ -31,11 +31,12 @@ const expectedCodingModuleIds = [
   'graphs-union-find',
   'intervals',
   'backtracking',
-  'dynamic-programming'
+  'dynamic-programming',
+  'ml-coding'
 ];
 
 describe('coding learning modules', () => {
-  test('exports all fourteen concept areas without replacing existing registries', () => {
+  test('exports all fifteen concept areas without replacing existing registries', () => {
     expect(data.existingRegistryMarker).toBe(true);
     expect(Array.isArray(data.foundationModules)).toBe(true);
     expect(Array.isArray(data.modernCvModules)).toBe(true);
@@ -81,6 +82,104 @@ describe('coding learning modules', () => {
     }
     for (const key of Object.keys(map)) {
       expect(patterns.has(key)).toBe(true);
+    }
+  });
+});
+
+describe('Phase 1C study content', () => {
+  const codingById = new Map(data.codingModules.map((module) => [module.id, module]));
+  const foundationById = new Map(data.foundationModules.map((module) => [module.id, module]));
+  const modernById = new Map(data.modernCvModules.map((module) => [module.id, module]));
+
+  test('teaches production ML coding with complete worked implementations', () => {
+    const module = codingById.get('ml-coding');
+    expect(module).toBeDefined();
+    expect(module.recognitionCues.length).toBeGreaterThanOrEqual(3);
+    expect(module.complexity.join(' ')).toMatch(/O\(/);
+    expect(module.pitfalls.length).toBeGreaterThanOrEqual(3);
+    expect(module.recall.length).toBeGreaterThanOrEqual(3);
+
+    const labels = module.code.map((example) => example.label.toLowerCase());
+    const bodies = module.code.map((example) => example.body).join('\n');
+    expect(labels.filter((label) => label.includes('template'))).toHaveLength(2);
+    expect(labels.filter((label) => label.includes('worked'))).toHaveLength(2);
+    expect(bodies).toContain('binary_cross_entropy_with_logits');
+    expect(bodies).toContain('zero_grad');
+    expect(bodies).toContain('backward');
+    expect(bodies).toContain('optimizer.step');
+    expect(bodies).toContain('def box_iou');
+    expect(bodies).toContain('def nms');
+    expect(`${module.summary} ${module.invariant} ${module.template.join(' ')}`).toMatch(/shape/i);
+  });
+
+  test('adds classical ML plus the prerequisite CV foundation sequence', () => {
+    const classical = foundationById.get('classical-ml');
+    expect(classical?.required).toBe(true);
+    expect(`${classical.summary} ${classical.keyPoints.join(' ')}`).toMatch(/linear|logistic/i);
+    expect(classical.keyPoints.join(' ')).toMatch(/tree|forest|boost/i);
+    expect(classical.keyPoints.join(' ')).toMatch(/SVM|nearest|kNN/i);
+    expect(classical.keyPoints.join(' ')).toMatch(/cluster/i);
+    expect(classical.decisionRules.length).toBeGreaterThanOrEqual(3);
+    expect(classical.pitfalls.length).toBeGreaterThanOrEqual(3);
+    expect(classical.recall.length).toBeGreaterThanOrEqual(3);
+
+    for (const id of ['cnn-foundations', 'detection-segmentation-foundations', 'video-tracking']) {
+      const module = modernById.get(id);
+      expect(module?.required).toBe(true);
+      expect(module.summary.length).toBeGreaterThan(80);
+      expect(module.keyPoints.length).toBeGreaterThanOrEqual(5);
+      expect(module.formulas.length).toBeGreaterThanOrEqual(2);
+      expect(module.decisionRules.length).toBeGreaterThanOrEqual(3);
+      expect(module.pitfalls.length).toBeGreaterThanOrEqual(3);
+      expect(module.systemDesignUse.length).toBeGreaterThan(60);
+      expect(module.recall.length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test('gives every modern-CV module substantive architecture and production recall', () => {
+    for (const module of data.modernCvModules) {
+      expect(module.recall.length).toBeGreaterThanOrEqual(3);
+      expect(module.recall.every(({ question, answer }) => question.length > 15 && answer.length > 30)).toBe(true);
+      expect(module.recall.some(({ question }) => /architect|mechan|attention|encoder|decoder|objective|convolution|tracking/i.test(question))).toBe(true);
+      expect(module.recall.some(({ question }) => /production|evaluate|metric|latency|failure|trade.?off|monitor/i.test(question))).toBe(true);
+    }
+  });
+
+  test('adds pressure answers, graph interview code, prefix-suffix teaching, and mock packets', () => {
+    expect(data.systemDesignCases).toHaveLength(8);
+    for (const item of data.systemDesignCases) {
+      expect(item.pressureTestAnswer.length).toBeGreaterThan(100);
+      const answer = String(item.pressureTestAnswer);
+      expect(answer).toContain('Decision:');
+      expect(/alternative|instead|versus|rather/i.test(answer)).toBe(true);
+      expect(/fail|risk/i.test(answer)).toBe(true);
+      expect(/verify|measure|test|monitor/i.test(answer)).toBe(true);
+    }
+
+    const graph = codingById.get('graphs-union-find');
+    const graphText = JSON.stringify(graph);
+    expect(graphText).toMatch(/topological|Kahn/i);
+    expect(graphText).toMatch(/directed/i);
+    expect(graph.code.some(({ body }) => body.includes('def can_finish') && body.includes('indegree') && body.includes('deque'))).toBe(true);
+
+    const hashing = codingById.get('hashing');
+    expect(`${hashing.title} ${JSON.stringify(hashing)}`).toMatch(/prefix.*suffix|suffix.*prefix/i);
+    expect(JSON.stringify(hashing)).toMatch(/Product Except Self/i);
+
+    expect(data.mockPackets.map((packet) => packet.id)).toEqual([
+      'coding', 'ml-cv-theory', 'cv-system-design', 'behavioral'
+    ]);
+    for (const packet of data.mockPackets) {
+      expect(packet.title.length).toBeGreaterThan(8);
+      expect(packet.durationMinutes).toBeGreaterThan(0);
+      expect(packet.interviewerScript.length).toBeGreaterThanOrEqual(3);
+      expect(packet.interviewerScript.every(({ minute, prompt }) => Number.isFinite(minute) && prompt.length > 15)).toBe(true);
+      expect(packet.questions.length).toBeGreaterThanOrEqual(3);
+      expect(packet.followUps.length).toBeGreaterThanOrEqual(2);
+      expect(packet.rubric.length).toBeGreaterThanOrEqual(3);
+      expect(packet.rubric.every(({ dimension, strongSignal, weakSignal }) =>
+        dimension.length > 2 && strongSignal.length > 20 && weakSignal.length > 20
+      )).toBe(true);
     }
   });
 });
@@ -175,7 +274,7 @@ describe('quiz and behavioral content contracts', () => {
 const sessions = data.weeks.flatMap((week) => week.sessions);
 const sessionGuides = data.sessionGuides || {};
 const allowedStageTypes = new Set(['learn', 'recall', 'practice', 'verify', 'reflect']);
-const allowedReferenceTypes = new Set(['module', 'problem-set', 'quiz', 'design-case', 'story', 'mock', 'instruction']);
+const allowedReferenceTypes = new Set(['module', 'problem-set', 'quiz', 'design-case', 'story', 'mock', 'remediation', 'instruction']);
 
 function stageForTask(taskId) {
   for (const guide of Object.values(sessionGuides)) {
@@ -287,7 +386,7 @@ describe('session guide graph', () => {
     expect(requiredModuleIds.filter((id) => !referencedModuleIds.has(id))).toEqual([]);
   });
 
-  test('links both Week 9 quizzes while keeping retrieval repair instructional', () => {
+  test('links both Week 9 quizzes while making retrieval repair evidence-backed', () => {
     const stages = sessionGuides['w9-wed'].stages;
     const simulation = stages.find((stage) => stage.taskIds.includes('w9-theory-sim-b'));
     const repair = stages.find((stage) => stage.taskIds.includes('w9-theory-fix-b'));
@@ -297,7 +396,8 @@ describe('session guide graph', () => {
       quizIds: ['foundation-core-1', 'task-loss-metric']
     });
     expect(repair.type).toBe('recall');
-    expect(repair.reference).toEqual({ type: 'instruction' });
+    expect(repair.reference.type).toBe('remediation');
+    expect(repair.reference.target).toMatchObject({ kind: 'quiz', isCalibration: true });
   });
 
   test('scopes every quiz-backed task to its intended bank', () => {
@@ -501,10 +601,177 @@ describe('session guide graph', () => {
           expect(reference.resourceIds.length).toBeGreaterThan(0);
           expect(new Set(reference.resourceIds).size).toBe(reference.resourceIds.length);
           expect(reference.resourceIds.every((id) => resourceIds.has(id))).toBe(true);
+        } else if (reference.type === 'remediation') {
+          expect(Object.keys(reference).sort()).toEqual(['target', 'type']);
+          expect(reference.target && typeof reference.target === 'object').toBe(true);
+          expect(['recall', 'quiz', 'problem', 'design']).toContain(reference.target.kind);
+          expect(typeof reference.target.sourceId).toBe('string');
+          expect(reference.target.sourceId.length).toBeGreaterThan(0);
         } else {
           expect(Object.keys(reference)).toEqual(['type']);
         }
       }
     }
+  });
+});
+
+describe('Phase 1C scheduling and remediation graph', () => {
+  const stageForTaskIn = (guides, taskId) => {
+    for (const guide of Object.values(guides)) {
+      const stage = guide.stages.find((candidate) => candidate.taskIds.includes(taskId));
+      if (stage) return { guide, stage };
+    }
+    throw new Error(`Missing stage for task: ${taskId}`);
+  };
+
+  test('schedules prerequisite study before transformer material and links the promised practice', () => {
+    const moduleStages = Object.values(sessionGuides).flatMap((guide) =>
+      guide.stages
+        .filter((stage) => stage.reference.type === 'module')
+        .map((stage) => ({ guide, stage }))
+    );
+    const stageWithModule = (moduleId) => moduleStages.find(({ stage }) =>
+      stage.reference.moduleIds.includes(moduleId)
+    );
+    const sessionOrder = new Map(sessions.map((session, index) => [session.id, index]));
+
+    expect(stageWithModule('classical-ml').guide.sessionId).toMatch(/^w3-/);
+    expect(sessionOrder.get(stageWithModule('cnn-foundations').guide.sessionId))
+      .toBeLessThan(sessionOrder.get(stageForTaskIn(sessionGuides, 'w4-vit').guide.sessionId));
+    expect(sessionOrder.get(stageWithModule('detection-segmentation-foundations').guide.sessionId))
+      .toBeLessThan(sessionOrder.get(stageForTaskIn(sessionGuides, 'w4-detr').guide.sessionId));
+
+    const mlCoding = stageWithModule('ml-coding');
+    expect(mlCoding.guide.sessionId).toMatch(/^w[57]-/);
+    expect(mlCoding.stage.type).toBe('practice');
+    expect(stageForTaskIn(sessionGuides, 'w5-video-cv').stage.reference).toEqual({
+      type: 'module',
+      moduleIds: ['video-tracking']
+    });
+  });
+
+  test('assigns the complete problem bank and uses semantically split pattern keys', () => {
+    const referenced = new Set(Object.values(sessionGuides).flatMap((guide) =>
+      guide.stages.flatMap((stage) => stage.reference.type === 'problem-set'
+        ? stage.reference.problemIds
+        : [])
+    ));
+    const bankIds = data.problems.map((problem) => problem.id);
+    expect(bankIds.filter((id) => !referenced.has(id))).toEqual([]);
+    expect(data.optionalProblems || []).toEqual([]);
+
+    const patterns = new Set(data.problems.map((problem) => problem.pattern));
+    expect(patterns.has('Arrays & hashing')).toBe(false);
+    expect(patterns.has('Heap & intervals')).toBe(false);
+    expect(patterns).toEqual(expect.objectContaining(new Set([
+      'Hashing', 'Arrays: prefix/suffix', 'Heaps', 'Intervals'
+    ])));
+    expect(data.codingPatternConcepts.Hashing).toEqual(['hashing']);
+    expect(data.codingPatternConcepts['Arrays: prefix/suffix']).toEqual(['hashing']);
+    expect(data.codingPatternConcepts.Heaps).toEqual(['heaps']);
+    expect(data.codingPatternConcepts.Intervals).toEqual(['intervals']);
+  });
+
+  test('derives concrete recall, quiz, problem, and design repair targets from misses', () => {
+    expect(typeof data.buildSessionGuides).toBe('function');
+    const at = '2026-09-01T10:00:00.000Z';
+    const base = {
+      completedTasks: {},
+      quizAttempts: [],
+      problemAttempts: [],
+      designAttempts: [],
+      studyProgress: { reviews: {}, studied: {}, activeFocus: null },
+      remediationAssignments: {}
+    };
+
+    const recallGuides = data.buildSessionGuides({
+      ...base,
+      studyProgress: {
+        ...base.studyProgress,
+        reviews: {
+          'recall:hashing:1': {
+            kind: 'recall', sourceId: 'hashing', promptIndex: 1,
+            lastResult: 'again', lastReviewedAt: at
+          }
+        }
+      }
+    });
+    const recall = stageForTaskIn(recallGuides, 'w8-coding-recall').stage;
+    expect(recall.reference.target).toMatchObject({
+      kind: 'recall', sourceId: 'hashing', promptIndex: 1, failedAt: at, isCalibration: false
+    });
+    expect(recall.instructions).toMatch(/hashing.*prompt 2.*hard or got-it.*after/i);
+
+    const quizGuides = data.buildSessionGuides({
+      ...base,
+      quizAttempts: [{ quizId: 'rapid-fire-readiness', score: 65, attemptedAt: at }]
+    });
+    const quiz = stageForTaskIn(quizGuides, 'w8-theory-fix-a').stage;
+    expect(quiz.reference.target).toMatchObject({
+      kind: 'quiz', sourceId: 'rapid-fire-readiness', quizId: 'rapid-fire-readiness', failedAt: at, isCalibration: false
+    });
+    expect(quiz.instructions).toMatch(/rapid-fire.*80.*after/i);
+
+    const problemGuides = data.buildSessionGuides({
+      ...base,
+      problemAttempts: [{ problemId: 'coin-change', usedHint: true, attemptedAt: at }]
+    });
+    const problem = stageForTaskIn(problemGuides, 'w10-gap-work').stage;
+    expect(problem.reference.target).toMatchObject({
+      kind: 'problem', sourceId: 'coin-change', problemId: 'coin-change', failedAt: at, isCalibration: false
+    });
+    expect(problem.instructions).toMatch(/coin-change.*independent.*explain.*complexity.*after/i);
+
+    const designGuides = data.buildSessionGuides({
+      ...base,
+      designAttempts: [{
+        caseId: 'image-search', phase: 'attempt', durationMinutes: 40,
+        scores: { requirements: 4, metrics: 2, serving: 3 }, attemptedAt: at
+      }]
+    });
+    const design = stageForTaskIn(designGuides, 'w9-design-fix-b').stage;
+    expect(design.reference.target).toMatchObject({
+      kind: 'design', sourceId: 'image-search', caseId: 'image-search',
+      dimension: 'metrics', failedAt: at, isCalibration: false
+    });
+    expect(design.instructions).toMatch(/image-search.*metrics.*4.*timed.*after/i);
+  });
+
+  test('uses explicit fresh-state calibration targets and preserves a selected miss', () => {
+    const empty = {
+      completedTasks: {}, quizAttempts: [], problemAttempts: [], designAttempts: [],
+      studyProgress: { reviews: {}, studied: {}, activeFocus: null }, remediationAssignments: {}
+    };
+    const freshGuides = data.buildSessionGuides(empty);
+    const taskIds = [
+      'w8-theory-fix-a', 'w8-coding-recall', 'w8-ml-repair', 'w9-design-fix-b',
+      'w9-theory-fix-b', 'w9-design-repair', 'w10-gap-work'
+    ];
+    for (const taskId of taskIds) {
+      const stage = stageForTaskIn(freshGuides, taskId).stage;
+      expect(stage.reference.type).toBe('remediation');
+      expect(stage.reference.target.isCalibration).toBe(true);
+      expect(stage.instructions).toMatch(/calibration/i);
+      expect(stage.instructions).toMatch(/after/i);
+    }
+
+    const failed = {
+      ...empty,
+      quizAttempts: [{
+        quizId: 'rapid-fire-readiness', score: 55,
+        attemptedAt: '2026-09-01T10:00:00.000Z'
+      }]
+    };
+    const selected = data.buildSessionGuides(failed);
+    const selectedTarget = stageForTaskIn(selected, 'w8-theory-fix-a').stage.reference.target;
+    const repaired = {
+      ...failed,
+      quizAttempts: [...failed.quizAttempts, {
+        quizId: 'rapid-fire-readiness', score: 90,
+        attemptedAt: '2026-09-02T10:00:00.000Z'
+      }]
+    };
+    const stable = data.buildSessionGuides(repaired, selected);
+    expect(stageForTaskIn(stable, 'w8-theory-fix-a').stage.reference.target).toEqual(selectedTarget);
   });
 });

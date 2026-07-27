@@ -29,6 +29,8 @@
   let editingStoryIndex = null;
   let editingApplicationIndex = null;
   let editingMockIndex = null;
+  let currentSessionGuides = {};
+  state = refreshSessionGuides(state);
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -109,6 +111,37 @@
     ];
   }
 
+  function buildGuides(candidate, previousGuides = null) {
+    return typeof data.buildSessionGuides === 'function'
+      ? data.buildSessionGuides(candidate, previousGuides)
+      : data.sessionGuides || {};
+  }
+
+  function refreshSessionGuides(candidate) {
+    const derived = buildGuides(candidate, currentSessionGuides);
+    const assignmentsValid = candidate?.remediationAssignments
+      && typeof candidate.remediationAssignments === 'object'
+      && !Array.isArray(candidate.remediationAssignments);
+    const currentAssignments = assignmentsValid ? candidate.remediationAssignments : {};
+    const remediationAssignments = { ...currentAssignments };
+    let changed = !assignmentsValid;
+
+    Object.values(derived).forEach((guide) => {
+      (guide.stages || []).forEach((stage) => {
+        if (stage.reference?.type !== 'remediation') return;
+        const current = remediationAssignments[stage.id];
+        const selected = stage.reference.target;
+        if (current && !(current.isCalibration && selected && !selected.isCalibration)) return;
+        remediationAssignments[stage.id] = selected;
+        changed = true;
+      });
+    });
+
+    const prepared = changed ? { ...candidate, remediationAssignments } : candidate;
+    currentSessionGuides = buildGuides(prepared, derived);
+    return prepared;
+  }
+
   function learningModuleGroups() {
     return {
       coding: data.codingModules || [],
@@ -122,7 +155,7 @@
   }
 
   function findGuideStage(sessionId, stageId) {
-    const guide = data.sessionGuides?.[sessionId];
+    const guide = currentSessionGuides?.[sessionId];
     const stage = guide?.stages?.find((candidate) => candidate.id === stageId) || null;
     return stage ? { guide, stage, session: findSession(sessionId) } : null;
   }
@@ -196,7 +229,7 @@
     const completedTasks = { ...(candidate.completedTasks || {}) };
     const workingState = { ...candidate, completedTasks };
 
-    Object.values(data.sessionGuides || {}).forEach((guide) => {
+    Object.values(currentSessionGuides || {}).forEach((guide) => {
       (guide.stages || []).forEach((stage) => {
         const status = logic.calculateStageStatus(stage, workingState, data);
         (stage.taskIds || []).forEach((taskId) => {
@@ -210,9 +243,10 @@
   }
 
   function commitState(candidate, message, options = {}) {
+    const prepared = refreshSessionGuides(candidate);
     const nextState = options.syncGuided === false
-      ? candidate
-      : synchronizeGuidedTasks(candidate);
+      ? prepared
+      : synchronizeGuidedTasks(prepared);
 
     try {
       localStorage.setItem(STORAGE_KEY_V2, JSON.stringify(nextState));
@@ -236,7 +270,7 @@
     );
     const taskIds = new Set();
 
-    Object.values(data.sessionGuides || {}).forEach((guide) => {
+    Object.values(currentSessionGuides || {}).forEach((guide) => {
       (guide.stages || []).forEach((stage) => {
         if (stage.reference?.type !== 'module') return;
         if (!(stage.reference.moduleIds || []).some((moduleId) => requiredModules.has(moduleId))) return;
@@ -250,13 +284,13 @@
   function readiness() {
     return logic.calculateReadiness(state, {
       requiredFoundationTaskIds: requiredFoundationTaskIds(),
-      sessionGuides: data.sessionGuides || {},
+      sessionGuides: currentSessionGuides || {},
       content: data
     });
   }
 
   function calculateProgress(taskIds) {
-    return logic.calculatePlanProgress(taskIds, state, data.sessionGuides || {}, data);
+    return logic.calculatePlanProgress(taskIds, state, currentSessionGuides || {}, data);
   }
 
   function currentRoute() {
@@ -280,7 +314,7 @@
   }
 
   function nextGuideAfter(guide) {
-    const guides = allSessions().map((session) => data.sessionGuides?.[session.id]).filter(Boolean);
+    const guides = allSessions().map((session) => currentSessionGuides?.[session.id]).filter(Boolean);
     const index = guides.findIndex((candidate) => candidate.sessionId === guide?.sessionId);
     return index >= 0 ? guides[index + 1] || null : null;
   }
@@ -730,6 +764,21 @@
       </section>`;
   }
 
+  function renderPressureTest(item) {
+    const hasRecordedAnswer = state.designAttempts.some((attempt) => (
+      attempt?.caseId === item.id
+      && (typeof attempt.note === 'string' ? attempt.note.trim().length > 0 : Boolean(attempt.scores))
+    ));
+    return `
+      <div class="recall-card pressure-test">
+        <strong>Pressure test</strong>
+        <p class="subtle">${escapeHtml(item.pressureTest)}</p>
+        ${hasRecordedAnswer && item.pressureTestAnswer
+          ? `<div class="answer"><strong>Reference answer</strong><p>${escapeHtml(item.pressureTestAnswer)}</p></div>`
+          : '<p class="locked-hint">Record your own answer or timed attempt before revealing the reference answer.</p>'}
+      </div>`;
+  }
+
   function renderInlineDesign(stage) {
     const item = findDesignCase(stage.reference.caseId);
     if (!item) return '<p class="pitfall">The referenced design case is unavailable.</p>';
@@ -761,12 +810,12 @@
         </div>
         <p>${escapeHtml(item.scenario)}</p>
         ${noteSection('Clarify first', item.requirements)}
+        ${renderPressureTest(item)}
         ${hasTimedRubric ? `
           <div class="design-debrief">
             ${noteSection('Strong solution includes', item.solutionOutline)}
             <p class="callout"><strong>Modern CV decision:</strong> ${escapeHtml(item.modernCv)}</p>
-            <p class="pitfall"><strong>Pressure test:</strong> ${escapeHtml(item.pressureTest)}</p>
-          </div>` : '<p class="locked-hint">Save a matching timed attempt to reveal the outline and pressure test.</p>'}
+          </div>` : '<p class="locked-hint">Save a matching timed attempt to reveal the solution outline.</p>'}
         ${phase === 'attempt'
           ? designAttemptForm([item], { prefix: `${stage.id}-${item.id}`, fixedCaseId: item.id })
           : designNotesForm(item, stage, phase, latestPhaseRecord)}
@@ -823,6 +872,55 @@
       </article>`;
   }
 
+  function renderInlineRemediation(stage, status) {
+    const target = stage.reference.target || {};
+    const heading = target.isCalibration ? 'Calibration re-attempt' : 'Targeted re-attempt';
+    let workspace = '<p class="pitfall">The selected remediation target is unavailable.</p>';
+
+    if (target.kind === 'recall') {
+      const module = findModule(target.sourceId);
+      const prompt = module?.recall?.[target.promptIndex];
+      if (module && prompt) {
+        workspace = `
+          <article class="recall-card">
+            <p class="eyebrow">${escapeHtml(module.title)} · prompt ${target.promptIndex + 1}</p>
+            ${renderRecallPrompt(module, prompt, target.promptIndex, `${stage.id}-repair`)}
+          </article>`;
+      }
+    } else if (target.kind === 'quiz') {
+      const quiz = findQuiz(target.quizId || target.sourceId);
+      if (quiz) workspace = renderQuizForm(quiz, `${stage.id}-repair-${quiz.id}`);
+    } else if (target.kind === 'problem') {
+      const problem = findProblem(target.problemId || target.sourceId);
+      if (problem) {
+        workspace = problemAttemptForm([problem], {
+          prefix: `${stage.id}-repair-${problem.id}`,
+          fixedProblemId: problem.id,
+          targetMinutes: 30,
+          compact: true
+        });
+      }
+    } else if (target.kind === 'design') {
+      const caseId = target.caseId || target.sourceId;
+      if (findDesignCase(caseId)) {
+        workspace = renderInlineDesign({
+          ...stage,
+          reference: { type: 'design-case', caseId, phase: 'attempt' }
+        });
+      }
+    }
+
+    return `
+      <article class="inline-reference remediation-reference">
+        <div class="card-header">
+          <div><p class="eyebrow">${heading}</p><h3>${escapeHtml(target.label || target.sourceId || 'Recorded miss')}</h3></div>
+          <span class="status-badge ${status.complete ? 'status-green' : 'status-amber'}">${status.complete ? 'Repaired' : 'Evidence required'}</span>
+        </div>
+        <p class="formula"><strong>Completion criterion:</strong> ${escapeHtml(target.completionCriterion || 'Save passing evidence after the selected miss.')}</p>
+        ${workspace}
+      </article>`;
+  }
+
   function renderInlineInstruction(stage, session, status) {
     const resources = (stage.reference.resourceIds || []).map(findResource).filter(Boolean);
     const prefix = safeId(`${stage.id}-manual`);
@@ -856,6 +954,7 @@
       case 'design-case': return renderInlineDesign(stage);
       case 'story': return renderInlineStory(stage, status);
       case 'mock': return renderInlineMock(stage, status);
+      case 'remediation': return renderInlineRemediation(stage, status);
       case 'instruction': return renderInlineInstruction(stage, session, status);
       default: return '<p class="pitfall">This stage has no usable content reference.</p>';
     }
@@ -953,7 +1052,7 @@
   function renderToday() {
     const session = relevantSession();
     if (!session) return pageHeader('Study now', 'No sessions found', 'The curriculum did not load.');
-    const guide = data.sessionGuides?.[session.id];
+    const guide = currentSessionGuides?.[session.id];
     const exactToday = session.date === todayIso();
     const dueReviews = logic.getDueReviews(state, new Date().toISOString(), 5);
     const firstIncomplete = guide ? logic.getFirstIncompleteStage(guide, state, data) : null;
@@ -990,7 +1089,7 @@
       const recommendation = logic.getWeakAreaRecommendation(state, {
         currentGuide: guide,
         nextGuide: nextGuideAfter(guide),
-        sessionGuides: data.sessionGuides || {},
+        sessionGuides: currentSessionGuides || {},
         content: data
       });
       followUpSection = `
@@ -1050,11 +1149,11 @@
 
   function currentRecommendation() {
     const session = relevantSession();
-    const guide = session ? data.sessionGuides?.[session.id] : null;
+    const guide = session ? currentSessionGuides?.[session.id] : null;
     return logic.getWeakAreaRecommendation(state, {
       currentGuide: guide,
       nextGuide: guide ? nextGuideAfter(guide) : null,
-      sessionGuides: data.sessionGuides || {},
+      sessionGuides: currentSessionGuides || {},
       content: data
     });
   }
@@ -1140,9 +1239,9 @@
       const progress = calculateProgress(weekTaskIds);
       const sessions = week.sessions.map((session) => {
         const complete = session.tasks.every((task) => (
-          logic.isTaskComplete(task.id, state, data.sessionGuides || {}, data)
+          logic.isTaskComplete(task.id, state, currentSessionGuides || {}, data)
         ));
-        const guide = data.sessionGuides?.[session.id];
+        const guide = currentSessionGuides?.[session.id];
         const nextStage = guide ? logic.getFirstIncompleteStage(guide, state, data) : null;
         return `
           <div class="session-row">
@@ -1357,7 +1456,7 @@
           ${noteSection('Clarify first', item.requirements)}
           ${noteSection('Strong solution includes', item.solutionOutline)}
           <p class="callout"><strong>Modern CV decision:</strong> ${escapeHtml(item.modernCv)}</p>
-          <div class="recall-card"><strong>Pressure test</strong><p class="subtle">${escapeHtml(item.pressureTest)}</p></div>
+          ${renderPressureTest(item)}
         </article>`).join('')}</section>
       <section class="card section-gap" id="design-log">
         <div class="card-header"><div><h2>Score a 40-minute design</h2><p>Every category must reach 4/5 on two recent attempts.</p></div></div>
@@ -1425,9 +1524,28 @@
       </article>`;
   }
 
+  function renderBehavioralGuidance(prompt) {
+    if (!prompt) return '';
+    const followUps = Array.isArray(prompt.followUps) ? prompt.followUps : [];
+    const seniorSignals = Array.isArray(prompt.seniorSignals) ? prompt.seniorSignals : [];
+    const modelOutline = Array.isArray(prompt.modelOutline) ? prompt.modelOutline : [];
+    const rubric = Array.isArray(prompt.rubric) ? prompt.rubric : [];
+    if (!followUps.length && !seniorSignals.length && !modelOutline.length && !rubric.length) {
+      return '<p class="subtle">Guidance for this prompt is not available yet.</p>';
+    }
+    return `
+      <div class="behavioral-guidance">
+        ${followUps.length ? `<section><h4>Interviewer follow-ups</h4>${conciseList(followUps, followUps.length)}</section>` : ''}
+        ${seniorSignals.length ? `<section><h4>Senior signals</h4>${conciseList(seniorSignals, seniorSignals.length)}</section>` : ''}
+        ${modelOutline.length ? `<section><h4>Model outline</h4><ol>${modelOutline.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ol></section>` : ''}
+        ${rubric.length ? `<section><h4>Self-review rubric</h4><dl>${rubric.map((item) => `<dt>${escapeHtml(item.dimension)}</dt><dd>${escapeHtml(item.strongSignal)}</dd>`).join('')}</dl></section>` : ''}
+      </div>`;
+  }
+
   function renderBehavioral() {
     const prompts = data.behavioralPrompts || [];
     const story = editingStoryIndex === null ? {} : state.starStories[editingStoryIndex] || {};
+    const selectedPrompt = prompts.find((prompt) => behavioralPromptId(prompt) === story.promptId) || null;
     const coveredPromptIds = new Set(
       state.starStories
         .map((savedStory) => typeof savedStory.promptId === 'string' ? savedStory.promptId.trim() : '')
@@ -1442,13 +1560,18 @@
         <div class="card">
           <div class="card-header"><div><h2>${story.title ? 'Edit story' : 'Add a STAR story'}</h2><p>Keep the spoken version under two minutes.</p></div></div>
           ${storyForm(story)}
+          ${selectedPrompt ? `<details class="section-gap"><summary>Guidance for ${escapeHtml(selectedPrompt.title)}</summary><div class="details-body">${renderBehavioralGuidance(selectedPrompt)}</div></details>` : ''}
         </div>
         <div class="card">
           <div class="card-header"><div><h2>Prompt coverage</h2><p>${coveredCount}/10 prompts covered. Build at least one strong story for each.</p></div></div>
-          <ol class="subtle">${prompts.map((prompt) => {
+          <div class="module-list">${prompts.map((prompt) => {
             const covered = coveredPromptIds.has(behavioralPromptId(prompt));
-            return `<li class="${covered ? '' : 'pitfall'}"><strong>${escapeHtml(prompt.title)}:</strong> ${escapeHtml(prompt.prompt)} <span class="status-badge ${covered ? 'status-green' : 'status-amber'}">${covered ? 'Covered' : 'Uncovered'}</span></li>`;
-          }).join('')}</ol>
+            return `
+              <details class="learning-module">
+                <summary>${escapeHtml(prompt.title)} <span class="status-badge ${covered ? 'status-green' : 'status-amber'}">${covered ? 'Covered' : 'Uncovered'}</span></summary>
+                <div class="details-body"><p>${escapeHtml(prompt.prompt)}</p>${renderBehavioralGuidance(prompt)}</div>
+              </details>`;
+          }).join('')}</div>
         </div>
       </section>
       <section class="section-gap">
@@ -1502,6 +1625,33 @@
       </section>`;
   }
 
+  function renderMockPacket(packet) {
+    const script = Array.isArray(packet.interviewerScript) ? packet.interviewerScript : [];
+    const questions = Array.isArray(packet.questions) ? packet.questions : [];
+    const followUps = Array.isArray(packet.followUps) ? packet.followUps : [];
+    const rubric = Array.isArray(packet.rubric) ? packet.rubric : [];
+    return `
+      <details class="learning-module mock-packet">
+        <summary>${escapeHtml(packet.title)} <span class="pill">${formatMinutes(packet.durationMinutes)}</span></summary>
+        <div class="details-body notes-layout">
+          <article>
+            <h3>Interviewer script</h3>
+            <ol>${script.map((step) => `<li><strong>${escapeHtml(step.minute)} min:</strong> ${escapeHtml(step.prompt)}</li>`).join('')}</ol>
+            ${questions.length ? `<h3>Questions</h3>${conciseList(questions, questions.length)}` : ''}
+            ${followUps.length ? `<h3>Follow-ups</h3>${conciseList(followUps, followUps.length)}` : ''}
+          </article>
+          <aside>
+            <h3>Scoring rubric</h3>
+            <dl>${rubric.map((item) => `
+              <dt>${escapeHtml(item.dimension)}</dt>
+              <dd><strong>Strong:</strong> ${escapeHtml(item.strongSignal)}</dd>
+              <dd><strong>Weak:</strong> ${escapeHtml(item.weakSignal)}</dd>`).join('')}</dl>
+            <p class="subtle">This packet guides the interviewer. It does not count as attempt or debrief evidence.</p>
+          </aside>
+        </div>
+      </details>`;
+  }
+
   function renderMocks() {
     return `
       ${pageHeader('Mock interviews', 'Practice under interview conditions', 'A mock attempt and its reviewed debrief are separate evidence.')}
@@ -1519,6 +1669,10 @@
           <h2>Mock protocol</h2>
           <ol class="subtle"><li>Use a timer and speak every decision aloud.</li><li>Ask for an advance/no-advance signal.</li><li>Save the attempt before reviewing it.</li><li>Add a debrief and close its remediation.</li></ol>
         </div>
+      </section>
+      <section class="card section-gap">
+        <div class="card-header"><div><h2>Role-specific mock packets</h2><p>Use the timed script and concrete rubric; log evidence separately above.</p></div><span class="pill">${(data.mockPackets || []).length} packets</span></div>
+        <div class="module-list">${(data.mockPackets || []).map(renderMockPacket).join('') || '<p class="empty-state">Mock packets are not available yet.</p>'}</div>
       </section>
       <section class="section-gap">
         <div class="card-header"><div><h2>Mock history</h2><p>${state.mocks.length} attempts logged.</p></div></div>

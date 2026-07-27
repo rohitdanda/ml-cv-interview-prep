@@ -83,6 +83,7 @@
       applications: [],
       readinessOverride: null,
       preferences: { theme: 'system' },
+      remediationAssignments: {},
       studyProgress: { activeFocus: null, reviews: {}, studied: {} }
     };
   }
@@ -329,10 +330,14 @@
   }
 
   function isValidReview(key, review) {
-    if (!hasExactKeys(review, REVIEW_FIELDS)) return false;
+    const expectedFields = Object.hasOwn(review || {}, 'lastFailedAt')
+      ? [...REVIEW_FIELDS, 'lastFailedAt']
+      : REVIEW_FIELDS;
+    if (!hasExactKeys(review, expectedFields)) return false;
     if (!REVIEW_KINDS.has(review.kind) || !REVIEW_RESULTS.has(review.lastResult)) return false;
     if (!isIdentifier(review.sourceId)) return false;
     if (!isValidDate(review.lastReviewedAt) || !isValidDate(review.nextReviewAt)) return false;
+    if (Object.hasOwn(review, 'lastFailedAt') && !isValidDate(review.lastFailedAt)) return false;
     if (!Number.isFinite(review.intervalDays) || review.intervalDays <= 0) return false;
     if (!Number.isInteger(review.streak) || review.streak < 0) return false;
 
@@ -380,8 +385,8 @@
     };
   }
 
-  function reviewRecord(kind, sourceId, promptIndex, lastReviewedAt, intervalDays, streak, lastResult) {
-    return {
+  function reviewRecord(kind, sourceId, promptIndex, lastReviewedAt, intervalDays, streak, lastResult, lastFailedAt = null) {
+    const record = {
       kind,
       sourceId,
       promptIndex,
@@ -391,6 +396,8 @@
       streak,
       lastResult
     };
+    if (isValidDate(lastFailedAt)) record.lastFailedAt = new Date(lastFailedAt).toISOString();
+    return record;
   }
 
   function currentStudied(state) {
@@ -446,7 +453,15 @@
       streak = previousStreak + 1;
     }
 
-    reviews[key] = reviewRecord('recall', moduleId, promptIndex, reviewed, intervalDays, streak, result);
+    const previousFailure = isValidDate(previous?.lastFailedAt)
+      ? previous.lastFailedAt
+      : previous?.lastResult === 'again' && isValidDate(previous.lastReviewedAt)
+        ? previous.lastReviewedAt
+        : null;
+    const lastFailedAt = result === 'again' ? reviewed : previousFailure;
+    reviews[key] = reviewRecord(
+      'recall', moduleId, promptIndex, reviewed, intervalDays, streak, result, lastFailedAt
+    );
     return withReviews(state, reviews);
   }
 
@@ -863,6 +878,81 @@
     }, matchingMocks.length > 0);
   }
 
+  function occursAfter(value, cutoff) {
+    if (!isValidDate(value)) return false;
+    return !isValidDate(cutoff) || Date.parse(value) > Date.parse(cutoff);
+  }
+
+  function calculateRemediationStatus(stage, state) {
+    const target = isRecord(stage?.reference?.target) ? stage.reference.target : null;
+    const cutoff = isValidDate(target?.failedAt)
+      ? target.failedAt
+      : isValidDate(target?.assignedAt)
+        ? target.assignedAt
+        : null;
+    let complete = false;
+    let latestEvidence = null;
+
+    if (target?.kind === 'recall' && isIdentifier(target.sourceId)
+      && Number.isInteger(target.promptIndex) && target.promptIndex >= 0) {
+      const review = currentReviews(state)[createReviewKey('recall', target.sourceId, target.promptIndex)];
+      latestEvidence = review || null;
+      complete = Boolean(
+        review
+        && (review.lastResult === 'hard' || review.lastResult === 'got-it')
+        && occursAfter(review.lastReviewedAt, cutoff)
+      );
+    } else if (target?.kind === 'quiz' && isIdentifier(target.quizId || target.sourceId)) {
+      const quizId = target.quizId || target.sourceId;
+      const attempts = (Array.isArray(state?.quizAttempts) ? state.quizAttempts : [])
+        .filter((attempt) => attempt?.quizId === quizId)
+        .map((attempt, index) => ({ attempt, index }))
+        .sort((left, right) => eventTime(right.attempt, right.index) - eventTime(left.attempt, left.index));
+      latestEvidence = attempts[0]?.attempt || null;
+      complete = attempts.some(({ attempt }) => (
+        Number(attempt?.score) >= 80 && occursAfter(attempt?.attemptedAt, cutoff)
+      ));
+    } else if (target?.kind === 'problem' && isIdentifier(target.problemId || target.sourceId)) {
+      const problemId = target.problemId || target.sourceId;
+      const attempts = (Array.isArray(state?.problemAttempts) ? state.problemAttempts : [])
+        .filter((attempt) => attempt?.problemId === problemId)
+        .map((attempt, index) => ({ attempt, index }))
+        .sort((left, right) => eventTime(right.attempt, right.index) - eventTime(left.attempt, left.index));
+      latestEvidence = attempts[0]?.attempt || null;
+      complete = attempts.some(({ attempt }) => (
+        independentRetentionAttempt(attempt) && occursAfter(attempt?.attemptedAt, cutoff)
+      ));
+    } else if (target?.kind === 'design' && isIdentifier(target.caseId || target.sourceId)
+      && isNonEmptyString(target.dimension)) {
+      const caseId = target.caseId || target.sourceId;
+      const attempts = (Array.isArray(state?.designAttempts) ? state.designAttempts : [])
+        .filter((attempt) => attempt?.caseId === caseId && (attempt.phase || 'attempt') === 'attempt')
+        .map((attempt, index) => ({ attempt, index }))
+        .sort((left, right) => eventTime(right.attempt, right.index) - eventTime(left.attempt, left.index));
+      latestEvidence = attempts[0]?.attempt || null;
+      complete = attempts.some(({ attempt }) => {
+        const quality = rubricQuality(attempt?.scores);
+        const duration = Number(attempt?.durationMinutes);
+        return Boolean(
+          quality
+          && Number.isFinite(duration)
+          && duration > 0
+          && Number(quality.scores[target.dimension]) >= 4
+          && occursAfter(attempt?.attemptedAt, cutoff)
+        );
+      });
+    }
+
+    return {
+      complete,
+      kind: 'remediation',
+      evidence: 'typed',
+      quality: complete ? 'repaired' : target ? 'needs-reattempt' : 'invalid-target',
+      target,
+      latestEvidence
+    };
+  }
+
   function calculateStageStatus(stage, state, content = {}) {
     const referenceType = stage?.reference?.type;
     if (referenceType === 'module') return calculateModuleStatus(stage, state, content);
@@ -871,6 +961,7 @@
     if (referenceType === 'design-case') return calculateDesignStatus(stage, state);
     if (referenceType === 'story') return calculateStoryStatus(stage, state);
     if (referenceType === 'mock') return calculateMockStatus(stage, state);
+    if (referenceType === 'remediation') return calculateRemediationStatus(stage, state);
 
     const complete = legacyTasksComplete(stage, state);
     return {

@@ -2,12 +2,12 @@
   'use strict';
 
   const problems = [
-    { id: 'contains-duplicate', title: 'Contains Duplicate', pattern: 'Arrays & hashing', difficulty: 'Easy', url: 'https://leetcode.com/problems/contains-duplicate/' },
-    { id: 'valid-anagram', title: 'Valid Anagram', pattern: 'Arrays & hashing', difficulty: 'Easy', url: 'https://leetcode.com/problems/valid-anagram/' },
-    { id: 'two-sum', title: 'Two Sum', pattern: 'Arrays & hashing', difficulty: 'Easy', url: 'https://leetcode.com/problems/two-sum/' },
-    { id: 'group-anagrams', title: 'Group Anagrams', pattern: 'Arrays & hashing', difficulty: 'Medium', url: 'https://leetcode.com/problems/group-anagrams/' },
-    { id: 'top-k-frequent-elements', title: 'Top K Frequent Elements', pattern: 'Arrays & hashing', difficulty: 'Medium', url: 'https://leetcode.com/problems/top-k-frequent-elements/' },
-    { id: 'product-of-array-except-self', title: 'Product of Array Except Self', pattern: 'Arrays & hashing', difficulty: 'Medium', url: 'https://leetcode.com/problems/product-of-array-except-self/' },
+    { id: 'contains-duplicate', title: 'Contains Duplicate', pattern: 'Hashing', difficulty: 'Easy', url: 'https://leetcode.com/problems/contains-duplicate/' },
+    { id: 'valid-anagram', title: 'Valid Anagram', pattern: 'Hashing', difficulty: 'Easy', url: 'https://leetcode.com/problems/valid-anagram/' },
+    { id: 'two-sum', title: 'Two Sum', pattern: 'Hashing', difficulty: 'Easy', url: 'https://leetcode.com/problems/two-sum/' },
+    { id: 'group-anagrams', title: 'Group Anagrams', pattern: 'Hashing', difficulty: 'Medium', url: 'https://leetcode.com/problems/group-anagrams/' },
+    { id: 'top-k-frequent-elements', title: 'Top K Frequent Elements', pattern: 'Hashing', difficulty: 'Medium', url: 'https://leetcode.com/problems/top-k-frequent-elements/' },
+    { id: 'product-of-array-except-self', title: 'Product of Array Except Self', pattern: 'Arrays: prefix/suffix', difficulty: 'Medium', url: 'https://leetcode.com/problems/product-of-array-except-self/' },
 
     { id: 'valid-palindrome', title: 'Valid Palindrome', pattern: 'Two pointers', difficulty: 'Easy', url: 'https://leetcode.com/problems/valid-palindrome/' },
     { id: 'two-sum-ii-input-array-is-sorted', title: 'Two Sum II', pattern: 'Two pointers', difficulty: 'Medium', url: 'https://leetcode.com/problems/two-sum-ii-input-array-is-sorted/' },
@@ -48,13 +48,13 @@
     { id: 'kth-smallest-element-in-a-bst', title: 'Kth Smallest Element in a BST', pattern: 'Trees', difficulty: 'Medium', url: 'https://leetcode.com/problems/kth-smallest-element-in-a-bst/' },
     { id: 'lowest-common-ancestor-of-a-binary-search-tree', title: 'Lowest Common Ancestor of a BST', pattern: 'Trees', difficulty: 'Medium', url: 'https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/' },
 
-    { id: 'kth-largest-element-in-an-array', title: 'Kth Largest Element in an Array', pattern: 'Heap & intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/kth-largest-element-in-an-array/' },
-    { id: 'last-stone-weight', title: 'Last Stone Weight', pattern: 'Heap & intervals', difficulty: 'Easy', url: 'https://leetcode.com/problems/last-stone-weight/' },
-    { id: 'k-closest-points-to-origin', title: 'K Closest Points to Origin', pattern: 'Heap & intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/k-closest-points-to-origin/' },
-    { id: 'merge-intervals', title: 'Merge Intervals', pattern: 'Heap & intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/merge-intervals/' },
-    { id: 'insert-interval', title: 'Insert Interval', pattern: 'Heap & intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/insert-interval/' },
-    { id: 'non-overlapping-intervals', title: 'Non-overlapping Intervals', pattern: 'Heap & intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/non-overlapping-intervals/' },
-    { id: 'task-scheduler', title: 'Task Scheduler', pattern: 'Heap & intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/task-scheduler/' },
+    { id: 'kth-largest-element-in-an-array', title: 'Kth Largest Element in an Array', pattern: 'Heaps', difficulty: 'Medium', url: 'https://leetcode.com/problems/kth-largest-element-in-an-array/' },
+    { id: 'last-stone-weight', title: 'Last Stone Weight', pattern: 'Heaps', difficulty: 'Easy', url: 'https://leetcode.com/problems/last-stone-weight/' },
+    { id: 'k-closest-points-to-origin', title: 'K Closest Points to Origin', pattern: 'Heaps', difficulty: 'Medium', url: 'https://leetcode.com/problems/k-closest-points-to-origin/' },
+    { id: 'merge-intervals', title: 'Merge Intervals', pattern: 'Intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/merge-intervals/' },
+    { id: 'insert-interval', title: 'Insert Interval', pattern: 'Intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/insert-interval/' },
+    { id: 'non-overlapping-intervals', title: 'Non-overlapping Intervals', pattern: 'Intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/non-overlapping-intervals/' },
+    { id: 'task-scheduler', title: 'Task Scheduler', pattern: 'Heaps', difficulty: 'Medium', url: 'https://leetcode.com/problems/task-scheduler/' },
 
     { id: 'number-of-islands', title: 'Number of Islands', pattern: 'Graphs', difficulty: 'Medium', url: 'https://leetcode.com/problems/number-of-islands/' },
     { id: 'clone-graph', title: 'Clone Graph', pattern: 'Graphs', difficulty: 'Medium', url: 'https://leetcode.com/problems/clone-graph/' },
@@ -73,6 +73,8 @@
     { id: 'house-robber', title: 'House Robber', pattern: 'Dynamic programming', difficulty: 'Medium', url: 'https://leetcode.com/problems/house-robber/' },
     { id: 'coin-change', title: 'Coin Change', pattern: 'Dynamic programming', difficulty: 'Medium', url: 'https://leetcode.com/problems/coin-change/' }
   ];
+
+  const optionalProblems = [];
 
   const task = (id, title, detail, minutes, category) => ({ id, title, detail, minutes, category });
   const session = (id, date, title, category, outcome, description, duration, tasks) => ({ id, date, title, category, outcome, description, duration, tasks });
@@ -102,7 +104,7 @@
         ]),
         session('w1-thu', '2026-07-30', 'Hashing and two pointers', 'coding', 'Recognize state lookup versus ordered convergence', 'Solve first, then compare your invariant with the reference pattern.', 90, [
           task('w1-problems-b', 'Arrays set B', 'Group Anagrams, Top K Frequent Elements, Product Except Self.', 55, 'coding'),
-          task('w1-problems-c', 'Two-pointer start', 'Valid Palindrome and Two Sum II.', 25, 'coding'),
+          task('w1-problems-c', 'Two-pointer set', 'Valid Palindrome, Two Sum II, 3Sum, and Container With Most Water.', 25, 'coding'),
           task('w1-pattern-log', 'Pattern journal', 'Write one sentence describing the invariant for hashing and two pointers.', 10, 'coding')
         ]),
         session('w1-sat', '2026-08-01', 'Task, loss, and metric map', 'foundations', 'Choose defensible losses and metrics by task', 'Build the classification, regression, detection, and segmentation cheat sheet.', 180, [
@@ -124,8 +126,8 @@
       goal: 'Restore probabilistic reasoning while making sliding-window, stack, search, and linked-list patterns automatic.',
       sessions: [
         session('w2-mon', '2026-08-03', 'Sliding windows', 'coding', 'Maintain a valid window with explicit state', 'State what expands, what invalidates, and what shrinks before writing code.', 90, [
-          task('w2-window-a', 'Fixed and variable windows', 'Best Time to Buy/Sell Stock and Longest Substring Without Repeats.', 50, 'coding'),
-          task('w2-window-b', 'Constraint-driven window', 'Longest Repeating Character Replacement.', 30, 'coding'),
+          task('w2-window-a', 'Fixed and variable windows', 'Best Time to Buy/Sell Stock, Longest Substring Without Repeats, and Permutation in String.', 50, 'coding'),
+          task('w2-window-b', 'Constraint-driven window', 'Longest Repeating Character Replacement and Minimum Window Substring.', 30, 'coding'),
           task('w2-window-recall', 'Window invariant', 'Explain why each pointer only moves forward.', 10, 'coding')
         ]),
         session('w2-tue', '2026-08-04', 'Probability foundations', 'foundations', 'Use conditional probability and Bayes correctly', 'Translate natural-language events before touching formulas.', 90, [
@@ -135,12 +137,12 @@
         ]),
         session('w2-wed', '2026-08-05', 'Stacks and monotonic state', 'coding', 'Recognize deferred work and next-greater-element patterns', 'Use the stack as an explicit record of unresolved items.', 90, [
           task('w2-stack-a', 'Stack basics', 'Valid Parentheses, Min Stack, Evaluate Reverse Polish Notation.', 50, 'coding'),
-          task('w2-stack-b', 'Monotonic stack', 'Daily Temperatures.', 30, 'coding'),
+          task('w2-stack-b', 'Monotonic and ordered stacks', 'Daily Temperatures and Car Fleet.', 30, 'coding'),
           task('w2-stack-recall', 'Complexity explanation', 'Explain amortized O(n) for a monotonic stack.', 10, 'coding')
         ]),
         session('w2-thu', '2026-08-06', 'Binary search and linked lists', 'coding', 'Search monotonic spaces and manipulate pointers safely', 'Write loop invariants before updating bounds or links.', 90, [
-          task('w2-binary', 'Binary-search core', 'Binary Search, Search a 2D Matrix, Koko Eating Bananas.', 50, 'coding'),
-          task('w2-linked', 'Linked-list core', 'Reverse Linked List and Merge Two Sorted Lists.', 30, 'coding'),
+          task('w2-binary', 'Binary-search core', 'Binary Search, Search a 2D Matrix, Koko Eating Bananas, Find Minimum, and Search in Rotated Array.', 50, 'coding'),
+          task('w2-linked', 'Linked-list core', 'Reverse, Merge, Reorder, Remove Nth, and Cycle detection.', 30, 'coding'),
           task('w2-pointer-check', 'Pointer dry run', 'Trace one odd-length and one two-node case by hand.', 10, 'coding')
         ]),
         session('w2-sat', '2026-08-08', 'Statistics and validation', 'foundations', 'Reason about estimates, uncertainty, and leakage', 'Use validation design that matches the deployment distribution.', 180, [
@@ -173,7 +175,7 @@
         ]),
         session('w3-wed', '2026-08-12', 'Trees II and heaps', 'coding', 'Use ordering and priority structures intentionally', 'Separate traversal order from the information being aggregated.', 90, [
           task('w3-trees-c', 'BST and breadth-first', 'Level Order, Validate BST, Kth Smallest, LCA in BST.', 55, 'coding'),
-          task('w3-heaps-a', 'Heap basics', 'Last Stone Weight and K Closest Points.', 25, 'coding'),
+          task('w3-heaps-a', 'Heap selection drills', 'Last Stone Weight, K Closest, Kth Largest, and Task Scheduler.', 25, 'coding'),
           task('w3-heap-recall', 'Heap selection rule', 'Explain when heapq beats sorting and when it does not.', 10, 'coding')
         ]),
         session('w3-thu', '2026-08-13', 'Graphs I', 'coding', 'Traverse components without revisiting state', 'Choose BFS versus DFS based on output and memory needs, not habit.', 90, [
@@ -181,15 +183,15 @@
           task('w3-graphs-b', 'Graph copies and waves', 'Clone Graph and Rotting Oranges.', 40, 'coding'),
           task('w3-graph-recall', 'Visited-state rule', 'Explain when to mark visited: enqueue versus dequeue.', 10, 'coding')
         ]),
-        session('w3-sat', '2026-08-15', 'Optimization and generalization', 'foundations', 'Choose optimizers and regularizers with reasons', 'Tie each technique to geometry, noise, data size, and failure symptoms.', 180, [
+        session('w3-sat', '2026-08-15', 'Optimization, classical ML, and generalization', 'foundations', 'Choose model families, optimizers, and regularizers with reasons', 'Tie each choice to data regime, geometry, calibration, cost, and failure symptoms.', 180, [
           task('w3-optimizers', 'SGD to Adam', 'Momentum, adaptive moments, weight decay, learning-rate schedules, warmup.', 60, 'foundations'),
-          task('w3-regularization', 'Generalization controls', 'L1/L2, decoupled weight decay, dropout, augmentation, early stopping, label smoothing.', 60, 'foundations'),
+          task('w3-regularization', 'Classical model selection and generalization', 'Linear/logistic models, trees, SVM/kNN, clustering, calibration, regularization, augmentation, and early stopping.', 60, 'foundations'),
           task('w3-optimization-quiz', 'Senior ML rapid fire', 'Complete 20 questions, including optimization, normalization, and regularization judgment, without notes.', 60, 'foundations')
         ]),
-        session('w3-sun', '2026-08-16', 'Graphs II and rebuild checkpoint', 'coding', 'Finish core graph patterns and prove improvement', 'Use a short timed checkpoint against Week 1.', 180, [
+        session('w3-sun', '2026-08-16', 'Graphs II and CV foundations', 'modern-cv', 'Finish graph patterns and establish CNN/dense-prediction prerequisites', 'Complete directed graphs, then study convolutional backbones, detection, and segmentation before Week 4 transformers.', 180, [
           task('w3-graphs-c', 'Dependencies and reverse search', 'Course Schedule and Pacific Atlantic Water Flow.', 60, 'coding'),
           task('w3-graphs-d', 'Union-find intuition', 'Redundant Connection; compare union-find with DFS.', 35, 'coding'),
-          task('w3-checkpoint', 'Rebuild checkpoint', 'Random medium, foundations quiz, and 20-minute design outline.', 55, 'mocks'),
+          task('w3-checkpoint', 'CNN and dense-prediction foundations', 'Convolution shapes, receptive fields, residuals, FPN, anchors, NMS, U-Net, losses, and metrics.', 55, 'modern-cv'),
           task('w3-retro', 'Phase retrospective', 'Record deltas from baseline and carry only unresolved red areas.', 30, 'behavioral')
         ])
       ]
@@ -244,7 +246,7 @@
         ]),
         session('w5-wed', '2026-08-26', 'Backtracking and DP essentials', 'coding', 'Frame state transitions explicitly', 'Avoid memorizing DP tables; state the recurrence and base cases.', 90, [
           task('w5-backtrack-b', 'Backtracking set', 'Combination Sum and Word Search.', 45, 'coding'),
-          task('w5-dp-a', 'DP start', 'Climbing Stairs and House Robber.', 35, 'coding'),
+          task('w5-dp-a', 'DP problem set', 'Climbing Stairs, House Robber, and Coin Change.', 35, 'coding'),
           task('w5-dp-recall', 'Recurrence recall', 'Explain state, transition, base, order, and answer.', 10, 'coding')
         ]),
         session('w5-thu', '2026-08-27', 'Real-time detection design', 'system-design', 'Balance accuracy, latency, throughput, and cost', 'Use cascades, batching, compression, and fallbacks as explicit tradeoffs.', 90, [
@@ -330,7 +332,7 @@
         session('w7-sun', '2026-09-13', 'Build-phase checkpoint', 'mocks', 'Prove coverage before simulation', 'Run timed theory and design checks; repair only demonstrated gaps.', 180, [
           task('w7-rapid-fire', 'ML rapid-fire', 'Complete 20 questions without notes; log as a rapid-fire quiz.', 45, 'foundations'),
           task('w7-design-random', 'Random 40-minute design', 'Select one of eight cases and score all ten rubric dimensions.', 50, 'system-design'),
-          task('w7-coding-random', 'Random medium', 'Solve and explain within 30 minutes.', 35, 'coding'),
+          task('w7-coding-random', 'ML coding lab', 'Implement stable BCE training, vectorized IoU, and greedy NMS while stating shapes and complexity.', 35, 'coding'),
           task('w7-retro', 'Phase retrospective', 'List exact gates that remain red or amber.', 50, 'behavioral')
         ])
       ]
@@ -449,6 +451,7 @@
     design: (caseId, phase = 'attempt') => ({ type: 'design-case', caseId, phase }),
     story: (requirements) => ({ type: 'story', requirements }),
     mock: (mockType, requiredCount, phase = 'attempt') => ({ type: 'mock', requirements: { mockType, requiredCount, phase } }),
+    remediation: (policyId) => ({ type: 'remediation-policy', policyId }),
     instruction: (...resourceIds) => resourceIds.length
       ? { type: 'instruction', resourceIds }
       : { type: 'instruction' }
@@ -467,7 +470,7 @@
     'w1-linear-recall': stageSpec('recall', references.module('linear-algebra')),
     'w1-linear-quiz': stageSpec('verify', references.quiz('linear-algebra-basics')),
     'w1-problems-b': stageSpec('practice', references.problems('group-anagrams', 'top-k-frequent-elements', 'product-of-array-except-self')),
-    'w1-problems-c': stageSpec('practice', references.problems('valid-palindrome', 'two-sum-ii-input-array-is-sorted')),
+    'w1-problems-c': stageSpec('practice', references.problems('valid-palindrome', 'two-sum-ii-input-array-is-sorted', '3sum', 'container-with-most-water')),
     'w1-pattern-log': stageSpec('reflect', references.module('hashing', 'two-pointers')),
     'w1-losses': stageSpec('learn', references.module('losses')),
     'w1-metrics': stageSpec('learn', references.module('metrics')),
@@ -476,17 +479,17 @@
     'w1-design-rework': stageSpec('practice', references.instruction('cs329s')),
     'w1-retro': stageSpec('reflect', references.instruction()),
 
-    'w2-window-a': stageSpec('practice', references.problems('best-time-to-buy-and-sell-stock', 'longest-substring-without-repeating-characters')),
-    'w2-window-b': stageSpec('practice', references.problems('longest-repeating-character-replacement')),
+    'w2-window-a': stageSpec('practice', references.problems('best-time-to-buy-and-sell-stock', 'longest-substring-without-repeating-characters', 'permutation-in-string')),
+    'w2-window-b': stageSpec('practice', references.problems('longest-repeating-character-replacement', 'minimum-window-substring')),
     'w2-window-recall': stageSpec('recall', references.module('sliding-window')),
     'w2-probability': stageSpec('learn', references.module('probability')),
     'w2-distributions': stageSpec('learn', references.module('probability')),
     'w2-prob-recall': stageSpec('recall', references.module('probability')),
     'w2-stack-a': stageSpec('practice', references.problems('valid-parentheses', 'min-stack', 'evaluate-reverse-polish-notation')),
-    'w2-stack-b': stageSpec('practice', references.problems('daily-temperatures')),
+    'w2-stack-b': stageSpec('practice', references.problems('daily-temperatures', 'car-fleet')),
     'w2-stack-recall': stageSpec('recall', references.module('stack-monotonic')),
-    'w2-binary': stageSpec('practice', references.problems('binary-search', 'search-a-2d-matrix', 'koko-eating-bananas')),
-    'w2-linked': stageSpec('practice', references.problems('reverse-linked-list', 'merge-two-sorted-lists')),
+    'w2-binary': stageSpec('practice', references.problems('binary-search', 'search-a-2d-matrix', 'koko-eating-bananas', 'find-minimum-in-rotated-sorted-array', 'search-in-rotated-sorted-array')),
+    'w2-linked': stageSpec('practice', references.problems('reverse-linked-list', 'merge-two-sorted-lists', 'reorder-list', 'remove-nth-node-from-end-of-list', 'linked-list-cycle')),
     'w2-pointer-check': stageSpec('recall', references.module('binary-search', 'linked-lists')),
     'w2-statistics': stageSpec('learn', references.module('statistics-validation')),
     'w2-validation': stageSpec('learn', references.module('statistics-validation')),
@@ -502,17 +505,17 @@
     'w3-backprop': stageSpec('learn', references.module('calculus-backprop')),
     'w3-gradient-recall': stageSpec('recall', references.module('calculus-backprop')),
     'w3-trees-c': stageSpec('practice', references.problems('binary-tree-level-order-traversal', 'validate-binary-search-tree', 'kth-smallest-element-in-a-bst', 'lowest-common-ancestor-of-a-binary-search-tree')),
-    'w3-heaps-a': stageSpec('practice', references.problems('last-stone-weight', 'k-closest-points-to-origin')),
+    'w3-heaps-a': stageSpec('practice', references.problems('last-stone-weight', 'k-closest-points-to-origin', 'kth-largest-element-in-an-array', 'task-scheduler')),
     'w3-heap-recall': stageSpec('recall', references.module('heaps')),
     'w3-graphs-a': stageSpec('practice', references.problems('number-of-islands', 'max-area-of-island')),
     'w3-graphs-b': stageSpec('practice', references.problems('clone-graph', 'rotting-oranges')),
     'w3-graph-recall': stageSpec('recall', references.module('graphs-union-find')),
     'w3-optimizers': stageSpec('learn', references.module('optimization')),
-    'w3-regularization': stageSpec('learn', references.module('generalization')),
+    'w3-regularization': stageSpec('learn', references.module('generalization', 'classical-ml')),
     'w3-optimization-quiz': stageSpec('verify', references.quiz('rapid-fire-readiness')),
     'w3-graphs-c': stageSpec('practice', references.problems('course-schedule', 'pacific-atlantic-water-flow')),
     'w3-graphs-d': stageSpec('practice', references.problems('redundant-connection')),
-    'w3-checkpoint': stageSpec('verify', references.instruction('leetcode', 'cs329s')),
+    'w3-checkpoint': stageSpec('learn', references.module('cnn-foundations', 'detection-segmentation-foundations')),
     'w3-retro': stageSpec('reflect', references.instruction()),
 
     'w4-timed-a': stageSpec('verify', references.instruction('leetcode')),
@@ -537,14 +540,14 @@
     'w5-clip': stageSpec('learn', references.module('clip')),
     'w5-dinov2': stageSpec('learn', references.module('dinov2')),
     'w5-backtrack-b': stageSpec('practice', references.problems('combination-sum', 'word-search')),
-    'w5-dp-a': stageSpec('practice', references.problems('climbing-stairs', 'house-robber')),
+    'w5-dp-a': stageSpec('practice', references.problems('climbing-stairs', 'house-robber', 'coin-change')),
     'w5-dp-recall': stageSpec('recall', references.module('dynamic-programming')),
     'w5-detection-design': stageSpec('practice', references.design('detection-service', 'attempt')),
     'w5-detection-metrics': stageSpec('learn', references.design('detection-service', 'requirements')),
     'w5-edge-tradeoffs': stageSpec('reflect', references.design('detection-service', 'debrief')),
     'w5-video-design': stageSpec('practice', references.design('video-moderation', 'attempt')),
     'w5-video-debrief': stageSpec('reflect', references.design('video-moderation', 'debrief')),
-    'w5-video-cv': stageSpec('learn', references.design('video-moderation', 'requirements')),
+    'w5-video-cv': stageSpec('learn', references.module('video-tracking')),
     'w5-story-b': stageSpec('practice', references.story({ savedStoryCount: 4 })),
     'w5-data-quality': stageSpec('learn', references.module('data-debugging')),
     'w5-error-analysis': stageSpec('practice', references.module('data-debugging')),
@@ -583,30 +586,30 @@
     'w7-story-finish': stageSpec('reflect', references.story({ completedStoryCount: 8 })),
     'w7-rapid-fire': stageSpec('verify', references.quiz('rapid-fire-readiness')),
     'w7-design-random': stageSpec('verify', references.instruction('cs329s')),
-    'w7-coding-random': stageSpec('verify', references.instruction('leetcode')),
+    'w7-coding-random': stageSpec('practice', references.module('ml-coding')),
     'w7-retro': stageSpec('reflect', references.instruction()),
 
     'w8-random-a': stageSpec('verify', references.instruction('leetcode')),
     'w8-design-sim-a': stageSpec('verify', references.instruction('cs329s')),
     'w8-design-fix-a': stageSpec('reflect', references.instruction()),
     'w8-theory-sim-a': stageSpec('verify', references.quiz('rapid-fire-readiness')),
-    'w8-theory-fix-a': stageSpec('recall', references.instruction()),
+    'w8-theory-fix-a': stageSpec('recall', references.remediation('w8-theory-fix-a')),
     'w8-story-rehearsal-a': stageSpec('verify', references.story({ rehearsalCount: 1, rehearsalKind: 'story', withoutNotes: true })),
     'w8-story-edit-a': stageSpec('reflect', references.story({ completedStoryCount: 8 })),
     'w8-coding-mock': stageSpec('verify', references.mock('coding', 2, 'attempt')),
     'w8-coding-debrief': stageSpec('reflect', references.mock('coding', 2, 'debrief')),
     'w8-coding-repair': stageSpec('practice', references.instruction('leetcode')),
-    'w8-coding-recall': stageSpec('recall', references.instruction()),
+    'w8-coding-recall': stageSpec('recall', references.remediation('w8-coding-recall')),
     'w8-ml-mock': stageSpec('verify', references.mock('ml-system', 1, 'attempt')),
     'w8-ml-debrief': stageSpec('reflect', references.mock('ml-system', 1, 'debrief')),
-    'w8-ml-repair': stageSpec('practice', references.instruction()),
+    'w8-ml-repair': stageSpec('practice', references.remediation('w8-ml-repair')),
     'w8-retro': stageSpec('reflect', references.instruction()),
 
     'w9-random-b': stageSpec('verify', references.instruction('leetcode')),
     'w9-design-sim-b': stageSpec('verify', references.instruction('cs329s')),
-    'w9-design-fix-b': stageSpec('recall', references.instruction()),
+    'w9-design-fix-b': stageSpec('recall', references.remediation('w9-design-fix-b')),
     'w9-theory-sim-b': stageSpec('verify', references.quiz('foundation-core-1', 'task-loss-metric')),
-    'w9-theory-fix-b': stageSpec('recall', references.instruction()),
+    'w9-theory-fix-b': stageSpec('recall', references.remediation('w9-theory-fix-b')),
     'w9-story-random': stageSpec('verify', references.story({ rehearsalCount: 2, rehearsalKind: 'story', withoutNotes: true })),
     'w9-intro': stageSpec('verify', references.story({ rehearsalCount: 5, rehearsalKind: 'intro', withoutNotes: false })),
     'w9-coding-mock': stageSpec('verify', references.mock('coding', 3, 'attempt')),
@@ -615,11 +618,11 @@
     'w9-coding-notes': stageSpec('reflect', references.instruction()),
     'w9-ml-mock': stageSpec('verify', references.mock('ml-system', 2, 'attempt')),
     'w9-ml-debrief': stageSpec('reflect', references.mock('ml-system', 2, 'debrief')),
-    'w9-design-repair': stageSpec('practice', references.instruction()),
+    'w9-design-repair': stageSpec('practice', references.remediation('w9-design-repair')),
     'w9-retro': stageSpec('reflect', references.instruction()),
 
     'w10-gap-identify': stageSpec('reflect', references.instruction()),
-    'w10-gap-work': stageSpec('verify', references.instruction()),
+    'w10-gap-work': stageSpec('verify', references.remediation('w10-gap-work')),
     'w10-gap-log': stageSpec('reflect', references.instruction()),
     'w10-design-cert': stageSpec('verify', references.instruction('cs329s')),
     'w10-design-close': stageSpec('reflect', references.instruction()),
@@ -646,41 +649,267 @@
     if (!scheduledTaskIds.has(taskId)) throw new Error(`Unknown session-guide task: ${taskId}`);
   }
 
-  const sessionGuides = Object.fromEntries(scheduledSessions.map((item) => [
-    item.id,
-    {
-      sessionId: item.id,
-      stages: item.tasks.map((itemTask) => {
-        const spec = stageSpecs[itemTask.id];
-        if (!spec) throw new Error(`Missing session-guide stage for task: ${itemTask.id}`);
-
-        const requiresSavedEvidence = spec.type === 'reflect' || spec.reference.type === 'instruction';
-        const evidenceInstruction = requiresSavedEvidence
-          ? ' Save the resulting notes, attempt, or reflection before marking this stage complete.'
-          : '';
-
-        return {
-          id: `stage-${itemTask.id}`,
-          title: itemTask.title,
-          type: spec.type,
-          taskIds: [itemTask.id],
-          minutes: itemTask.minutes,
-          instructions: `${itemTask.detail}${evidenceInstruction}`,
-          reference: spec.reference
-        };
-      })
+  const remediationPolicies = {
+    'w8-theory-fix-a': {
+      kinds: ['quiz', 'recall'],
+      recallArea: 'theory',
+      fallback: { kind: 'quiz', sourceId: 'rapid-fire-readiness', quizId: 'rapid-fire-readiness' }
+    },
+    'w8-coding-recall': {
+      kinds: ['recall', 'problem'],
+      recallArea: 'coding',
+      fallback: { kind: 'recall', sourceId: 'hashing', promptIndex: 0 }
+    },
+    'w8-ml-repair': {
+      kinds: ['design', 'quiz', 'recall'],
+      recallArea: 'theory',
+      fallback: { kind: 'design', sourceId: 'video-moderation', caseId: 'video-moderation', dimension: 'tradeoffs' }
+    },
+    'w9-design-fix-b': {
+      kinds: ['design'],
+      fallback: { kind: 'design', sourceId: 'image-search', caseId: 'image-search', dimension: 'metrics' }
+    },
+    'w9-theory-fix-b': {
+      kinds: ['quiz', 'recall'],
+      recallArea: 'theory',
+      fallback: { kind: 'quiz', sourceId: 'rapid-fire-readiness', quizId: 'rapid-fire-readiness' }
+    },
+    'w9-design-repair': {
+      kinds: ['design'],
+      fallback: { kind: 'design', sourceId: 'segmentation', caseId: 'segmentation', dimension: 'evaluation' }
+    },
+    'w10-gap-work': {
+      kinds: ['quiz', 'problem', 'design', 'recall'],
+      fallback: { kind: 'problem', sourceId: 'two-sum', problemId: 'two-sum' }
     }
-  ]));
+  };
+
+  const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  const isValidDate = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value));
+  const eventTime = (item) => {
+    for (const field of ['attemptedAt', 'lastReviewedAt', 'completedAt', 'createdAt']) {
+      if (isValidDate(item?.[field])) return item[field];
+    }
+    return null;
+  };
+
+  function contentRegistry() {
+    return window.InterviewPrepData || {};
+  }
+
+  function contentTitle(kind, sourceId) {
+    const registry = contentRegistry();
+    const collections = kind === 'quiz'
+      ? [registry.quizzes]
+      : kind === 'problem'
+        ? [problems]
+        : kind === 'design'
+          ? [registry.systemDesignCases]
+          : [registry.foundationModules, registry.codingModules, registry.modernCvModules];
+    for (const collection of collections) {
+      const item = (Array.isArray(collection) ? collection : []).find((candidate) => candidate.id === sourceId);
+      if (item) return item.title;
+    }
+    return sourceId;
+  }
+
+  function recallSourceAllowed(sourceId, area) {
+    if (!area) return true;
+    const registry = contentRegistry();
+    const codingIds = new Set((registry.codingModules || []).map((module) => module.id));
+    return area === 'coding' ? codingIds.has(sourceId) : !codingIds.has(sourceId);
+  }
+
+  function lowestDesignDimension(scores) {
+    if (!isRecord(scores) || !Object.keys(scores).length) return null;
+    const entries = Object.entries(scores)
+      .map(([dimension, score]) => [dimension, Number(score)])
+      .filter(([, score]) => Number.isFinite(score))
+      .sort((left, right) => left[1] - right[1] || left[0].localeCompare(right[0]));
+    return entries.length === Object.keys(scores).length ? entries[0] : null;
+  }
+
+  function historicalMisses(state, policy) {
+    const candidates = [];
+    if (policy.kinds.includes('recall')) {
+      for (const review of Object.values(state?.studyProgress?.reviews || {})) {
+        if (review?.kind !== 'recall' || !recallSourceAllowed(review.sourceId, policy.recallArea)) continue;
+        const failedAt = isValidDate(review.lastFailedAt)
+          ? review.lastFailedAt
+          : review.lastResult === 'again' && isValidDate(review.lastReviewedAt)
+            ? review.lastReviewedAt
+            : null;
+        if (!failedAt || !Number.isInteger(review.promptIndex)) continue;
+        candidates.push({
+          kind: 'recall', sourceId: review.sourceId, promptIndex: review.promptIndex, failedAt
+        });
+      }
+    }
+    if (policy.kinds.includes('quiz')) {
+      for (const attempt of Array.isArray(state?.quizAttempts) ? state.quizAttempts : []) {
+        const score = Number(attempt?.score);
+        const failedAt = eventTime(attempt);
+        if (!attempt?.quizId || !failedAt || !Number.isFinite(score) || score >= 80) continue;
+        candidates.push({
+          kind: 'quiz', sourceId: attempt.quizId, quizId: attempt.quizId, failedAt
+        });
+      }
+    }
+    if (policy.kinds.includes('problem')) {
+      for (const attempt of Array.isArray(state?.problemAttempts) ? state.problemAttempts : []) {
+        const failedAt = eventTime(attempt);
+        const assisted = Boolean(attempt?.usedHint || attempt?.reviewedSolution
+          || attempt?.outcome === 'hint' || attempt?.outcome === 'reviewed');
+        const complete = Boolean(
+          (attempt?.solvedIndependently || attempt?.outcome === 'independent')
+          && !assisted && attempt?.explainedAloud && attempt?.complexityCorrect
+        );
+        if (!attempt?.problemId || !failedAt || complete) continue;
+        candidates.push({
+          kind: 'problem', sourceId: attempt.problemId, problemId: attempt.problemId, failedAt
+        });
+      }
+    }
+    if (policy.kinds.includes('design')) {
+      for (const attempt of Array.isArray(state?.designAttempts) ? state.designAttempts : []) {
+        if ((attempt?.phase || 'attempt') !== 'attempt') continue;
+        const failedAt = eventTime(attempt);
+        const weakest = lowestDesignDimension(attempt?.scores);
+        if (!attempt?.caseId || !failedAt || !weakest || weakest[1] >= 4) continue;
+        candidates.push({
+          kind: 'design', sourceId: attempt.caseId, caseId: attempt.caseId,
+          dimension: weakest[0], failedAt
+        });
+      }
+    }
+    return candidates.sort((left, right) => (
+      Date.parse(right.failedAt) - Date.parse(left.failedAt)
+      || policy.kinds.indexOf(left.kind) - policy.kinds.indexOf(right.kind)
+      || left.sourceId.localeCompare(right.sourceId)
+    ));
+  }
+
+  function latestEvidenceTime(state) {
+    const times = [
+      ...(Array.isArray(state?.quizAttempts) ? state.quizAttempts : []).map(eventTime),
+      ...(Array.isArray(state?.problemAttempts) ? state.problemAttempts : []).map(eventTime),
+      ...(Array.isArray(state?.designAttempts) ? state.designAttempts : []).map(eventTime),
+      ...Object.values(state?.studyProgress?.reviews || {}).map((review) => review?.lastReviewedAt)
+    ].filter(isValidDate).map(Date.parse);
+    return times.length ? new Date(Math.max(...times)).toISOString() : null;
+  }
+
+  function isRemediationTarget(target) {
+    return isRecord(target)
+      && ['recall', 'quiz', 'problem', 'design'].includes(target.kind)
+      && typeof target.sourceId === 'string'
+      && target.sourceId.length > 0;
+  }
+
+  function decorateTarget(target, isCalibration, assignedAt) {
+    const label = contentTitle(target.kind, target.sourceId);
+    const decorated = {
+      ...target,
+      failedAt: isValidDate(target.failedAt) ? target.failedAt : null,
+      assignedAt: isValidDate(assignedAt) ? assignedAt : null,
+      isCalibration,
+      label
+    };
+    if (target.kind === 'recall') {
+      decorated.completionCriterion = `Rate recall prompt ${target.promptIndex + 1} hard or got-it after the selected evidence time.`;
+    } else if (target.kind === 'quiz') {
+      decorated.completionCriterion = 'Score at least 80% on the same quiz after the selected evidence time.';
+    } else if (target.kind === 'problem') {
+      decorated.completionCriterion = 'Solve the same problem independently, explain it aloud, and record correct complexity after the selected evidence time.';
+    } else {
+      decorated.completionCriterion = `Submit a later timed rubric with ${target.dimension} at 4/5 or higher.`;
+    }
+    return decorated;
+  }
+
+  function previousRemediationTarget(previousGuides, stageId) {
+    for (const guide of Object.values(previousGuides || {})) {
+      const stage = (guide.stages || []).find((candidate) => candidate.id === stageId);
+      if (isRemediationTarget(stage?.reference?.target)) return stage.reference.target;
+    }
+    return null;
+  }
+
+  function selectRemediationTarget(policyId, state, previousGuides, stageId) {
+    const policy = remediationPolicies[policyId];
+    const historical = historicalMisses(state, policy)[0] || null;
+    const assigned = state?.remediationAssignments?.[stageId]
+      || state?.remediationAssignments?.[policyId]
+      || previousRemediationTarget(previousGuides, stageId);
+    if (isRemediationTarget(assigned) && (!assigned.isCalibration || !historical)) return { ...assigned };
+    if (historical) return decorateTarget(historical, false, historical.failedAt);
+    if (isRemediationTarget(assigned)) return { ...assigned };
+    return decorateTarget(policy.fallback, true, latestEvidenceTime(state));
+  }
+
+  function remediationInstruction(target) {
+    const timing = target.failedAt || target.assignedAt || 'this calibration assignment';
+    const prefix = target.isCalibration ? 'Calibration target. ' : '';
+    if (target.kind === 'recall') {
+      return `${prefix}Re-attempt ${target.sourceId} recall prompt ${target.promptIndex + 1} without notes. Complete only when you rate it hard or got-it after ${timing}. Save the rerating as evidence.`;
+    }
+    if (target.kind === 'quiz') {
+      return `${prefix}Re-attempt ${target.sourceId}. Score at least 80 after ${timing}. Save the scored quiz attempt as evidence.`;
+    }
+    if (target.kind === 'problem') {
+      return `${prefix}Re-attempt ${target.sourceId} independently, explain the invariant aloud, and record correct complexity after ${timing}. Save the cold attempt as evidence.`;
+    }
+    return `${prefix}Re-attempt ${target.sourceId}. Raise ${target.dimension} to 4 or higher in a valid timed rubric saved after ${timing}. Save the rubric as evidence.`;
+  }
+
+  function buildSessionGuides(state = {}, previousGuides = null) {
+    return Object.fromEntries(scheduledSessions.map((item) => [
+      item.id,
+      {
+        sessionId: item.id,
+        stages: item.tasks.map((itemTask) => {
+          const spec = stageSpecs[itemTask.id];
+          if (!spec) throw new Error(`Missing session-guide stage for task: ${itemTask.id}`);
+          const stageId = `stage-${itemTask.id}`;
+          const isRemediation = spec.reference.type === 'remediation-policy';
+          const target = isRemediation
+            ? selectRemediationTarget(spec.reference.policyId, state, previousGuides, stageId)
+            : null;
+          const reference = isRemediation ? { type: 'remediation', target } : spec.reference;
+          const requiresSavedEvidence = spec.type === 'reflect' || reference.type === 'instruction';
+          const evidenceInstruction = requiresSavedEvidence
+            ? ' Save the resulting notes, attempt, or reflection before marking this stage complete.'
+            : '';
+
+          return {
+            id: stageId,
+            title: itemTask.title,
+            type: spec.type,
+            taskIds: [itemTask.id],
+            minutes: itemTask.minutes,
+            instructions: isRemediation
+              ? remediationInstruction(target)
+              : `${itemTask.detail}${evidenceInstruction}`,
+            reference
+          };
+        })
+      }
+    ]));
+  }
+
+  const sessionGuides = buildSessionGuides({});
 
   const codingPatternConcepts = {
-    'Arrays & hashing': ['hashing'],
+    'Hashing': ['hashing'],
+    'Arrays: prefix/suffix': ['hashing'],
     'Two pointers': ['two-pointers'],
     'Sliding window': ['sliding-window'],
     'Stack': ['stack-monotonic'],
     'Binary search': ['binary-search'],
     'Linked lists': ['linked-lists'],
     'Trees': ['trees'],
-    'Heap & intervals': ['heaps', 'intervals'],
+    'Heaps': ['heaps'],
+    'Intervals': ['intervals'],
     'Graphs': ['graphs-union-find'],
     'Backtracking': ['backtracking'],
     'Dynamic programming': ['dynamic-programming']
@@ -691,8 +920,10 @@
     planStart: '2026-07-27',
     planEnd: '2026-10-04',
     problems,
+    optionalProblems,
     codingPatternConcepts,
     weeks,
-    sessionGuides
+    sessionGuides,
+    buildSessionGuides
   };
 })();

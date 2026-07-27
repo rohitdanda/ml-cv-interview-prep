@@ -73,3 +73,10 @@ The final theory certification references `rapid-fire-readiness` plus `modern-cv
 ## Concerns
 
 - No Phase 1D contract concern remains. Concurrent Phase 1C work is still present only as unstaged worktree changes and was deliberately excluded from this commit and its staged-snapshot GREEN run. Full-project testing remains the integration owner’s responsibility and was explicitly out of scope here.
+
+## Review follow-up
+
+- Corrected the linear-projection explanation so it identifies the third option, `x − u(uᵀx)`, as the orthogonal residual; the final option remains `u + x`.
+- Kept the existing structural answer-index assertion rather than adding a prose-specific test that would only pin wording without proving the mathematics.
+- Focused verification: `bun test tests/curriculum.test.js --test-name-pattern 'quiz and behavioral content contracts|scopes every quiz-backed task|states the exact referenced question count'` — **4 pass, 0 fail; 905 assertions**.
+- Staged-snapshot verification: `bun test tests/curriculum.test.js` from `/tmp/phase1d-review.ePqPWF` — **17 pass, 0 fail; 5,098 assertions**.

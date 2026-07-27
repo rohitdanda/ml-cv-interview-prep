@@ -97,7 +97,7 @@
           'The dependent column adds no new basis direction, so the column space has dimension at most four. Consequently there can be at most four nonzero singular values.'),
         q('For a unit vector u, which expression projects a vector x onto the line spanned by u?',
           ['x(uᵀu)', 'u(uᵀx)', 'x - u(uᵀx)', 'u + x'], 1,
-          'The scalar uᵀx is the signed coordinate of x along unit direction u, and multiplying by u maps that coordinate back into the original space. The final option is the orthogonal residual.'),
+          'The scalar uᵀx is the signed coordinate of x along unit direction u, and multiplying by u maps that coordinate back into the original space. The third option, x − u(uᵀx), is the orthogonal residual.'),
         q('Why are eigenvectors of a centered data covariance matrix useful for PCA?',
           ['They are always the original coordinate axes', 'They guarantee the original features are independent', 'They minimize every supervised prediction loss', 'They give directions of variance, ordered by their eigenvalues'], 3,
           'A covariance matrix is symmetric, and its orthonormal eigenvectors define directions whose variances are the corresponding eigenvalues. PCA keeps the leading directions; it does not guarantee statistical independence or supervised optimality.'),

@@ -515,7 +515,7 @@
     'w3-optimization-quiz': stageSpec('verify', references.quiz('rapid-fire-readiness')),
     'w3-graphs-c': stageSpec('practice', references.problems('course-schedule', 'pacific-atlantic-water-flow')),
     'w3-graphs-d': stageSpec('practice', references.problems('redundant-connection')),
-    'w3-checkpoint': stageSpec('learn', references.module('cnn-foundations', 'detection-segmentation-foundations')),
+    'w3-checkpoint': stageSpec('learn', references.module('cnn-foundations', 'detection-segmentation-foundations', 'classical-cv-filtering', 'local-features-matching', 'geometric-vision')),
     'w3-retro': stageSpec('reflect', references.instruction()),
 
     'w4-timed-a': stageSpec('practice', references.problems('3sum', 'container-with-most-water', 'permutation-in-string')),

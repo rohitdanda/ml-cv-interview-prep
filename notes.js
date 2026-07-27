@@ -1404,6 +1404,124 @@ assert kept.tolist() == [0, 2]` }
 
   const modernCvModules = [
     {
+      id: 'classical-cv-filtering', title: 'Classical filtering and feature primitives', required: true,
+      summary: 'Classical image processing turns sampling, filtering, local derivatives, morphology, scale, and color representation into explicit, testable operators. Senior fluency means choosing each operator from the signal and nuisance model rather than treating preprocessing as an unversioned bag of defaults.',
+      keyPoints: [
+        'A linear shift-invariant filter combines a neighborhood with a kernel. Mathematical convolution flips the kernel, while many image-library functions compute correlation; symmetric Gaussian kernels hide that distinction but derivative kernels do not.',
+        'Gaussian smoothing suppresses high-frequency noise before differentiation. Sobel or Scharr filters estimate horizontal and vertical derivatives, from which gradient magnitude and orientation support edge decisions.',
+        'Canny edge detection composes smoothing, gradients, non-maximum suppression, and two-threshold hysteresis; its output depends on blur scale, threshold policy, and image dynamic range.',
+        'Harris corners come from the local second-moment matrix of image gradients: two large eigenvalues indicate intensity change in two directions, unlike a one-direction edge response.',
+        'Binary erosion shrinks foreground and dilation expands it relative to a structuring element; opening removes small foreground structures, while closing fills small gaps or holes. Grayscale morphology uses neighborhood minima or maxima.',
+        'A Gaussian pyramid low-pass filters before subsampling to avoid aliasing. A Laplacian pyramid stores band-pass residuals between adjacent Gaussian levels for multiscale blending, reconstruction, or feature analysis.',
+        'Color spaces expose different nuisance structure: linear RGB supports physical mixing, HSV separates a convenient but unstable hue coordinate, YCbCr separates luma from chroma, and Lab approximates perceptual distances only under a defined white point and transfer convention.',
+        'Border mode, numeric dtype, channel order, gamma transfer, kernel normalization, and coordinate origin are part of the algorithm contract because each can change gradients, colors, and thresholded topology.'
+      ],
+      formulas: [
+        'Discrete convolution: (I*K)[x,y]=∑_u∑_v K[u,v]I[x-u,y-v]; a separable k×k kernel reduces per-pixel work from O(k²) to O(2k).',
+        'Gradient magnitude and orientation: |∇I|=sqrt(I_x²+I_y²) and θ=atan2(I_y,I_x).',
+        'Harris response: M=∑w[[I_x²,I_xI_y],[I_xI_y,I_y²]] and R=det(M)-k·trace(M)².',
+        'For flat grayscale morphology with neighborhood B, dilation is max_{b∈B} I(x-b) and erosion is min_{b∈B} I(x+b), subject to the chosen border convention.'
+      ],
+      decisionRules: [
+        'Use a classical pipeline as the first baseline when imaging is controlled, labels are scarce, latency or interpretability is strict, and the target is expressible through contrast, shape, scale, or geometry.',
+        'Choose derivative and Gaussian scale from noise level and the smallest relevant structure; use a pyramid or explicit scale sweep when object size varies materially.',
+        'Choose morphology from the topology to preserve and a structuring element expressed in deployment-relevant units; validate object count, connectivity, and boundary displacement rather than only pixel accuracy.',
+        'Choose color representation from the nuisance to isolate, preserve the original pixels, and fit every threshold or normalization on deployment-like captures under the exact conversion and range convention.'
+      ],
+      pitfalls: [
+        'Computing signed derivatives or filter accumulations in uint8 clips negatives and overflows sums, creating plausible but incorrect edges.',
+        'Downsampling without a suitable low-pass filter aliases texture into false structure; arbitrary padding can also create strong artificial borders.',
+        'Morphology can erase a small true object, merge nearby instances, or move a boundary, so more iterations are not a harmless cleanup step.',
+        'Fixed color or edge thresholds often fail under exposure, white-balance, sensor, and gamma changes; HSV hue is especially unstable near zero saturation.'
+      ],
+      systemDesignUse: 'Version the complete decode-to-feature contract: channel order, transfer function, color conversion, dtype/range, border mode, kernel and scale, thresholds, morphology, pyramid levels, and resize order. Monitor intermediate distributions and task-level failures by camera and lighting slice.',
+      recall: [
+        { question: 'What mechanics distinguish an edge from a Harris corner?', answer: 'An edge produces a strong gradient change mainly along one direction, so one second-moment eigenvalue dominates; a corner changes in two directions, making both eigenvalues and the positive Harris response large.' },
+        { question: 'Why must a pyramid blur before subsampling?', answer: 'Subsampling lowers the Nyquist limit, so a low-pass filter must remove frequencies that would otherwise fold into lower-frequency alias patterns.' },
+        { question: 'How do opening and closing change a binary mask?', answer: 'Opening is erosion followed by dilation and removes foreground structures smaller than the structuring element; closing is dilation followed by erosion and fills small gaps or holes.' },
+        { question: 'Which production evidence validates a classical preprocessing stage?', answer: 'Measure end-task quality and intermediate distributions by sensor, illumination, scale, and object size while replaying the exact dtype, color, border, threshold, and resize contract used in serving.' }
+      ]
+    },
+    {
+      id: 'local-features-matching', title: 'Local features, descriptors, and robust matching', required: true,
+      summary: 'Local-feature pipelines detect repeatable image locations, describe their neighborhoods, retrieve candidate correspondences, and reject geometrically inconsistent matches. They remain strong for registration, localization, stitching, retrieval, and low-data systems when texture and viewpoint assumptions are explicit.',
+      keyPoints: [
+        'Detection, orientation/scale assignment, description, nearest-neighbor search, and geometric verification are separate stages; a repeatable keypoint is not automatically distinctive, and a close descriptor is not automatically a valid correspondence.',
+        'SIFT searches Difference-of-Gaussian extrema across position and scale, rejects unstable low-contrast or edge-like points, assigns dominant orientation, and summarizes a rotated neighborhood as a normalized 128-dimensional gradient-histogram descriptor.',
+        'ORB detects FAST corners across an image pyramid, ranks them with FAST or Harris response, estimates patch orientation from intensity moments, and applies a steered BRIEF-style binary descriptor for efficient Hamming matching.',
+        'Use L2-style distance for floating descriptors such as SIFT and Hamming distance for binary descriptors such as ORB. Brute-force search is a useful exact baseline; approximate indexes trade search recall for memory, build time, and latency.',
+        'A nearest-to-second-nearest ratio rejects ambiguous descriptors, while mutual nearest-neighbor cross-checking rejects asymmetric assignments. Neither solves repeated texture, bursty features, or viewpoint-induced appearance change by itself.',
+        'RANSAC repeatedly samples a minimal correspondence set, fits a geometric model, scores residual inliers, and should refit on the consensus set; its result is meaningful only with the correct model, residual units, degeneracy checks, and stopping policy.',
+        'Match quality includes inlier count and ratio, residual distribution, spatial coverage, and downstream pose or warp stability; a large cluster of inliers on one small repeated region can still be unusable.'
+      ],
+      formulas: [
+        'SIFT scale-space response: L(x,y,σ)=G(x,y,σ)*I(x,y) and DoG D(x,y,σ)=L(x,y,kσ)-L(x,y,σ).',
+        'For binary descriptors, Hamming(a,b)=∑_j 1[a_j≠b_j], equivalently the population count of a XOR b.',
+        'A ratio test accepts a candidate when d₁/d₂<τ, where d₁ and d₂ are distances to the closest and second-closest descriptors under the same metric.',
+        'Under independent samples with inlier probability w and minimal sample size s, RANSAC needs N≥log(1-p)/log(1-w^s) trials for success probability p; adaptive estimates remain model assumptions, not guarantees.'
+      ],
+      decisionRules: [
+        'Start with SIFT when matching robustness across scale and rotation matters more than compact descriptors; start with ORB when CPU, memory, or embedded latency dominates, then benchmark both on the actual viewpoint, blur, and illumination range.',
+        'Use a homography for a planar surface or approximately pure camera rotation; use a fundamental or essential matrix for general rigid 3D views, and reject a model whose physical assumptions do not fit the scene.',
+        'Require descriptor ambiguity filtering plus robust geometric verification and minimum spatial coverage before accepting a registration, loop closure, localization, or duplicate decision.',
+        'Move from exact to approximate nearest-neighbor search only after measuring candidate-recall loss, end-to-end inliers, index build/update cost, memory, and tail latency at production scale.'
+      ],
+      pitfalls: [
+        'Copying a ratio threshold from a benchmark ignores descriptor family, database size, repeated patterns, and application error cost; tune it together with the geometric gate.',
+        'Using Euclidean distance for binary descriptors or Hamming distance for floating descriptors makes nearest-neighbor ranking meaningless.',
+        'RANSAC does not prove a match is correct: a wrong model, collinear samples, repeated structures, or an overly generous pixel threshold can produce a convincing consensus.',
+        'Matching coordinates from resized or cropped images without mapping them back consistently corrupts residuals, warps, and pose even when descriptor matches look visually plausible.'
+      ],
+      systemDesignUse: 'Specify detector and descriptor versions, feature budgets, resize and mask policy, distance metric, index type, ambiguity filters, robust model and residual threshold, minimum inlier coverage, latency limits, and fallback behavior. Log stage-wise counts and residuals so failures can be assigned to detection, retrieval, or geometry.',
+      recall: [
+        { question: 'How do SIFT and ORB differ mechanically?', answer: 'SIFT finds scale-space extrema and builds floating gradient histograms with assigned orientation; ORB uses pyramid FAST corners, intensity-centroid orientation, and a rotated binary BRIEF-style descriptor.' },
+        { question: 'Why is descriptor matching insufficient without RANSAC-style verification?', answer: 'Appearance similarity admits repeated-texture and accidental neighbors; geometric verification tests whether enough correspondences agree with one physically appropriate transformation.' },
+        { question: 'How should the RANSAC residual threshold be chosen?', answer: 'Express it in the coordinate space of the fitted model, tie it to localization and calibration noise, then validate inlier purity, spatial coverage, downstream pose or warp error, and failure cost.' },
+        { question: 'Which production metrics expose a local-feature tradeoff?', answer: 'Track detected features, candidate recall, accepted-match and inlier ratios, residual quantiles, spatial coverage, registration or pose success, memory, index freshness, and p50/p99 latency by scene slice.' }
+      ]
+    },
+    {
+      id: 'geometric-vision', title: 'Camera geometry, calibration, and stereo reconstruction', required: true,
+      summary: 'Geometric vision maps points among world, camera, normalized-image, and pixel coordinates through explicit camera and scene assumptions. Senior answers must keep coordinate frames, calibration, degeneracy, uncertainty, and physical observability straight from correspondences through pose and depth.',
+      keyPoints: [
+        'The pinhole model first transforms a world point into a camera frame with rotation and translation, divides by depth to obtain normalized image coordinates, then applies the intrinsic matrix to produce pixels.',
+        'Intrinsics contain focal lengths in pixel units, principal point, and usually zero skew; extrinsics describe a particular world-to-camera transform. Radial, tangential, or fisheye distortion is a separate mapping that must match the deployed lens model.',
+        'Calibration estimates intrinsics, distortion, and per-view pattern poses by minimizing reprojection error across varied, accurately detected views. Coverage near image borders, multiple tilts and depths, focus/zoom state, and held-out reprojection matter more than collecting many near-duplicate fronto-parallel frames.',
+        'A 3×3 homography maps points between views of one plane, or between cameras under pure rotation. It has eight degrees of freedom up to scale and requires at least four correspondences in general position, with no three source or destination points collinear. It cannot represent general parallax from a 3D scene.',
+        'Epipolar geometry constrains a point in one image to a line in the other. The fundamental matrix operates on pixel coordinates; with known intrinsics, the essential matrix operates on normalized coordinates and encodes relative rotation and translation direction up to scale.',
+        'Stereo rectification sends corresponding epipolar lines to the same rows so correspondence becomes a one-dimensional disparity search. Larger baseline and focal length in pixels improve distant-depth sensitivity. A larger baseline also increases viewpoint-dependent occlusion, disparity range, and matching difficulty; increasing focal length by narrowing field of view reduces scene coverage, while increasing pixel resolution at fixed field of view does not inherently add occlusion.',
+        'Triangulation reconstructs a point from two or more viewing rays. Small parallax, correspondence error, calibration error, rolling shutter, or a point near the epipole makes depth ill-conditioned even when a linear solver returns a number.',
+        'Essential-matrix decomposition yields multiple pose candidates; cheirality selects the candidate placing reconstructed points in front of both cameras, while metric translation still requires a known baseline or another scale source.'
+      ],
+      formulas: [
+        'Pinhole projection in homogeneous coordinates: s·x~=K[R|t]X~, with camera coordinates X_c=RX_w+t and pixels u=f_xX_c/Z_c+c_x, v=f_yY_c/Z_c+c_y before distortion.',
+        'Epipolar constraint: x₂ᵀFx₁=0; for calibrated cameras E=[t]_×R and F=K_2^{-T}EK_1^{-1} under a consistent camera-1-to-camera-2 convention.',
+        'Rectified stereo depth: Z=f_xB/d, where B is baseline and disparity d=u_left-u_right uses the same pixel scale as f_x.',
+        'First-order stereo sensitivity: |∂Z/∂d|=f_xB/d²=Z²/(f_xB), so a fixed disparity error causes depth error that grows quadratically with range.'
+      ],
+      decisionRules: [
+        'Fit a homography only for an approximately planar target or pure rotation; fit F for uncalibrated general rigid views and E on undistorted normalized coordinates when trustworthy intrinsics are available.',
+        'Calibrate and validate at the deployed resolution, crop, focus, zoom, temperature, and lens state; version parameters per camera and trigger recalibration from reprojection, rectification, or mechanical-drift evidence.',
+        'Choose stereo baseline, resolution, and matcher from required depth range and error tolerance, then evaluate overlap, occlusion boundaries, low texture, repetitive texture, and end-to-end latency.',
+        'Use robust estimation before nonlinear refinement, reject degenerate or low-parallax solutions, and gate output with inlier coverage, reprojection or Sampson residuals, cheirality, and uncertainty rather than inlier count alone.'
+      ],
+      pitfalls: [
+        'Mixing world-to-camera with camera-to-world transforms, row with column vectors, or left with right multiplication silently produces plausible but wrong poses.',
+        'Using distorted pixels with an ideal pinhole epipolar model, or applying intrinsics twice after normalization, biases pose and triangulation most strongly near image edges.',
+        'A low mean calibration reprojection error can hide poor border coverage, one bad view, an over-parameterized distortion curve, or a mismatch at the deployed focus and resolution.',
+        'Treating a successful homography as evidence that the whole scene is planar fails when foreground objects or camera translation introduce parallax.',
+        'Depth explodes as disparity approaches zero, and left-right mismatch around occlusion or repeated texture creates confident but physically impossible 3D points.'
+      ],
+      systemDesignUse: 'Define every coordinate frame and timestamp, camera and distortion model, calibration artifact and version, image scaling/cropping contract, correspondence and robust-estimation policy, rectification maps, depth uncertainty, synchronization, health checks, and fail-safe behavior. Monitor residuals and depth quality by range, image region, texture, motion, and device.',
+      recall: [
+        { question: 'What mechanics do K, R, and t implement in the pinhole projection?', answer: 'R and t transform a world point into the camera frame; perspective division by camera-frame depth creates normalized coordinates; K converts those coordinates to pixel units and principal-point offset.' },
+        { question: 'When is a homography the right geometric model?', answer: 'When corresponding points lie on one plane, or when the views differ by pure camera rotation so scene depth does not create translational parallax.' },
+        { question: 'How do the fundamental and essential matrices differ?', answer: 'F constrains pixel coordinates and absorbs intrinsics; E constrains calibrated normalized coordinates and factors as relative translation skew matrix times relative rotation.' },
+        { question: 'What production failure makes stereo depth unreliable far away?', answer: 'Disparity shrinks with distance, so subpixel correspondence or calibration error becomes a large relative disparity error and depth error grows approximately with squared range.' }
+      ]
+    },
+
+    {
       id: 'cnn-foundations', title: 'CNN foundations and residual backbones', required: true,
       summary: 'Convolutional networks build spatial features through local weight sharing, downsampling, normalization, and residual composition. Interview fluency means calculating shapes and receptive fields, explaining why deep backbones train, and diagnosing failures across batch size, resolution, and deployment domains.',
       keyPoints: [

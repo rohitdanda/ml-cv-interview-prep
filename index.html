@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="A ten-week evidence-based Senior ML and computer-vision interview preparation dashboard.">
+  <title>ML/CV Interview Prep</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">ML</span>
+        <div>
+          <strong>Interview Prep</strong>
+          <span>Senior ML/CV</span>
+        </div>
+      </div>
+      <nav class="primary-nav" id="primary-nav">
+        <button class="nav-item is-active" type="button" data-route="today" aria-current="page"><span>Study now</span></button>
+        <button class="nav-item" type="button" data-route="overview"><span>Overview</span></button>
+        <button class="nav-item" type="button" data-route="plan"><span>10-Week Plan</span></button>
+        <div class="nav-label">Learn</div>
+        <button class="nav-item" type="button" data-route="coding"><span>Coding</span></button>
+        <button class="nav-item" type="button" data-route="foundations"><span>ML + Math</span></button>
+        <button class="nav-item" type="button" data-route="system-design"><span>System Design</span></button>
+        <button class="nav-item" type="button" data-route="modern-cv"><span>Modern CV</span></button>
+        <div class="nav-label">Practice</div>
+        <button class="nav-item" type="button" data-route="behavioral"><span>Behavioral</span></button>
+        <button class="nav-item" type="button" data-route="mocks"><span>Mocks</span></button>
+        <button class="nav-item" type="button" data-route="applications"><span>Applications</span><span class="nav-lock" id="application-lock">Locked</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="nav-item" type="button" data-route="data"><span>Data & settings</span></button>
+        <p>Auto-saved locally</p>
+      </div>
+    </aside>
+
+    <div class="page-column">
+      <header class="topbar">
+        <button class="icon-button mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar">Menu</button>
+        <div class="topbar-context">
+          <span id="plan-date-range">Jul 27 – Oct 4, 2026</span>
+          <strong id="topbar-week">Week 1 of 10</strong>
+        </div>
+        <div class="topbar-actions">
+          <span class="status-badge status-red" id="topbar-readiness">Not ready</span>
+          <button class="icon-button" id="theme-toggle" type="button" aria-label="Change color theme">Theme</button>
+        </div>
+      </header>
+
+      <main id="main-content" tabindex="-1">
+        <div id="view" aria-live="polite"></div>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <input type="file" id="import-input" accept="application/json,.json" hidden>
+
+  <script src="curriculum.js"></script>
+  <script src="notes.js"></script>
+  <script src="quizzes.js"></script>
+  <script src="resources.js"></script>
+  <script src="logic.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

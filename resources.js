@@ -213,6 +213,136 @@
       assignment: 'Read the torchao overview and choose the current PT2E or eager tutorial that matches the target stack; do not treat the legacy quantization landing page as the current API guide.'
     },
     {
+      id: 'siglip2',
+      title: 'SigLIP 2: Multilingual Vision-Language Encoders with Improved Semantic Understanding, Localization, and Dense Features',
+      provider: 'Google DeepMind · arXiv',
+      url: 'https://arxiv.org/abs/2502.14786',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for scaled sigmoid image–text learning plus multilingual, dense-feature, and native-aspect-ratio improvements.',
+      assignment: 'Read the abstract, training recipe, native-resolution variants, dense-task results, and limitations.'
+    },
+    {
+      id: 'dinov3',
+      title: 'DINOv3',
+      provider: 'Meta AI',
+      url: 'https://ai.meta.com/research/dinov3/',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Official source for scaled self-supervised vision backbones, high-quality dense features, and Gram anchoring.',
+      assignment: 'Read the overview, scaling comparison, dense-feature discussion, and linked research paper.'
+    },
+    {
+      id: 'sam3',
+      title: 'SAM 3',
+      provider: 'Meta AI',
+      url: 'https://ai.meta.com/research/sam3/',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Official source for open-vocabulary concept detection, segmentation, and tracking from text or visual prompts.',
+      assignment: 'Read the capabilities, benchmark, architecture, and model-evolution sections; note the expanded prompt contract.'
+    },
+    {
+      id: 'rt-detr',
+      title: 'DETRs Beat YOLOs on Real-time Object Detection (RT-DETR)',
+      provider: 'Zhao et al. · arXiv',
+      url: 'https://arxiv.org/abs/2304.08069',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for a real-time, end-to-end DETR that removes NMS and supports decoder-layer speed tuning.',
+      assignment: 'Read the abstract, hybrid encoder, query selection, speed-tuning mechanism, and target-hardware results.'
+    },
+    {
+      id: 'd-fine',
+      title: 'D-FINE: Redefine Regression Task in DETRs as Fine-grained Distribution Refinement',
+      provider: 'Peng et al. · arXiv',
+      url: 'https://arxiv.org/abs/2410.13842',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for fine-grained distribution refinement and localization self-distillation in real-time DETRs.',
+      assignment: 'Read the abstract, FDR and GO-LSD sections, latency table, and ablations.'
+    },
+    {
+      id: 'yolo-world',
+      title: 'YOLO-World: Real-Time Open-Vocabulary Object Detection',
+      provider: 'Cheng et al. · arXiv',
+      url: 'https://arxiv.org/abs/2401.17270',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for efficient open-vocabulary detection through vision-language pretraining and a re-parameterizable fusion path.',
+      assignment: 'Read the abstract, RepVL-PAN architecture, region-text objective, zero-shot results, and deployment tradeoffs.'
+    },
+    {
+      id: 'grounding-dino-15',
+      title: 'Grounding DINO 1.5: Advance the "Edge" of Open-Set Object Detection',
+      provider: 'IDEA Research · arXiv',
+      url: 'https://arxiv.org/abs/2405.10300',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for Grounding DINO 1.5 Pro and Edge variants and their open-set accuracy–latency tradeoffs.',
+      assignment: 'Read the abstract, Pro-versus-Edge design choices, zero-shot evaluation, and TensorRT measurements.'
+    },
+    {
+      id: 'vmamba',
+      title: 'VMamba: Visual State Space Model',
+      provider: 'Liu et al. · arXiv',
+      url: 'https://arxiv.org/abs/2401.10166',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for 2D selective-scan visual state-space backbones and their linear-time input scaling.',
+      assignment: 'Read the abstract, SS2D scan design, scaling analysis, downstream results, and implementation caveats.'
+    },
+    {
+      id: 'vjepa2',
+      title: 'Introducing V-JEPA 2',
+      provider: 'Meta AI',
+      url: 'https://ai.meta.com/research/vjepa/',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Official source for self-supervised video representations, prediction, and latent-action world-model planning.',
+      assignment: 'Read the understanding, prediction, planning, architecture, and benchmark sections plus the linked paper.'
+    },
+    {
+      id: 'qwen25-vl',
+      title: 'Qwen2.5-VL Technical Report',
+      provider: 'Qwen Team · arXiv',
+      url: 'https://arxiv.org/abs/2502.13923',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for native dynamic resolution, absolute time encoding, and long-video and document understanding.',
+      assignment: 'Read the abstract, native-resolution ViT, temporal encoding, document/video evaluations, and limitations.'
+    },
+    {
+      id: 'sd3',
+      title: 'Scaling Rectified Flow Transformers for High-Resolution Image Synthesis (Stable Diffusion 3)',
+      provider: 'Stability AI · arXiv',
+      url: 'https://arxiv.org/abs/2403.03206',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for Stable Diffusion 3’s multimodal diffusion transformer and rectified-flow training recipe.',
+      assignment: 'Read the abstract, rectified-flow formulation, multimodal transformer architecture, scaling results, and limitations.'
+    },
+    {
+      id: 'bytetrack',
+      title: 'ByteTrack: Multi-Object Tracking by Associating Every Detection Box',
+      provider: 'Zhang et al. · arXiv',
+      url: 'https://arxiv.org/abs/2110.06864',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for recovering occluded tracks by associating low-score as well as high-score detections.',
+      assignment: 'Read the abstract, two-stage association logic, ablations, benchmark table, and failure modes.'
+    },
+    {
+      id: 'hota',
+      title: 'HOTA: A Higher Order Metric for Evaluating Multi-Object Tracking',
+      provider: 'Luiten et al. · arXiv',
+      url: 'https://arxiv.org/abs/2009.07736',
+      access: 'Free',
+      tags: ['modern-cv'],
+      use: 'Primary source for jointly evaluating detection, association, and localization quality in multi-object tracking.',
+      assignment: 'Read the metric definition, decomposition, comparison with MOTA and IDF1, and interpretation guidance.'
+    },
+    {
       id: 'exponent-practice',
       title: 'Exponent Practice (formerly Pramp)',
       provider: 'Exponent',

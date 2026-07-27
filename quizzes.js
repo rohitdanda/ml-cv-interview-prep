@@ -247,7 +247,13 @@
           'Quantization value depends on actual target-runtime support and acceptable end-to-end quality. Calibration data, kernel speed, or aggregate accuracy alone can miss conversion, overhead, fallback, and slice regressions.'),
         q('Synthetic diffusion data improves training accuracy. What validates its usefulness?',
           ['A blinded realism rating of generated samples alone', 'Improvement on a real, untouched, deployment-representative holdout without slice regressions', 'A monotonic gain as more synthetic samples are added', 'Lower diffusion-model loss on its own training distribution'], 1,
-          'Only untouched real-data evaluation demonstrates useful transfer. Realism ratings, synthetic volume, and generator loss do not rule out artifacts, leakage, label errors, or deployment-slice regressions.')
+          'Only untouched real-data evaluation demonstrates useful transfer. Realism ratings, synthetic volume, and generator loss do not rule out artifacts, leakage, label errors, or deployment-slice regressions.'),
+        q('A product needs 30 FPS object detection on an edge GPU and wants to drop the hand-tuned NMS post-processing step. Which choice best fits?',
+          ['A two-stage Faster R-CNN, because region proposals are most accurate', 'An RT-DETR or D-FINE model, because end-to-end DETR-family detectors predict a set directly and need no NMS', 'A YOLOv8 model with a higher NMS IoU threshold', 'A ViT-Huge classifier applied with sliding windows'], 1,
+          'Real-time DETR-family detectors (RT-DETR, D-FINE) output a fixed prediction set end-to-end, removing NMS while meeting real-time budgets; still profile on the target runtime.'),
+        q('Why can SigLIP train more efficiently at large scale than CLIP for image–text contrastive learning?',
+          ['It uses a per-pair sigmoid loss instead of a batch-global softmax, so it needs no all-gather of the full similarity matrix across the batch', 'It replaces the image encoder with a diffusion model', 'It removes the text encoder entirely', 'It requires far smaller batches because the loss is a batch softmax'], 0,
+          'SigLIP scores each image–text pair independently with a sigmoid loss, avoiding CLIP’s batch-global softmax normalization and its cross-device all-gather, which improves scaling.')
       ]
     }
   ];

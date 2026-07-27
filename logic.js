@@ -1105,6 +1105,118 @@
     ));
   }
 
+  function latestDistinctCandidates(items, idField, predicate = null) {
+    const latest = new Map();
+    (Array.isArray(items) ? items : []).forEach((item, index) => {
+      const rawId = item?.[idField];
+      if (!isNonEmptyString(rawId) || (predicate && !predicate(item))) return;
+      const sourceId = rawId.trim();
+      const candidate = { item, index, time: eventTime(item, index), sourceId };
+      const previous = latest.get(sourceId);
+      if (!previous || candidate.time > previous.time || (
+        candidate.time === previous.time && candidate.index > previous.index
+      )) latest.set(sourceId, candidate);
+    });
+    return [...latest.values()].sort((left, right) => (
+      right.time - left.time ||
+      right.index - left.index ||
+      left.sourceId.localeCompare(right.sourceId)
+    ));
+  }
+
+  function isPassingRandomMedium(attempt) {
+    return Boolean(
+      attempt?.solvedIndependently &&
+      attempt?.minutes <= 30 &&
+      attempt?.explainedAloud &&
+      attempt?.complexityCorrect
+    );
+  }
+
+  function getRandomMediumEvidence(state) {
+    const attempts = latestDistinctCandidates(
+      state?.problemAttempts,
+      'problemId',
+      (attempt) => attempt?.random && attempt?.difficulty === 'medium'
+    ).slice(0, 5);
+    return {
+      attempts,
+      passing: attempts.filter(({ item }) => isPassingRandomMedium(item)).length
+    };
+  }
+
+  function latestMockCandidates(state, type) {
+    return (Array.isArray(state?.mocks) ? state.mocks : [])
+      .map((item, index) => ({ item, index, time: eventTime(item, index) }))
+      .filter(({ item }) => item?.type === type)
+      .sort((left, right) => right.time - left.time || right.index - left.index)
+      .slice(0, 2);
+  }
+
+  function hasCompletedMockRemediation(debrief) {
+    return Boolean(
+      debrief?.noMaterialWeakness !== true &&
+      Array.isArray(debrief?.weaknesses) &&
+      debrief.weaknesses.length > 0 &&
+      debrief.weaknesses.every((weakness) => (
+        isRecord(weakness) &&
+        isNonEmptyString(weakness.text) &&
+        isNonEmptyString(weakness.remediation) &&
+        weakness.remediationComplete === true
+      ))
+    );
+  }
+
+  function countedMockNeedsFollowUp(candidate) {
+    const mock = candidate?.item;
+    return !isCompleteMockDebrief(mock?.debrief) || (
+      mock?.wouldAdvance === false && !hasCompletedMockRemediation(mock.debrief)
+    );
+  }
+
+  function qualifyingBehavioralStories(state) {
+    return (Array.isArray(state?.starStories) ? state.starStories : []).filter((story) => (
+      story?.complete &&
+      Number.isFinite(story.durationMinutes) &&
+      story.durationMinutes > 0 &&
+      story.durationMinutes <= 2 &&
+      story.measurableImpact &&
+      story.individualContribution
+    ));
+  }
+
+  function knownBehavioralPrompts(content) {
+    const prompts = [];
+    const seen = new Set();
+    for (const prompt of Array.isArray(content?.behavioralPrompts) ? content.behavioralPrompts : []) {
+      if (!isNonEmptyString(prompt?.id)) continue;
+      const id = prompt.id.trim();
+      if (seen.has(id)) continue;
+      seen.add(id);
+      prompts.push({ id, title: isNonEmptyString(prompt.title) ? prompt.title.trim() : id });
+    }
+    return prompts;
+  }
+
+  function coveredBehavioralPromptIds(stories, prompts) {
+    const knownIds = new Set(prompts.map((prompt) => prompt.id));
+    return new Set(stories
+      .map((story) => story?.promptId)
+      .filter((promptId) => isNonEmptyString(promptId) && knownIds.has(promptId.trim()))
+      .map((promptId) => promptId.trim()));
+  }
+
+  function linkedNoNotesRehearsalIds(state, allowedPromptIds) {
+    return new Set((Array.isArray(state?.rehearsals) ? state.rehearsals : [])
+      .filter((rehearsal) => (
+        (rehearsal?.kind || 'story') === 'story' &&
+        rehearsal?.withoutNotes &&
+        isNonEmptyString(rehearsal.refId) &&
+        allowedPromptIds.has(rehearsal.refId.trim())
+      ))
+      .map((rehearsal) => rehearsal.refId.trim()));
+  }
+
   function linkedQuizModules(quizId, context) {
     const direct = context?.quizModuleIds?.[quizId];
     if (Array.isArray(direct)) return [...new Set(direct)];
@@ -1247,6 +1359,71 @@
       };
     }
 
+    const randomMediumEvidence = getRandomMediumEvidence(state);
+    if (randomMediumEvidence.attempts.length < 5 || randomMediumEvidence.passing < 4) {
+      return {
+        kind: 'problem',
+        action: 'practice-random-medium',
+        title: 'Solve a new random medium in 30 minutes and explain its complexity',
+        route: 'coding'
+      };
+    }
+
+    const behavioralPrompts = knownBehavioralPrompts(context?.content);
+    const qualifyingStories = qualifyingBehavioralStories(state);
+    const coveredPromptIds = coveredBehavioralPromptIds(qualifyingStories, behavioralPrompts);
+    if (coveredPromptIds.size < 8) {
+      const nextPrompt = behavioralPrompts.find((prompt) => !coveredPromptIds.has(prompt.id));
+      if (nextPrompt) {
+        return {
+          kind: 'behavioral',
+          action: 'draft-story-for-prompt',
+          title: `Draft an interview-ready story for ${nextPrompt.title}`,
+          promptId: nextPrompt.id,
+          sourceId: nextPrompt.id,
+          route: 'behavioral'
+        };
+      }
+    }
+
+    const rehearsedPromptIds = linkedNoNotesRehearsalIds(state, coveredPromptIds);
+    if (coveredPromptIds.size >= 8 && rehearsedPromptIds.size < 2) {
+      const nextPrompt = behavioralPrompts.find((prompt) => (
+        coveredPromptIds.has(prompt.id) && !rehearsedPromptIds.has(prompt.id)
+      ));
+      if (nextPrompt) {
+        return {
+          kind: 'behavioral',
+          action: 'rehearse-story-without-notes',
+          title: `Rehearse ${nextPrompt.title} without notes`,
+          promptId: nextPrompt.id,
+          sourceId: nextPrompt.id,
+          route: 'behavioral'
+        };
+      }
+    }
+
+    const affectedMock = [
+      ...latestMockCandidates(state, 'coding'),
+      ...latestMockCandidates(state, 'ml-system')
+    ]
+      .filter(countedMockNeedsFollowUp)
+      .sort((left, right) => right.time - left.time || right.index - left.index)[0];
+    if (affectedMock) {
+      const mock = affectedMock.item;
+      const needsDebrief = !isCompleteMockDebrief(mock.debrief);
+      return {
+        kind: 'mock',
+        action: needsDebrief ? 'complete-mock-debrief' : 'remediate-mock-weakness',
+        title: needsDebrief
+          ? `Complete the debrief for ${mock.source || `${mock.type} mock`}`
+          : `Record and complete remediation for ${mock.source || `${mock.type} mock`}`,
+        mockIndex: affectedMock.index,
+        mockType: mock.type,
+        route: 'mocks'
+      };
+    }
+
     const currentGuide = resolveCurrentGuide(context);
     if (currentGuide) {
       const stage = getFirstIncompleteStage(currentGuide, state, context.content || {});
@@ -1312,40 +1489,44 @@
       ? { sessionGuides: criteria.sessionGuides, content: criteria.content || content || {} }
       : normalizeEvidenceContext(sessionGuides, criteria.content || content);
 
-    const randomMediums = state.problemAttempts
-      .filter((attempt) => attempt.random && attempt.difficulty === 'medium')
-      .slice(-5);
-    const passingMediums = randomMediums.filter((attempt) => (
-      attempt.solvedIndependently &&
-      attempt.minutes <= 30 &&
-      attempt.explainedAloud &&
-      attempt.complexityCorrect
-    )).length;
+    const randomMediumEvidence = getRandomMediumEvidence(state);
+    const randomMediums = randomMediumEvidence.attempts;
+    const passingMediums = randomMediumEvidence.passing;
     const codingStatus = randomMediums.length < 5 ? 'red' : passingMediums >= 4 ? 'green' : 'amber';
 
-    const recentQuizzes = state.quizAttempts.slice(-5);
-    const quizAverage = average(recentQuizzes.map((attempt) => Number(attempt.score) || 0));
-    const taskMetricAttempts = recentQuizzes.filter((attempt) => attempt.kind === 'task-metric');
-    const taskMetricAverage = average(taskMetricAttempts.map((attempt) => Number(attempt.score) || 0));
-    const rapidFirePassed = recentQuizzes.some((attempt) => (
-      attempt.kind === 'rapid-fire' && attempt.noNotes && attempt.score >= 80
-    ));
+    const latestQuizzes = latestDistinctCandidates(state?.quizAttempts, 'quizId');
+    const latestFoundationQuizzes = latestQuizzes.filter(({ item }) => item?.kind !== 'modern-cv');
+    const foundationQuizAverage = average(latestFoundationQuizzes.map(({ item }) => Number(item.score) || 0));
+    const latestRapidFire = latestFoundationQuizzes.find(({ item }) => item?.kind === 'rapid-fire')?.item;
+    const latestTaskMetric = latestFoundationQuizzes.find(({ item }) => item?.kind === 'task-metric')?.item;
+    const latestModernCv = latestQuizzes.find(({ item }) => item?.kind === 'modern-cv')?.item;
+    const rapidFirePassed = Boolean(
+      latestRapidFire?.noNotes && Number(latestRapidFire.score) >= 80
+    );
+    const taskMetricPassed = Number(latestTaskMetric?.score) >= 80;
+    const modernCvPassed = Number(latestModernCv?.score) >= 80;
     const requiredFoundationsDone = requiredFoundationTaskIds.every((id) => (
       isTaskComplete(id, state, evidenceContext.sessionGuides, evidenceContext.content)
     ));
     const foundationEvidenceComplete = (
-      recentQuizzes.length >= 3 && taskMetricAttempts.length >= 1 && rapidFirePassed && requiredFoundationsDone
+      latestFoundationQuizzes.length >= 3 &&
+      rapidFirePassed &&
+      taskMetricPassed &&
+      modernCvPassed &&
+      requiredFoundationsDone
     );
     const foundationsStatus = !foundationEvidenceComplete
       ? 'red'
-      : quizAverage >= 80 && taskMetricAverage >= 80
+      : foundationQuizAverage >= 80
         ? 'green'
         : 'amber';
 
-    const recentDesigns = state.designAttempts
-      .filter((attempt) => (attempt.phase || 'attempt') === 'attempt')
-      .slice(-2);
-    const designPasses = recentDesigns.filter((attempt) => (
+    const recentDesigns = latestDistinctCandidates(
+      state?.designAttempts,
+      'caseId',
+      (attempt) => (attempt?.phase || 'attempt') === 'attempt'
+    ).slice(0, 2);
+    const designPasses = recentDesigns.filter(({ item: attempt }) => (
       attempt.durationMinutes <= 40 &&
       attempt.scores &&
       Object.keys(attempt.scores).length >= 10 &&
@@ -1353,58 +1534,48 @@
     )).length;
     const systemDesignStatus = recentDesigns.length < 2 ? 'red' : designPasses === 2 ? 'green' : 'amber';
 
-    const qualifyingStories = state.starStories.filter((story) => (
-      story.complete
-      && Number.isFinite(story.durationMinutes)
-      && story.durationMinutes > 0
-      && story.durationMinutes <= 2
-      && story.measurableImpact
-      && story.individualContribution
-    ));
+    const qualifyingStories = qualifyingBehavioralStories(state);
     const leadershipStories = qualifyingStories.filter((story) => story.leadership).length;
-    const noNotesRehearsals = state.rehearsals.filter((rehearsal) => (
-      (rehearsal.kind || 'story') === 'story' && rehearsal.withoutNotes
-    )).length;
-    const knownPromptIds = new Set(
-      (Array.isArray(evidenceContext.content?.behavioralPrompts)
-        ? evidenceContext.content.behavioralPrompts
-        : [])
-        .map((prompt) => prompt?.id)
-        .filter(isNonEmptyString)
-        .map((promptId) => promptId.trim())
-    );
-    const coveredPrompts = new Set(
-      qualifyingStories
-        .map((story) => story.promptId)
-        .filter((promptId) => isNonEmptyString(promptId) && knownPromptIds.has(promptId.trim()))
-        .map((promptId) => promptId.trim())
-    );
-    const behaviorEvidenceComplete = coveredPrompts.size >= 8;
+    const behavioralPrompts = knownBehavioralPrompts(evidenceContext.content);
+    const coveredPrompts = coveredBehavioralPromptIds(qualifyingStories, behavioralPrompts);
+    const noNotesRehearsalPrompts = linkedNoNotesRehearsalIds(state, coveredPrompts);
+    const behaviorEvidenceComplete = coveredPrompts.size >= 8 && noNotesRehearsalPrompts.size >= 2;
     const behavioralStatus = !behaviorEvidenceComplete
       ? 'red'
-      : qualifyingStories.length >= 8 && leadershipStories >= 2 && noNotesRehearsals >= 2
+      : qualifyingStories.length >= 8 && leadershipStories >= 2
         ? 'green'
         : 'amber';
 
-    const codingMocks = state.mocks.filter((mock) => mock.type === 'coding');
-    const mlSystemMocks = state.mocks.filter((mock) => mock.type === 'ml-system');
-    const latestCodingMock = codingMocks.at(-1);
-    const latestMlSystemMock = mlSystemMocks.at(-1);
-    const mockEvidenceComplete = codingMocks.length >= 2 && mlSystemMocks.length >= 2;
-    const weaknessesRemediated = mockEvidenceComplete
-      && state.mocks.filter((mock) => isCompleteMockDebrief(mock.debrief)).length >= 1;
-    const mocksStatus = !mockEvidenceComplete
-      ? 'red'
-      : latestCodingMock.wouldAdvance && latestMlSystemMock.wouldAdvance && weaknessesRemediated
-        ? 'green'
-        : 'amber';
+    const codingMocks = latestMockCandidates(state, 'coding');
+    const mlSystemMocks = latestMockCandidates(state, 'ml-system');
+    const countedMocks = [...codingMocks, ...mlSystemMocks];
+    const mockEvidenceComplete = codingMocks.length === 2 && mlSystemMocks.length === 2;
+    const everyMockDebriefed = mockEvidenceComplete
+      && countedMocks.every(({ item }) => isCompleteMockDebrief(item.debrief));
+    const failedMocksRemediated = mockEvidenceComplete
+      && countedMocks.every(({ item }) => (
+        item.wouldAdvance !== false || hasCompletedMockRemediation(item.debrief)
+      ));
+    const mocksStatus = mockEvidenceComplete && everyMockDebriefed && failedMocksRemediated
+      ? 'green'
+      : 'red';
 
     const gates = {
-      coding: gate(codingStatus, passingMediums, 4, 'Four of five random mediums in 30 minutes'),
-      foundations: gate(foundationsStatus, Math.round(quizAverage), 80, 'Recent quizzes and task-to-metric judgment'),
+      coding: gate(codingStatus, passingMediums, 4, 'Four of five distinct random mediums in 30 minutes'),
+      foundations: gate(
+        foundationsStatus,
+        Math.round(foundationQuizAverage),
+        80,
+        'Latest distinct foundation quizzes, rapid-fire, task-to-metric, and separate modern-CV judgment'
+      ),
       systemDesign: gate(systemDesignStatus, designPasses, 2, 'Two rubric-passing 40-minute designs'),
       behavioral: gate(behavioralStatus, qualifyingStories.length, 8, 'Eight concise, evidence-backed stories'),
-      mocks: gate(mocksStatus, codingMocks.length + mlSystemMocks.length, 4, 'Two coding and two ML/system mocks')
+      mocks: gate(
+        mocksStatus,
+        countedMocks.length,
+        4,
+        'Two coding and two ML/system mocks with complete debriefs'
+      )
     };
     const overall = Object.values(gates).every((item) => item.status === 'green') ? 'green' : 'red';
     return { overall, gates };

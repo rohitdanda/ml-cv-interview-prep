@@ -1592,7 +1592,7 @@
           <form id="rehearsal-form" class="form-grid">
             <div class="form-field"><label for="rehearsal-kind">Kind</label><select id="rehearsal-kind" name="kind" required><option value="story">Story</option><option value="intro">Career introduction</option><option value="project-deep-dive">Project deep dive</option><option value="full-round">Full behavioral round</option></select></div>
             <div class="form-field"><label for="rehearsal-duration">Minutes</label><input id="rehearsal-duration" name="durationMinutes" type="number" min="1" max="60" required></div>
-            <div class="form-field full"><label for="rehearsal-ref">Story, prompt, or case reference (optional)</label><input id="rehearsal-ref" name="refId" placeholder="For example: segmentation"></div>
+            <div class="form-field full"><label for="rehearsal-ref">Story prompt reference (required for no-notes story rehearsals to count)</label><input id="rehearsal-ref" name="refId" list="rehearsal-ref-options" placeholder="Pick a behavioral prompt id"><datalist id="rehearsal-ref-options">${prompts.map((prompt) => `<option value="${prompt.id}">${escapeHtml(prompt.title)}</option>`).join('')}</datalist></div>
             <label class="check-field" for="rehearsal-no-notes"><input id="rehearsal-no-notes" type="checkbox" name="withoutNotes"> Completed without notes</label>
             <div class="form-field full"><label for="rehearsal-note">What needs tightening?</label><input id="rehearsal-note" name="note" required></div>
             <div class="form-field full"><button class="button" type="submit">Save rehearsal</button></div>

@@ -240,9 +240,9 @@
       goal: 'Build production judgment around real-time vision, video pipelines, and reusable representations.',
       sessions: [
         session('w5-mon', '2026-08-24', 'Timed window, stack, and search set', 'coding', 'Increase medium consistency across three patterns', 'Use the assigned set and stop at 30 minutes per problem for an honest signal.', 90, [task('w5-timed-a', 'Three timed mediums', 'Longest Repeating Character Replacement, Car Fleet, and Find Minimum in Rotated Sorted Array.', 90, 'coding')]),
-        session('w5-tue', '2026-08-25', 'CLIP and DINOv2', 'modern-cv', 'Compare language-aligned and self-supervised representations', 'Know what supervision each objective provides and where transfer breaks.', 90, [
+        session('w5-tue', '2026-08-25', 'CLIP, DINOv2, and DINOv3', 'modern-cv', 'Compare language-aligned and self-supervised representations', 'Know what supervision each objective provides and where transfer breaks.', 90, [
           task('w5-clip', 'CLIP', 'Contrastive objective, zero-shot classifiers, prompt sensitivity, embedding retrieval.', 45, 'modern-cv'),
-          task('w5-dinov2', 'DINOv2', 'Teacher-student self-distillation, general features, dense-task transfer, limitations.', 45, 'modern-cv')
+          task('w5-dinov2', 'DINOv2 and DINOv3', 'Teacher-student self-distillation, general features, dense-task transfer, limitations.', 45, 'modern-cv')
         ]),
         session('w5-wed', '2026-08-26', 'Backtracking and DP essentials', 'coding', 'Frame state transitions explicitly', 'Avoid memorizing DP tables; state the recurrence and base cases.', 90, [
           task('w5-backtrack-b', 'Backtracking set', 'Combination Sum and Word Search.', 45, 'coding'),
@@ -275,8 +275,8 @@
       goal: 'Use promptable/open-vocabulary models responsibly and obtain the first external interview signal.',
       sessions: [
         session('w6-mon', '2026-08-31', 'Timed search and linked-list set', 'coding', 'Reach four-of-five medium consistency', 'Use the assigned cross-pattern set and preserve the 30-minute interview cap.', 90, [task('w6-timed-a', 'Three timed mediums', 'Search in Rotated Sorted Array, Reorder List, and Remove Nth Node From End of List.', 90, 'coding')]),
-        session('w6-tue', '2026-09-01', 'SAM2 and Grounding DINO', 'modern-cv', 'Compose grounding and segmentation without hand-waving', 'Know prompt types, open-set behavior, temporal memory, latency, and failure modes.', 90, [
-          task('w6-sam2', 'SAM and SAM2', 'Promptable masks, image encoder amortization, video memory, domain shift.', 45, 'modern-cv'),
+        session('w6-tue', '2026-09-01', 'SAM2/SAM3 and Grounding DINO', 'modern-cv', 'Compose grounding and segmentation without hand-waving', 'Know prompt types, open-set behavior, temporal memory, latency, and failure modes.', 90, [
+          task('w6-sam2', 'SAM, SAM2, and SAM3', 'Promptable masks, image encoder amortization, video memory, domain shift.', 45, 'modern-cv'),
           task('w6-grounding-dino', 'Grounding DINO', 'Text-conditioned open-set detection, phrase grounding, thresholds, calibration.', 45, 'modern-cv')
         ]),
         session('w6-wed', '2026-09-02', 'Tree and BST consolidation', 'coding', 'Close advanced tree traversal and ordering gaps', 'Re-derive the BST inorder/rank contract, then solve the two named tree mediums cold.', 90, [
@@ -286,7 +286,7 @@
         session('w6-thu', '2026-09-03', 'Segmentation-system design', 'system-design', 'Choose metrics and architecture by error cost', 'Include annotation cost, boundaries, small objects, review, and drift.', 90, [
           task('w6-seg-metrics', 'Segmentation requirements and metrics', 'Clarify users and error costs, then choose Dice, IoU, boundary F1, object sensitivity, and calibration.', 20, 'foundations'),
           task('w6-seg-design', 'Segmentation outline', 'Run the timed defect or medical-image design from ingest through review and monitoring.', 55, 'system-design'),
-          task('w6-seg-modern', 'Foundation-model decision', 'Use SAM2 as label accelerator, baseline, component, or not at all.', 15, 'modern-cv')
+          task('w6-seg-modern', 'Foundation-model decision', 'Use SAM2/SAM3 as label accelerator, baseline, component, or not at all.', 15, 'modern-cv')
         ]),
         session('w6-sat', '2026-09-05', 'First coding mock', 'mocks', 'Obtain an external advance/no-advance signal', 'Treat the mock as a real interview and log remediation immediately.', 180, [
           task('w6-mock-setup', 'Mock preparation', 'Choose platform/partner; camera, editor, and timer ready.', 20, 'mocks'),
@@ -424,13 +424,13 @@
           task('w10-code-close', 'Review evidence', 'Do not count familiar or hinted problems.', 15, 'coding')
         ]),
         session('w10-thu', '2026-10-01', 'Theory and story certification', 'foundations', 'Verify concise answers without notes', 'Stop studying after the evidence is recorded.', 90, [
-          task('w10-theory-cert', 'Final rapid-fire', 'Complete 30 questions spanning readiness judgment and modern CV model selection.', 45, 'foundations'),
+          task('w10-theory-cert', 'Final rapid-fire', 'Complete 32 questions spanning readiness judgment and modern CV model selection.', 45, 'foundations'),
           task('w10-story-cert', 'Final story rehearsal', 'Random prompts, no notes, two-minute cap.', 35, 'behavioral'),
           task('w10-intro-cert', 'Final introduction', 'Record the two-minute Senior MLE/CV summary.', 10, 'behavioral')
         ]),
         session('w10-sat', '2026-10-03', 'Full-loop rehearsal', 'mocks', 'Simulate the combined interview day', 'Use breaks and context switching similar to a real loop.', 180, [
           task('w10-loop-code', 'Coding round', 'One medium with verbal reasoning.', 45, 'mocks'),
-          task('w10-loop-theory', 'ML/CV theory round', 'Complete 10 questions on modern CV model-selection scenarios.', 40, 'mocks'),
+          task('w10-loop-theory', 'ML/CV theory round', 'Complete 12 questions on modern CV model-selection scenarios.', 40, 'mocks'),
           task('w10-loop-design', 'System-design round', 'One compressed end-to-end case.', 55, 'mocks'),
           task('w10-loop-behavior', 'Behavioral round', 'Introduction plus three randomized prompts.', 40, 'mocks')
         ]),

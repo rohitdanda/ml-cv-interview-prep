@@ -112,13 +112,27 @@ describe('Phase 1C study content', () => {
     expect(bodies).toContain('def nms');
     expect(`${module.summary} ${module.invariant} ${module.template.join(' ')}`).toMatch(/shape/i);
     const geometryTemplate = module.code.find(({ label }) => label.toLowerCase().includes('iou'))?.body || '';
-    const floatCastIndex = geometryTemplate.indexOf('is_floating_point');
-    const finfoIndex = geometryTemplate.indexOf('torch.finfo');
-    expect(floatCastIndex).toBeGreaterThanOrEqual(0);
-    expect(geometryTemplate).toContain('dtype=torch.float32');
-    expect(finfoIndex).toBeGreaterThan(floatCastIndex);
-    expect(geometryTemplate).toContain('device=boxes.device');
-    expect(geometryTemplate).toContain('scores = scores.to(device=boxes.device)');
+    const nmsStart = geometryTemplate.indexOf('def nms');
+    expect(nmsStart).toBeGreaterThanOrEqual(0);
+    const boxIouBody = geometryTemplate.slice(0, nmsStart);
+    const nmsBody = geometryTemplate.slice(nmsStart);
+    const expectInvertedBoxValidationBeforeCast = (body, coordinateComparisons) => {
+      const validationIndex = body.indexOf('if torch.any(');
+      const geometryCastIndex = body.search(/\.to\([^\n]*dtype=geometry_dtype/);
+      expect(validationIndex).toBeGreaterThanOrEqual(0);
+      expect(geometryCastIndex).toBeGreaterThan(validationIndex);
+      const preCastBody = body.slice(0, geometryCastIndex);
+      for (const comparison of coordinateComparisons) expect(preCastBody).toContain(comparison);
+      expect(preCastBody).toContain('xyxy coordinates must satisfy x2 >= x1 and y2 >= y1');
+    };
+
+    expect(`${module.template.join(' ')} ${module.pitfalls.join(' ')}`).toMatch(/geometry in float32 unless either input is float64/i);
+    expect(boxIouBody).toMatch(/geometry_dtype\s*=\s*torch\.float64\s+if\s+(?:box\.dtype\s*==\s*torch\.float64\s+or\s+boxes\.dtype\s*==\s*torch\.float64|boxes\.dtype\s*==\s*torch\.float64\s+or\s+box\.dtype\s*==\s*torch\.float64)\s+else\s+torch\.float32/);
+    expect(nmsBody).toMatch(/geometry_dtype\s*=\s*torch\.float64\s+if\s+boxes\.dtype\s*==\s*torch\.float64\s+else\s+torch\.float32/);
+    expectInvertedBoxValidationBeforeCast(boxIouBody, ['box[2:] < box[:2]', 'boxes[:, 2:] < boxes[:, :2]']);
+    expectInvertedBoxValidationBeforeCast(nmsBody, ['boxes[:, 2:] < boxes[:, :2]']);
+    expect(boxIouBody).toMatch(/torch\.where\(\s*union\s*>\s*0\s*,\s*intersection\s*\/\s*union\s*,\s*0(?:\.0)?\s*\)/);
+    expect(nmsBody).toContain('scores = scores.to(device=boxes.device)');
   });
 
   test('adds classical ML plus the prerequisite CV foundation sequence', () => {

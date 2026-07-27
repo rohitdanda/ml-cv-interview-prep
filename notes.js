@@ -32,7 +32,7 @@
       systemDesignUse: 'State embedding dimension, normalization, index metric, expected memory, and how representation changes trigger a full vector-index rebuild.',
       recall: [
         { question: 'Why can cosine similarity and dot product rank neighbors differently?', answer: 'Cosine removes vector magnitude while dot product retains it. They agree only when all vectors have equal norm or norms do not alter ordering.' },
-        { question: 'What does a small singular value mean?', answer: 'The data has little variation along the associated singular-vector direction. Removing it loses less reconstruction energy, though it can still contain supervised signal.' },
+        { question: 'What does a small singular value mean?', answer: 'A small singular value means low squared energy along the associated singular directions; only for a centered data matrix does σᵢ²/(n−1) equal sample variance along that principal direction.' },
         { question: 'Why state tensor shapes aloud?', answer: 'Shapes expose whether operations are valid, clarify batch/channel/spatial semantics, and prevent vague architecture reasoning.' }
       ]
     },
@@ -46,7 +46,7 @@
         'Independence means P(A,B)=P(A)P(B). Conditional independence is different and is often the actual modeling assumption.',
         'Bayes rule reverses a conditional by combining likelihood with a prior. Base rates matter strongly for rare events.',
         'Expectation is linear even for dependent variables. Variance is not additive unless covariance terms vanish.',
-        'Aleatoric uncertainty comes from irreducible observation noise. Epistemic uncertainty comes from limited knowledge and can shrink with informative data.',
+        'Aleatoric uncertainty is residual outcome or measurement variability conditional on the observed inputs and data-generating process; better features or sensors can reduce it, whereas epistemic uncertainty reflects uncertainty about the model or parameters and can shrink with informative data.',
         'Calibration asks whether predictions assigned probability p are correct about p fraction of the time; discrimination and calibration are separate properties.'
       ],
       formulas: [
@@ -78,7 +78,7 @@
       keyPoints: [
         'An estimator has bias and variance. More data typically reduces variance but does not repair systematic bias.',
         'A confidence interval describes a procedure that covers the true parameter at a stated long-run rate; it is not a posterior probability unless using a Bayesian interval.',
-        'A p-value is the probability of data at least this extreme under the null model. It is not the probability that the null is true or the effect is important.',
+        'A p-value is the probability, assuming the null model and analysis assumptions, of obtaining the chosen test statistic at least as extreme as the observed value; it is not P(H₀|data) or a measure of effect importance.',
         'Statistical power depends on effect size, noise, sample size, and significance threshold. Underpowered tests produce unstable estimates.',
         'Validation units must match deployment independence: patient, device, store, video, user, or time window, not merely individual images.',
         'Repeated tuning against one validation set overfits that set. Keep a final holdout or use nested procedures for major model selection.'
@@ -135,7 +135,7 @@
       recall: [
         { question: 'Why does backprop run backward?', answer: 'Each parameter needs the upstream sensitivity of the final loss. Reverse-mode differentiation shares that upstream computation efficiently when one scalar loss depends on many parameters.' },
         { question: 'Why is softmax implemented with log-sum-exp stabilization?', answer: 'Subtracting the maximum logit prevents exponent overflow while preserving probabilities because softmax is invariant to a shared additive constant.' },
-        { question: 'What does gradient clipping change?', answer: 'It limits update magnitude, usually by norm or value. It changes the optimization trajectory but not the forward model or loss definition.' }
+        { question: 'What does gradient clipping change?', answer: 'Gradient clipping bounds or rescales the gradient presented to the optimizer; it does not generally bound the parameter-update magnitude under momentum or Adam because optimizer state and adaptive preconditioning also affect the update.' }
       ]
     },
     {
@@ -252,7 +252,8 @@
         'ROC-AUC measures ranking across FPR/TPR and can look strong with severe imbalance. PR-AUC focuses on positive retrieval quality and depends on prevalence.',
         'Calibration metrics include reliability plots, expected calibration error, Brier score, and log loss. Evaluate calibration by relevant slices.',
         'Detection AP integrates precision-recall at an IoU criterion; COCO-style mAP averages categories and multiple IoU thresholds. Report size and class slices.',
-        'Segmentation IoU and Dice overlap regions. Boundary F1 catches edge quality; object-level recall catches missing small instances.'
+        'Segmentation IoU and Dice overlap regions. Boundary F1 catches edge quality; object-level recall catches missing small instances.',
+        'For multiclass or multilabel evaluation, micro aggregation pools all decisions and is dominated by common classes, while macro aggregation averages per-class metrics and weights each class equally; report per-class support and results because neither aggregate exposes every failure.'
       ],
       formulas: [
         'Precision = TP/(TP+FP). Recall = TP/(TP+FN). Specificity = TN/(TN+FP).',
@@ -319,7 +320,7 @@
         'Latency distributions matter: p50 hides tail pain. Include preprocessing, queue, model, postprocessing, network, and downstream action.',
         'Batching improves throughput but adds queue latency. Dynamic batching requires a maximum wait and request-shape policy.',
         'Monitor system health, input quality, feature distributions, prediction distributions, confidence, slice metrics, labels when available, and business outcomes.',
-        'Covariate drift changes P(X), label drift changes P(Y), and concept drift changes P(Y|X). Distribution alerts do not prove quality degradation.',
+        'Covariate shift means P(X) changes while P(Y|X) is assumed stable; label/prior shift means P(Y) changes while P(X|Y) is assumed stable; concept shift means P(Y|X) changes. In practice several distributions may change together, and a drift alert alone does not identify the regime or prove quality loss.',
         'Use canary, shadow, or staged rollout with explicit rollback metrics. Keep model, data, code, and threshold versions traceable.'
       ],
       formulas: [
@@ -350,8 +351,8 @@
       required: true,
       summary: 'Classical models remain the fastest way to establish signal, diagnose feature quality, and ship reliable tabular or low-data systems. Senior interview answers compare assumptions, capacity, calibration, inference cost, and failure modes before reaching for a larger model.',
       keyPoints: [
-        'Linear regression estimates a conditional mean; logistic regression models log-odds and produces a score that can be calibrated and thresholded for asymmetric decisions.',
-        'Decision trees capture nonlinear interactions without feature scaling. Random forests reduce variance by bagging; gradient-boosted trees reduce residual error sequentially and are often the strongest tabular baseline.',
+        'Least-squares linear regression estimates the best linear L2 predictor; it equals E[Y|X] only when the conditional mean lies in the chosen linear feature class.',
+        'Gradient boosting sequentially fits learners to negative loss gradients (pseudo-residuals); these are ordinary residuals only for squared-error loss.',
         'Linear and kernel SVMs maximize margin; kernels add nonlinear capacity but training and serving can become expensive as examples and support vectors grow.',
         'kNN is a local nonparametric baseline whose quality depends on distance, feature scaling, dimensionality, and retrieval cost.',
         'k-means assumes roughly spherical clusters under Euclidean distance; density and hierarchical methods answer different cluster-shape and noise questions.',
@@ -398,7 +399,8 @@
         'Normal equations: XᵀXβ=Xᵀy.',
         'Pseudoinverse from SVD: X⁺=VΣ⁺Uᵀ.',
         'Condition number κ₂(A)=σ_max/σ_min for full-rank A.',
-        'Worked application — low-rank embeddings: for centered X=UΣVᵀ, Xₖ=UₖΣₖVₖᵀ is the best rank-k approximation in Frobenius norm. The retained squared-energy fraction is Σᵢ₌₁ᵏσᵢ² / Σᵢσᵢ², so k can be chosen from a reconstruction or memory budget.'
+        'Worked application — low-rank embeddings: for centered X=UΣVᵀ, Xₖ=UₖΣₖVₖᵀ is the best rank-k approximation in Frobenius norm. The retained squared-energy fraction is Σᵢ₌₁ᵏσᵢ² / Σᵢσᵢ², so k can be chosen from a reconstruction or memory budget.',
+        'For centered X∈ℝⁿˣᵈ with X=UΣVᵀ, XᵀX/(n−1)=V diag(σᵢ²/(n−1))Vᵀ; columns of V are PCA directions, σᵢ²/(n−1) are covariance eigenvalues, and projected scores are XVₖ=UₖΣₖ.'
       ],
       decisionRules: ['Use QR/SVD for stable least squares; use truncated/randomized methods for large low-rank approximation.'],
       pitfalls: [
@@ -426,7 +428,8 @@
       formulas: [
         'θ_MLE=argmaxθ ∏ᵢp(xᵢ|θ)=argminθ -Σᵢlog p(xᵢ|θ).',
         'θ_MAP=argmaxθ [log p(D|θ)+log p(θ)].',
-        'Worked derivation — binary classification: with p(y=1|x)=σ(z), -log p(y|x)=-[y log σ(z)+(1-y)log(1-σ(z))], which is binary cross-entropy; a Gaussian prior on weights adds a coefficient-scaled ||w||₂² penalty to the summed negative log-likelihood.'
+        'Worked derivation — binary classification: with p(y=1|x)=σ(z), -log p(y|x)=-[y log σ(z)+(1-y)log(1-σ(z))], which is binary cross-entropy; a Gaussian prior on weights adds a coefficient-scaled ||w||₂² penalty to the summed negative log-likelihood.',
+        'ELBO(q)=E_q[log p(x,z)−log q(z|x)]=log p(x)−KL(q(z|x)||p(z|x)); therefore it lower-bounds log evidence, and maximizing it minimizes the reverse KL to the exact posterior within the variational family.'
       ],
       decisionRules: ['Use probabilistic derivations to check whether a loss matches the assumed observation noise and output distribution.'],
       pitfalls: [
@@ -449,10 +452,10 @@
         'Consistency concerns convergence with data; unbiasedness concerns expected finite-sample value; efficiency concerns variance among estimators.',
         'Bootstrap resamples observed units and must preserve dependence structure through grouped or block variants.',
         'Multiple comparisons inflate false discoveries; family-wise and false-discovery-rate controls answer different goals.',
-        'Randomized experiments identify causal effects under compliance and interference assumptions; observational correlations require stronger modeling assumptions.'
+        'With proper random assignment and well-defined outcomes/no interference, a randomized experiment identifies the intention-to-treat effect; noncompliance does not invalidate ITT, while complier or per-protocol effects require additional assumptions such as exclusion, monotonicity, or ignorability.'
       ],
       formulas: [
-        'Benjamini–Hochberg controls false discovery rate by comparing ordered p-values p(k) to kα/m.',
+        'Sort p-values p₍₁₎≤⋯≤p₍ₘ₎, choose k=max{i:p₍ᵢ₎≤iq/m}, and reject the first k; BH controls FDR at q under independence or appropriate positive dependence (PRDS), not arbitrary dependence without a stronger correction such as Benjamini–Yekutieli.',
         'Worked application — clustered metric uncertainty: sample patients with replacement, keep every image from each sampled patient, recompute the metric difference for each bootstrap replicate, and form a percentile or appropriately corrected interval from the replicate distribution.'
       ],
       decisionRules: ['Resample the deployment-independent unit, not individual correlated observations.'],
@@ -490,7 +493,7 @@
         'KKT conditions require primal feasibility, dual feasibility, stationarity, and complementary slackness; their sufficiency also depends on convexity and regularity assumptions.'
       ],
       recall: [
-        { question: 'Why are saddle points common in high dimensions?', answer: 'There are many directions with mixed curvature, making stationary points with both positive and negative Hessian eigenvalues combinatorially common.' },
+        { question: 'Are saddle points automatically common in high-dimensional nonconvex objectives?', answer: 'High-dimensional nonconvex objectives can have many mixed-curvature saddle directions, but dimension alone does not imply that saddle points are combinatorially common; inspect the actual Hessian/landscape and account for zero modes and parameter symmetries.' },
         { question: 'What does the Lagrange multiplier mean locally?', answer: 'Under regularity conditions, it is the sensitivity of the optimum value to relaxing the corresponding constraint, up to the sign convention used in the Lagrangian.' },
         { question: 'What do Hessian eigenvalues tell you near a stationary point?', answer: 'All positive values indicate a strict local minimum, any negative direction rules out a local minimum, and zero values require higher-order or neighborhood analysis.' }
       ]
@@ -504,7 +507,8 @@
         'Entropy measures expected surprise under a distribution. Cross-entropy evaluates coding/data under another distribution.',
         'KL divergence is nonnegative and asymmetric; minimizing cross-entropy to a fixed target is equivalent to minimizing KL up to target entropy.',
         'Mutual information measures dependence as the KL divergence between the joint and product of marginals.',
-        'Contrastive objectives often optimize bounds related to mutual information, but practical behavior depends heavily on sampling and representations.'
+        'Contrastive objectives often optimize bounds related to mutual information, but practical behavior depends heavily on sampling and representations.',
+        'Data-processing inequality: if a representation Z is computed only from X so that Y→X→Z is a Markov chain, then I(Y;Z)≤I(Y;X); deterministic or stochastic post-processing cannot create information about the target, although finite-sample MI estimators may appear to violate the inequality.'
       ],
       formulas: [
         'H(P)=-Σp(x)log p(x).',
@@ -1036,14 +1040,16 @@ def last_stone_weight(stones):
       recognitionCues: [
         'Relationships form arbitrary adjacency, a grid acts as an implicit graph, or the task asks for reachability, components, cycles, or ordering.',
         'Prerequisites, build dependencies, or “can all tasks finish?” describe a directed graph and call for a topological-order or directed-cycle invariant.',
-        'Undirected connectivity changes through edge additions and queries do not need actual paths, suggesting disjoint-set union.'
+        'Undirected connectivity changes through edge additions and queries do not need actual paths, suggesting disjoint-set union.',
+        'A minimum-cost path in a graph with nonnegative edge weights calls for Dijkstra; any negative edge requires a different algorithm such as Bellman–Ford.'
       ],
-      invariant: 'Traversal schedules each logical state once; Kahn’s queue contains exactly zero-indegree unfinished vertices and removes each outgoing edge once; DFS coloring never enters a gray node on an acyclic path; union-find roots name disjoint components.',
+      invariant: 'Traversal schedules each logical state once; Kahn’s queue contains exactly zero-indegree unfinished vertices and removes each outgoing edge once; DFS coloring never enters a gray node on an acyclic path; with nonnegative weights, each non-stale Dijkstra pop finalizes that node’s shortest distance, so no later relaxation can improve it; union-find roots name disjoint components.',
       template: [
         'Define vertices, edge direction, and neighbor generation, including expanded state such as node-plus-mask when history changes future moves.',
         'Choose BFS for unweighted shortest edges or DFS for exhaustive structure; mark visited at enqueue/push when duplicate scheduling is harmful.',
         'For dependencies, build adjacency plus indegree and count Kahn removals, or use white/gray/black DFS where an edge to gray proves a cycle.',
-        'For union-find, initialize one parent per node, find roots with compression, and union roots by size or rank.'
+        'For union-find, initialize one parent per node, find roots with compression, and union roots by size or rank.',
+        'For nonnegative weighted edges, initialize dist, create a monotonic sequence counter, push (0, next(sequence), source) into a min-heap, pop (distance, _, node), skip stale entries, relax outgoing edges, and push (improved_distance, next(sequence), neighbor) so equal distances never compare node keys.'
       ],
       code: [
         { label: 'Traversal template — mark when scheduling', body: `def dfs_grid(grid, row, col, seen):
@@ -1093,11 +1099,36 @@ def can_finish(num_courses, prerequisites):
             if indegree[course] == 0:
                 ready.append(course)
 
-    return completed == num_courses` }
+    return completed == num_courses` },
+        { label: 'Template — Dijkstra with stale-entry skipping', body: `from itertools import count
+from heapq import heappop, heappush
+
+def dijkstra(graph, source):
+    # graph maps every vertex to (neighbor, nonnegative_weight) edges.
+    if any(weight < 0 for edges in graph.values() for _, weight in edges):
+        raise ValueError("Dijkstra requires nonnegative edge weights")
+
+    dist = {node: float("inf") for node in graph}
+    dist[source] = 0
+    sequence = count()
+    heap = [(0, next(sequence), source)]
+
+    while heap:
+        distance, _, node = heappop(heap)
+        if distance != dist[node]:       # a later relaxation made this entry stale
+            continue
+        for neighbor, weight in graph[node]:
+            candidate = distance + weight
+            if candidate < dist[neighbor]:
+                dist[neighbor] = candidate
+                heappush(heap, (candidate, next(sequence), neighbor))
+
+    return dist` }
       ],
       complexity: [
         'Adjacency-list DFS, BFS, Kahn topological sort, and DFS-color cycle detection are O(V + E) time and O(V + E) stored graph plus O(V) frontier/color state.',
-        'Union-find with path compression and union by rank performs m operations in O(m α(V)) time, effectively near constant per operation.'
+        'Union-find with path compression and union by rank performs m operations in O(m α(V)) time, effectively near constant per operation.',
+        'Binary-heap Dijkstra on a nonnegative adjacency-list graph is O((V + E) log V) time and O(V + E) space including the graph, distance map, and heap.'
       ],
       pitfalls: [
         'Marking visited only when dequeued can schedule a dense-graph node many times and obscure shortest-path reasoning.',
@@ -1264,29 +1295,38 @@ def can_finish(num_courses, prerequisites):
         'A training-step prompt requires explicit zero-grad, forward, loss, backward, and optimizer-step order with train/eval behavior understood.',
         'Bounding-box overlap, duplicate detections, or postprocessing requires vectorized IoU plus score-ordered greedy NMS.'
       ],
-      invariant: 'Loss inputs share a broadcast-safe shape and dtype, gradients belong only to the current step, IoU uses nonnegative intersection and union, and greedy NMS keeps the highest remaining score before removing only boxes above the overlap threshold.',
+      invariant: 'BCE targets and logits have exactly equal shapes after at most one semantically justified singleton-axis operation; gradients are cleared before the backward pass that starts an update or accumulation window; continuous-coordinate xyxy boxes are non-inverted; zero-union IoU is 0; and greedy NMS keeps the highest remaining score before removing only boxes above the overlap threshold.',
       template: [
-        'For BCE, accept logits [B] or [B,C], reshape/cast targets to match, and call the stable fused binary_cross_entropy_with_logits reduction.',
-        'For training, set train mode, clear gradients, run forward, compute scalar loss, backpropagate, optionally clip, and step the optimizer exactly once.',
-        'For IoU/NMS, validate xyxy boxes, clamp intersection widths/heights at zero, sort scores descending, and repeatedly suppress high-overlap remainder boxes.'
+        'For BCE, allow only an explicit, semantically justified singleton squeeze or unsqueeze, require targets.shape == logits.shape, cast targets to the logits device and dtype, and reject every other shape instead of reshaping.',
+        'For training, set train mode, clear gradients before the backward pass that begins the update or accumulation window, run forward, compute scalar loss, backpropagate, optionally clip, and step exactly once.',
+        'For IoU/NMS, use continuous-coordinate xyxy boxes, reject inverted coordinates before area math, compute geometry in float32 unless either input is float64, map zero union to IoU 0 with torch.where, sort scores descending, and suppress high-overlap remainder boxes.'
       ],
       code: [
         { label: 'Template — stable BCE-with-logits and one training step', body: `import torch
 import torch.nn.functional as F
 
 def binary_training_step(model, optimizer, features, targets):
-    # features: [B, D]; targets and logits: [B] (or matching [B, C])
+    # features: [B, D]; targets and final logits: [B] or exactly matching [B, C]
     model.train()
-    optimizer.zero_grad(set_to_none=True)
-    logits = model(features).squeeze(-1)
-    targets = targets.to(device=logits.device, dtype=logits.dtype).reshape_as(logits)
+    optimizer.zero_grad(set_to_none=True)  # begin a fresh update window before backward
+    raw_logits = model(features)
+    if (raw_logits.ndim == targets.ndim + 1
+            and raw_logits.shape[-1] == 1
+            and raw_logits.shape[:-1] == targets.shape):
+        # A binary head has one known class-logit axis, so this singleton squeeze is semantic.
+        logits = raw_logits.squeeze(-1)
+    else:
+        logits = raw_logits
+    if targets.shape != logits.shape:
+        raise ValueError(f"targets {targets.shape} must exactly match logits {logits.shape}")
+    targets = targets.to(device=logits.device, dtype=logits.dtype)
     loss = F.binary_cross_entropy_with_logits(logits, targets)
     loss.backward()
     optimizer.step()
     return loss.detach(), logits.detach()` },
         { label: 'Worked example — vectorized binary classifier update', body: `import torch
 
-model = torch.nn.Linear(3, 1)
+model = torch.nn.Linear(3, 1)  # exactly one binary-logit output per example
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 features = torch.tensor([[1.0, 0.0, 2.0], [0.0, 1.0, -1.0]])  # [B=2, D=3]
 targets = torch.tensor([1.0, 0.0])                             # [B=2]
@@ -1296,25 +1336,30 @@ assert loss.ndim == 0 and logits.shape == targets.shape` },
         { label: 'Template — vectorized box IoU and greedy NMS', body: `import torch
 
 def box_iou(box, boxes):
-    # box: [4], boxes: [N, 4], coordinates are (x1, y1, x2, y2)
+    # Continuous-coordinate xyxy: equal endpoints have zero area; zero union returns IoU 0.
     if box.shape != (4,) or boxes.ndim != 2 or boxes.shape[1] != 4:
         raise ValueError("expected box [4] and boxes [N, 4]")
-    if not boxes.is_floating_point():
-        boxes = boxes.to(dtype=torch.float32)
-    box = box.to(device=boxes.device, dtype=boxes.dtype)
+    if torch.any(box[2:] < box[:2]) or torch.any(boxes[:, 2:] < boxes[:, :2]):
+        raise ValueError("xyxy coordinates must satisfy x2 >= x1 and y2 >= y1")
+    geometry_dtype = torch.float64 if box.dtype == torch.float64 or boxes.dtype == torch.float64 else torch.float32
+    boxes = boxes.to(dtype=geometry_dtype)
+    box = box.to(device=boxes.device, dtype=geometry_dtype)
+
     top_left = torch.maximum(box[:2], boxes[:, :2])
     bottom_right = torch.minimum(box[2:], boxes[:, 2:])
     intersection = (bottom_right - top_left).clamp(min=0).prod(dim=1)
-    box_area = (box[2:] - box[:2]).clamp(min=0).prod()
-    areas = (boxes[:, 2:] - boxes[:, :2]).clamp(min=0).prod(dim=1)
+    box_area = (box[2:] - box[:2]).prod()
+    areas = (boxes[:, 2:] - boxes[:, :2]).prod(dim=1)
     union = box_area + areas - intersection
-    return intersection / union.clamp(min=torch.finfo(boxes.dtype).eps)
+    return torch.where(union > 0, intersection / union, 0.0)
 
 def nms(boxes, scores, iou_threshold):
     if boxes.ndim != 2 or boxes.shape[1] != 4 or scores.ndim != 1 or len(scores) != len(boxes):
         raise ValueError("expected boxes [N, 4] and aligned scores [N]")
-    if not boxes.is_floating_point():
-        boxes = boxes.to(dtype=torch.float32)
+    if torch.any(boxes[:, 2:] < boxes[:, :2]):
+        raise ValueError("xyxy coordinates must satisfy x2 >= x1 and y2 >= y1")
+    geometry_dtype = torch.float64 if boxes.dtype == torch.float64 else torch.float32
+    boxes = boxes.to(dtype=geometry_dtype)
     scores = scores.to(device=boxes.device)
     # boxes: [N, 4], scores: [N]; returns kept original indices
     order = scores.argsort(descending=True)
@@ -1342,13 +1387,15 @@ assert kept.tolist() == [0, 2]` }
       ],
       pitfalls: [
         'Applying sigmoid before binary_cross_entropy_with_logits duplicates the nonlinearity and loses the fused log-sum-exp numerical stability.',
-        'Calling zero_grad after backward, forgetting model.train(), silently broadcasting [B,1] against [B], or retaining graph-bearing losses corrupts training behavior or memory.',
-        'Mixing xywh with xyxy, accepting negative-area boxes, dividing by zero-area union, or suppressing before sorting by score produces invalid NMS results.',
+        'Gradients must be cleared before the backward pass that begins an update or accumulation window: backward(); step(); zero_grad() is valid for the next update, while backward(); zero_grad(); step() discards the update; returning graph-bearing losses without detaching also retains computation graphs.',
+        'For validation or inference, call model.eval() and use torch.inference_mode(); eval() changes Dropout and BatchNorm behavior but does not disable autograd, and model.train() must be restored before optimization.',
+        'BCE-with-logits requires targets.shape == logits.shape; permit only an explicit, semantically justified singleton squeeze or unsqueeze, then cast device/dtype, and reject every other mismatch.',
+        'Treat xyxy as continuous coordinates: reject inverted boxes, allow equal endpoints as zero-area boxes, return IoU 0 for zero union, and compute geometry in float32 unless either input is float64.',
         'In multiclass detection, class-agnostic NMS can suppress overlapping boxes from different classes unless that behavior is deliberate.'
       ],
       recall: [
         { question: 'Why is BCE-with-logits more stable than sigmoid followed by BCE?', answer: 'The fused operation rewrites the log-sigmoid terms with a log-sum-exp-style expression, avoiding probabilities rounded to zero or one before taking logarithms.' },
-        { question: 'What is the required order of a real optimizer update?', answer: 'Set train mode, clear old gradients, run the forward pass, compute a scalar loss, call backward, optionally clip, then call optimizer.step once.' },
+        { question: 'When must gradients be cleared for an optimizer update?', answer: 'Clear them before the backward pass that starts an update or accumulation window. backward(); step(); zero_grad() is valid because it clears before the next backward, but backward(); zero_grad(); step() discards the gradients before the update.' },
         { question: 'What invariant makes greedy NMS correct for its stated policy?', answer: 'The highest-scoring remaining box is kept first, and only lower-scoring boxes whose IoU exceeds the chosen threshold are removed before repeating.' },
         { question: 'Which production tradeoff should you test around NMS?', answer: 'Evaluate threshold and class-aware policy by object density and size while measuring duplicate precision, crowded-scene recall, latency, and downstream tracking behavior.' }
       ]
@@ -1370,7 +1417,7 @@ assert kept.tolist() == [0, 2]` }
       formulas: [
         'Convolution output: H_out=floor((H+2P-D(K-1)-1)/S+1), and likewise for width.',
         'Receptive-field recurrence: jump_l=jump_{l-1}×stride_l and RF_l=RF_{l-1}+(kernel_l-1)×dilation_l×jump_{l-1}.',
-        'A convolution has K_h×K_w×C_in×C_out weights (plus optional bias), independent of image size.'
+        'weights=K_h×K_w×C_in×C_out/groups (plus optional bias); dense convolution has groups=1, while a depthwise convolution with multiplier m has K_h×K_w×C_in×m weights.'
       ],
       decisionRules: [
         'Preserve higher-resolution stages or use a pyramid when small objects and boundaries matter; downsample aggressively only when latency and global classification dominate.',
@@ -1398,10 +1445,11 @@ assert kept.tolist() == [0, 2]` }
         'Two-stage detectors propose regions then classify/refine them; one-stage detectors predict densely and usually offer a simpler low-latency path.',
         'Greedy NMS keeps a high-score box and suppresses overlapping lower-score boxes; threshold, class policy, and crowded scenes control the precision/recall tradeoff.',
         'U-Net-style decoders upsample while skip connections restore spatial detail from encoder stages for dense masks.',
-        'Detection and segmentation imbalance may need focal loss, sampling, Dice/IoU terms, or class weighting, but each changes calibration and failure incentives.'
+        'Detection and segmentation imbalance may need focal loss, sampling, Dice/IoU terms, or class weighting, but each changes calibration and failure incentives.',
+        'Semantic segmentation assigns a class per pixel; instance segmentation separates each countable object and is evaluated with mask AP; panoptic segmentation assigns every pixel a class and instance where applicable, distinguishes things from stuff, and is evaluated with PQ=SQ×RQ.'
       ],
       formulas: [
-        'IoU(A,B)=area(A∩B)/area(A∪B); generalized IoU adds a penalty from the smallest enclosing box when boxes do not overlap.',
+        'GIoU=IoU−area(C∖(A∪B))/area(C), where C is the smallest enclosing box; the penalty applies for overlapping and non-overlapping boxes, although its key advantage is a useful signal when IoU is zero.',
         'Dice=2TP/(2TP+FP+FN), while IoU=TP/(TP+FP+FN); both require an explicit empty-mask convention.',
         'Focal loss scales cross-entropy by (1-p_t)^γ so well-classified examples contribute less.'
       ],
@@ -1429,7 +1477,8 @@ assert kept.tolist() == [0, 2]` }
         'Convolutions share local kernels, giving strong inductive bias and efficient dense feature pyramids.',
         'Self-attention lets tokens exchange global information, while full attention scales quadratically with token count.',
         'Transformers often scale predictably with data and compute and transfer well from large pretraining corpora.',
-        'Hybrid and hierarchical models blur the boundary through local windows, convolutions, multiscale stages, and attention.'
+        'Hybrid and hierarchical models blur the boundary through local windows, convolutions, multiscale stages, and attention.',
+        'Visual state-space models such as VMamba use 2D selective scans to aggregate long-range context with linear sequence-length scaling; treat them as a third backbone family and verify realized latency because scan layout and kernel support determine whether asymptotic savings materialize.'
       ],
       formulas: ['Full attention over N tokens costs O(N²d). At fixed patch size, doubling both H and W makes N four times larger and the attention term roughly sixteen times larger.'],
       decisionRules: ['Choose from latency, data, resolution, checkpoint quality, hardware, and dense-task requirements rather than architecture fashion.'],
@@ -1469,7 +1518,8 @@ assert kept.tolist() == [0, 2]` }
         'Hungarian matching creates a one-to-one training assignment between predictions and ground truth.',
         'Unmatched queries learn a no-object class, so class imbalance and no-object weight matter.',
         'Original DETR trained slowly and struggled with small objects; deformable and multiscale variants improve efficiency.',
-        'One-to-one matching reduces duplicates, but crowded-object and confidence behavior still require validation.'
+        'One-to-one matching reduces duplicates, but crowded-object and confidence behavior still require validation.',
+        'RT-DETR uses an efficient multiscale hybrid encoder and uncertainty-minimal query selection; D-FINE (2024) iteratively refines box-coordinate distributions and adds localization self-distillation, making NMS-free DETR-family models credible real-time baselines that still require target-runtime profiling.'
       ],
       formulas: ['Matching minimizes class cost plus box discrepancy; box loss commonly combines L1 and generalized IoU.', 'A fixed Q-query decoder emits Q candidates regardless of the number of true objects.'],
       decisionRules: ['Use a DETR family when a maintained checkpoint and set reasoning fit; compare against optimized one-stage detectors for strict latency.'],
@@ -1489,7 +1539,8 @@ assert kept.tolist() == [0, 2]` }
         'Matched batch pairs are positives and other pairs act as negatives; temperature controls logit sharpness.',
         'Zero-shot classification compares an image embedding with embeddings for class prompts.',
         'Prompt wording and label semantics affect results; prompt ensembles reduce some variance.',
-        'Global alignment does not guarantee counting, localization, compositionality, or calibrated confidence.'
+        'Global alignment does not guarantee counting, localization, compositionality, or calibrated confidence.',
+        'SigLIP replaces CLIP\'s batch-global softmax normalization with independent pairwise sigmoid losses; SigLIP 2 adds captioning, self-distillation, masked prediction, online curation, multilingual data, and native-aspect-ratio variants, improving dense localization as well as retrieval and zero-shot transfer.'
       ],
       formulas: ['Similarity logits sᵢⱼ=(vᵢ·tⱼ)/τ feed symmetric image-to-text and text-to-image cross-entropy.', 'Cosine similarity equals a dot product when both embeddings are L2-normalized.'],
       decisionRules: ['Use CLIP-style embeddings for open-ended retrieval or weakly labeled baselines; adapt when domain terminology or imagery differs.'],
@@ -1502,14 +1553,15 @@ assert kept.tolist() == [0, 2]` }
       ]
     },
     {
-      id: 'dinov2', title: 'DINOv2 and self-supervised visual features', required: true,
+      id: 'dinov2', title: 'DINOv2, DINOv3, and self-supervised visual features', required: true,
       summary: 'DINO-style self-distillation learns reusable visual representations without paired text labels. DINOv2 emphasizes curated scale and features that transfer to image-level and dense tasks, but still inherits source-distribution and preprocessing assumptions.',
       keyPoints: [
         'A student predicts representations from an exponential-moving-average teacher under different views.',
         'Multi-crop augmentation encourages invariance while patch objectives preserve local structure.',
         'Frozen features support probes, nearest neighbors, detection, segmentation, and depth heads.',
         'Self-supervision avoids label ontology costs but not data curation, leakage, bias, or compute.',
-        'Specialized imagery may require adapters or fine-tuning after a frozen baseline establishes the gap.'
+        'Specialized imagery may require adapters or fine-tuning after a frozen baseline establishes the gap.',
+        'DINOv3 scales model and curated data, uses Gram anchoring to prevent dense feature-map degradation during long training, and applies post-hoc resolution, model-size, and text-alignment adaptations; compare DINOv2 and DINOv3 checkpoints under the same frozen dense-task protocol.'
       ],
       formulas: ['Teacher update: θ_teacher←mθ_teacher+(1-m)θ_student with high momentum m.', 'A linear probe isolates representation quality by training only a shallow head over frozen features.'],
       decisionRules: ['Start with frozen features, unfreeze progressively only when the validated domain gap justifies cost and overfitting risk.'],
@@ -1522,14 +1574,15 @@ assert kept.tolist() == [0, 2]` }
       ]
     },
     {
-      id: 'sam2', title: 'SAM and SAM2', required: true,
+      id: 'sam2', title: 'SAM, SAM2, and SAM3', required: true,
       summary: 'SAM turns points, boxes, or masks into segmentations; SAM2 extends promptable segmentation to video using memory. Their strongest production roles are often annotation assistance, interactive correction, proposal generation, or validated components.',
       keyPoints: [
         'A heavy image encoder can be amortized across multiple prompts while a prompt and mask decoder responds interactively.',
         'Ambiguous prompts may yield multiple plausible masks, and class-agnostic masks do not inherently provide semantic labels.',
         'SAM2 memory propagates information over video, introducing occlusion, reappearance, drift, and identity-switch failures.',
         'Interactive quality should be measured against click/box count and correction time, not one-shot IoU alone.',
-        'Domain boundaries, tiny structures, and adjacent objects require explicit validation and often adaptation.'
+        'Domain boundaries, tiny structures, and adjacent objects require explicit validation and often adaptation.',
+        'SAM 3 adds promptable concept segmentation: text or exemplar prompts can detect, segment, and track all instances of an open-vocabulary concept via a presence token and decoupled detector-tracker; SAM 3.1 adds shared-memory multi-object tracking for higher efficiency.'
       ],
       formulas: ['Interaction curve reports IoU or boundary quality after 1, 3, or N prompts.', 'Video mask evaluation should pair region quality with temporal consistency and identity continuity.'],
       decisionRules: ['Use SAM for label assistance when humans can prompt/correct; benchmark a smaller domain model for automated high-throughput inference.'],
@@ -1549,7 +1602,8 @@ assert kept.tolist() == [0, 2]` }
         'Text and box thresholds control candidates and need domain calibration.',
         'Open vocabulary does not guarantee truly novel concepts or calibrated confidence.',
         'Composing text-to-box and box-to-mask stages compounds recall and calibration errors.',
-        'Synonyms, attributes, background confusion, and unsupported terms need explicit test sets.'
+        'Synonyms, attributes, background confusion, and unsupported terms need explicit test sets.',
+        'Grounding DINO 1.5 separates a scaled Pro model from an Edge model with fewer feature scales and TensorRT optimization; compare both with YOLO-World, whose re-parameterizable vision-language PAN and region-text contrastive pretraining target real-time open-vocabulary detection.'
       ],
       formulas: ['Grounded segmentation composes text→boxes→promptable masks, so end-to-end recall cannot exceed the box proposal recall.', 'Threshold selection trades missed concepts against false grounding and reviewer load.'],
       decisionRules: ['Use it for discovery, bootstrapping, or long-tail baselines; use a closed-set optimized detector when ontology and latency are stable.'],
@@ -1570,7 +1624,10 @@ assert kept.tolist() == [0, 2]` }
         'Tracking-by-detection predicts boxes each frame then associates them using motion, appearance, IoU, and gating.',
         'A Kalman filter predicts a state and uncertainty; SORT combines that motion model with Hungarian assignment, while DeepSORT adds appearance embeddings.',
         'Late fusion and cascades keep cheap frame/audio/text models separate before event aggregation, escalating uncertain or high-risk clips.',
-        'Track and event metrics must expose fragmentation, identity switches, latency to alert, and missed short-duration events.'
+        'Track and event metrics must expose fragmentation, identity switches, latency to alert, and missed short-duration events.',
+        'VideoMAE/InternVideo2 learn transferable spatiotemporal features through masked pretraining, while V-JEPA 2 predicts masked video representations in latent space rather than reconstructing pixels and V-JEPA 2-AC adds an action-conditioned world model; evaluate frozen transfer, temporal localization, and domain shift before fine-tuning.',
+        'ByteTrack first associates high-confidence detections, then matches remaining tracks to low-confidence detections to recover occluded objects; detector calibration and the two score thresholds are part of the tracker and must be tuned jointly.',
+        'HOTA balances detection and association across localization thresholds and decomposes into DetA, AssA, and LocA; report that breakdown with IDF1 and task-level event metrics rather than relying on MOTA alone.'
       ],
       formulas: [
         'Kalman predict/update alternates x̂_t|t-1=F x̂_{t-1} with a measurement-corrected posterior weighted by uncertainty.',
@@ -1603,9 +1660,10 @@ assert kept.tolist() == [0, 2]` }
         'Training may combine pretrained components, connector alignment, instruction tuning, and preference or safety tuning.',
         'Resolution, tiling, OCR, frame sampling, and context limits determine which evidence is visible.',
         'Structured extraction needs schema validation and deterministic checks rather than free-form trust.',
-        'Grounding requires region, citation, counterfactual, and unsupported-question evaluation.'
+        'Grounding requires region, citation, counterfactual, and unsupported-question evaluation.',
+        'Qwen2.5-VL exemplifies a native dynamic-resolution ViT with window attention and absolute time encoding for long video; evaluate document/OCR extraction, coordinate grounding, and second-level temporal localization separately from free-form QA.'
       ],
-      formulas: ['Total context contains visual plus text tokens; increasing image tiles or frames raises attention cost and reduces room for language context.', 'Selective risk should be plotted against coverage when the system can abstain or route to review.'],
+      formulas: ['In token-concatenation VLMs, visual tokens consume the decoder context window; in cross-attention VLMs the visual sequence is separate, but cross-attention compute and memory still grow approximately with N_text×N_visual per cross-attention layer.', 'Selective risk should be plotted against coverage when the system can abstain or route to review.'],
       decisionRules: ['Use a VLM when language-conditioned interpretation is essential; prefer dedicated perception for stable narrow high-throughput tasks.'],
       pitfalls: ['Correct-sounding language is not proof of pixel grounding, factual support, calibration, or policy compliance.'],
       systemDesignUse: 'Add prompt/model/version lineage, structured output validation, evidence citations, grounding tests, safety, cost, caching, latency, abstention, and human review.',
@@ -1623,7 +1681,8 @@ assert kept.tolist() == [0, 2]` }
         'Latent diffusion denoises a compressed representation to reduce cost.',
         'Conditioning can come from text, masks, depth, pose, or images.',
         'Classifier-free guidance trades diversity for stronger condition alignment.',
-        'Synthetic data can add coverage and also generator bias, artifacts, privacy issues, and shortcut cues.'
+        'Synthetic data can add coverage and also generator bias, artifacts, privacy issues, and shortcut cues.',
+        'Modern generators such as Stable Diffusion 3 use DiT/MMDiT backbones with rectified-flow or flow-matching training, learning a velocity field along a data-noise interpolation rather than necessarily predicting ε; consistency and latent-consistency distillation can reduce iterative sampling to a few steps.'
       ],
       formulas: ['A common objective is E[||ε-εθ(x_t,t,c)||²].', 'Iterative sample latency is roughly denoiser_step_latency × number_of_steps unless batching or distillation changes the path.'],
       decisionRules: ['Use controlled synthetic augmentation only after real-only holdout gains and artifact/slice audits establish value.'],
@@ -1661,8 +1720,8 @@ assert kept.tolist() == [0, 2]` }
     {
       id: 'image-search', order: 1, title: 'Large-scale image search',
       scenario: 'Users submit an image or text and retrieve relevant catalog images from hundreds of millions of items under a tight latency SLO.',
-      requirements: ['Query type and relevance definition', 'Catalog size, update rate, regions, and p99 latency', 'Metadata filters, safety, and personalization', 'Offline labels and online success metric'],
-      solutionOutline: ['Image/text dual encoders with a versioned embedding contract', 'Offline embedding pipeline and approximate-nearest-neighbor index', 'Metadata filtering, candidate generation, reranking, and caching', 'Recall@K/NDCG plus click or conversion guardrails', 'Index freshness, embedding drift, shadow migration, and rollback'],
+      requirements: ['Query type and relevance definition', 'Catalog size, update rate, regions, and p99 latency', 'Metadata filters, safety, and personalization', 'Offline labels and online success metric', 'Vector-memory and QPS/candidate-fanout capacity estimates'],
+      solutionOutline: ['Image/text dual encoders with a versioned embedding contract', 'Offline embedding pipeline and approximate-nearest-neighbor index', 'Metadata filtering, candidate generation, reranking, and caching', 'Recall@K/NDCG plus click or conversion guardrails', 'Index freshness, embedding drift, shadow migration, and rollback', 'Index sharding and replication, query fan-out/merge, hot-shard rebalancing, replica failover, timeout budgets, and partial-result degradation'],
       modernCv: 'Compare CLIP-style joint embeddings with DINOv2 image features plus a separate text path. Choose by query modes and domain transfer.',
       pressureTest: 'A new embedding version improves offline Recall@10 but requires rebuilding a two-terabyte index. How do you migrate without mixing incompatible vectors?',
       pressureTestAnswer: 'Decision: dual-write versioned embeddings and build a separate index, then shadow and canary queries before an atomic alias switch. The alternative is an in-place rebuild, rejected because mixed vector spaces fail silently. Verify Recall@K, latency, coverage, and index parity; monitor drift and retain the old index for rollback.'
@@ -1670,7 +1729,7 @@ assert kept.tolist() == [0, 2]` }
     {
       id: 'visual-similarity', order: 2, title: 'Visual similarity and product recommendations',
       scenario: 'Given one product photo, retrieve substitutes or visually similar products while respecting inventory, price, category, and user intent.',
-      requirements: ['What “similar” means: appearance, function, brand, price, or compatibility', 'Cold catalog versus personalized ranking', 'Duplicate handling and inventory freshness', 'Merchant/user fairness and business constraints'],
+      requirements: ['What “similar” means: appearance, function, brand, price, or compatibility', 'Cold catalog versus personalized ranking', 'Duplicate handling and inventory freshness', 'Merchant/user fairness and business constraints', 'Catalog cardinality and update rate, QPS and regions, p95/p99 latency, availability, and inventory/embedding freshness budgets'],
       solutionOutline: ['Pair/triplet construction from interactions and catalog metadata', 'Visual encoder baseline and hard-negative mining', 'ANN candidate generation followed by multimodal/business reranking', 'Human relevance audits by category and online conversion/diversity tests', 'Feedback-loop controls so popularity does not erase long-tail inventory'],
       modernCv: 'Use CLIP when textual attributes and zero-shot catalog concepts matter; use DINOv2/domain fine-tuning when fine-grained appearance dominates.',
       pressureTest: 'Clicks favor popular products even when not visually similar. How do you prevent training labels from collapsing similarity into popularity?',
@@ -1679,8 +1738,8 @@ assert kept.tolist() == [0, 2]` }
     {
       id: 'detection-service', order: 3, title: 'Real-time object-detection service',
       scenario: 'Process camera streams and generate safety alerts with strict end-to-end latency, limited bandwidth, and changing environments.',
-      requirements: ['Camera count, FPS, resolution, event definition, and alert latency', 'Edge versus cloud constraints and offline operation', 'False-alert and missed-event cost', 'Privacy, retention, and supported device fleet'],
-      solutionOutline: ['Frame sampling and region-of-interest preprocessing', 'Detector, optional tracker, temporal event rules, and deduplication', 'Edge/cloud cascade, batching, quantization, and backpressure', 'mAP slices plus event-level precision/recall and alert latency', 'Camera-health, drift, threshold, rollout, and operator-feedback monitoring'],
+      requirements: ['Camera count, FPS, resolution, event definition, and alert latency', 'Edge versus cloud constraints and offline operation', 'False-alert and missed-event cost', 'Privacy, retention, and supported device fleet', 'Separate detection-to-alert delivery SLO'],
+      solutionOutline: ['Frame sampling and region-of-interest preprocessing', 'Detector, optional tracker, temporal event rules, and deduplication', 'Edge/cloud cascade, batching, quantization, and backpressure', 'mAP slices plus event-level precision/recall and alert latency', 'Camera-health, drift, threshold, rollout, and operator-feedback monitoring', 'Durable event IDs, per-camera ordering/window state, an idempotent alert sink, retries/DLQ, and edge buffering during outages'],
       modernCv: 'Benchmark an optimized one-stage detector against a DETR-family checkpoint; use the winner on target hardware, not paper mAP alone.',
       pressureTest: 'Nighttime false alerts spike after a camera firmware update. What telemetry distinguishes sensor change, preprocessing skew, and concept drift?',
       pressureTestAnswer: 'Decision: compare raw-frame and preprocessing fingerprints by firmware cohort before retraining, then replay the same frames through old and new pipelines. Alternative model changes would hide a pipeline failure. Verify sensor histograms, resize/color parity, prediction and event slices, labeled nighttime precision, and rollback the firmware or transform independently.'
@@ -1688,8 +1747,8 @@ assert kept.tolist() == [0, 2]` }
     {
       id: 'video-moderation', order: 4, title: 'Video content moderation',
       scenario: 'Screen uploaded and live videos for policy violations while controlling reviewer workload and appeal risk.',
-      requirements: ['Policy taxonomy, severity, legal region, and response time', 'Uploaded versus live flow', 'Audio, text, frames, and metadata availability', 'Reviewer capacity, appeals, and protected-group impact'],
-      solutionOutline: ['Adaptive frame/clip sampling and multimodal feature extraction', 'Cheap high-recall filters followed by specialist models and temporal aggregation', 'Policy-specific thresholds, abstention, reviewer queue, and escalation', 'Video/event-level recall, precision at reviewer capacity, and appeal overturn rate', 'Policy/version lineage, adversarial monitoring, and delayed labels from review'],
+      requirements: ['Policy taxonomy, severity, legal region, and response time', 'Uploaded versus live flow', 'Audio, text, frames, and metadata availability', 'Reviewer capacity, appeals, and protected-group impact', 'Policy actions by severity and live delay budgets'],
+      solutionOutline: ['Adaptive frame/clip sampling and multimodal feature extraction', 'Cheap high-recall filters followed by specialist models and temporal aggregation', 'Policy-specific thresholds, abstention, reviewer queue, and escalation', 'Video/event-level recall, precision at reviewer capacity, and appeal overturn rate', 'Policy/version lineage, adversarial monitoring, and delayed labels from review', 'Explicit fail-open/fail-closed/degraded behavior when inference or review is unavailable, reversible quarantine, and appeal/reinstatement transitions'],
       modernCv: 'Use VLMs for flexible policy reasoning only behind grounding, structured output, and specialist guardrails; do not replace measurable perception stages blindly.',
       pressureTest: 'A policy update takes effect in six hours. Which layers can change through rules/prompts, which require labels, and how do you audit regressions?',
       pressureTestAnswer: 'Decision: version the policy and change deterministic rules or reviewed prompts only where existing model signals support them; route novel semantics to humans while collecting labels. An alternative emergency fine-tune risks unmeasured failure. Verify replay sets, reviewer agreement, workload, appeals, protected slices, and keep an auditable rollback.'
@@ -1715,8 +1774,8 @@ assert kept.tolist() == [0, 2]` }
     {
       id: 'active-learning', order: 7, title: 'Active learning and human review',
       scenario: 'Continuously select useful examples for annotation, maintain label quality, and retrain without biasing evaluation.',
-      requirements: ['Label cost, annotator skill, turnaround, and budget', 'Pool size, data arrival, and model cadence', 'Rare classes and safety-critical slices', 'Evaluation set independence and audit needs'],
-      solutionOutline: ['Candidate pool with provenance, deduplication, and privacy controls', 'Uncertainty plus diversity/coverage acquisition with exploration quota', 'Guidelines, gold tasks, agreement, adjudication, and annotator routing', 'Immutable evaluation set plus newly sampled audit sets', 'Dataset/model version lineage, staged retraining, and acquisition-bias monitoring'],
+      requirements: ['Label cost, annotator skill, turnaround, and budget', 'Pool size, data arrival, and model cadence', 'Rare classes and safety-critical slices', 'Evaluation set independence and audit needs', 'Preregistered marginal-lift stopping criterion'],
+      solutionOutline: ['Candidate pool with provenance, deduplication, and privacy controls', 'Uncertainty plus diversity/coverage acquisition with exploration quota', 'Guidelines, gold tasks, agreement, adjudication, and annotator routing', 'Immutable evaluation set plus newly sampled audit sets', 'Dataset/model version lineage, staged retraining, and acquisition-bias monitoring', 'Randomized or stratified acquisition as a concurrent control, performance-versus-annotation-cost curves with uncertainty, and cost per accepted label'],
       modernCv: 'Use DINOv2 or CLIP embeddings for diversity and SAM2 for label acceleration, while validating that foundation-model bias does not narrow coverage.',
       pressureTest: 'Uncertainty sampling keeps selecting corrupt images. How do you separate data-quality routing from informative model uncertainty?',
       pressureTestAnswer: 'Decision: run explicit quality checks and a corruption classifier before uncertainty acquisition, budget separate quality and learning queues, and keep exploration. The alternative of one uncertainty score fails by wasting labels. Verify acquisition yield, rare-slice coverage, downstream lift per label, annotator rejection, and an unchanged evaluation set.'
@@ -1724,8 +1783,8 @@ assert kept.tolist() == [0, 2]` }
     {
       id: 'multimodal-rag', order: 8, title: 'Multimodal retrieval and VLM application',
       scenario: 'Answer questions over a private image/document collection with citations and region-level grounding.',
-      requirements: ['Supported question types and evidence standard', 'Collection size, update rate, access control, and latency', 'Text/image/document modalities', 'Hallucination, privacy, and user-correction policy'],
-      solutionOutline: ['Modality-aware chunking and versioned image/text embeddings', 'Hybrid retrieval, metadata ACL filtering, and reranking', 'VLM generation constrained to retrieved evidence with structured citations', 'Answer correctness, retrieval recall, citation precision, grounding, abstention, and safety', 'Prompt/model/index lineage, adversarial tests, feedback review, and rollback'],
+      requirements: ['Supported question types and evidence standard', 'Collection size, update rate, access control, and latency', 'Text/image/document modalities', 'Hallucination, privacy, and user-correction policy', 'Treat retrieved text/images as untrusted data; retrieved content cannot grant tool/action privileges'],
+      solutionOutline: ['Modality-aware chunking and versioned image/text embeddings', 'Hybrid retrieval, metadata ACL filtering, and reranking', 'VLM generation constrained to retrieved evidence with structured citations', 'Answer correctness, retrieval recall, citation precision, grounding, abstention, and safety', 'Prompt/model/index lineage, adversarial tests, feedback review, and rollback', 'Separate instructions from evidence, sanitize or mark active content, preserve provenance, and test indirect prompt injection and cross-tenant exfiltration'],
       modernCv: 'Use CLIP-like retrieval for cross-modal candidates and a VLM for synthesis; add OCR/layout routes for documents and never treat generation as retrieval evidence.',
       pressureTest: 'A user can retrieve another tenant’s image through semantically similar search. Where must authorization be enforced?',
       pressureTestAnswer: 'Decision: enforce tenant ACLs before candidate retrieval when the index supports it and again after every retrieval/rerank/cache boundary; never rely on prompt instructions. A post-generation filter alternative fails because data has already leaked. Verify adversarial cross-tenant queries, cache keys, index filters, logs, and deny-by-default tests.'

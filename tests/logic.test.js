@@ -1687,15 +1687,18 @@ describe('weak-area recommendation', () => {
       content: evidenceContent,
       quizModuleIds: { 'quiz-a': ['module-a'] }
     };
-    const state = makeV2State({
-      quizAttempts: [{ quizId: 'quiz-a', score: 60, attemptedAt: '2026-07-27T18:00:00.000Z' }],
-      problemAttempts: [{ problemId: 'two-sum', usedHint: true, attemptedAt: '2026-07-28T18:00:00.000Z' }],
-      designAttempts: [{
-        caseId: 'case-a',
-        durationMinutes: 40,
-        scores: { requirements: 4, metrics: 2 },
-        attemptedAt: '2026-07-29T18:00:00.000Z'
-      }]
+    const state = makeReadyState();
+    state.quizAttempts.push({
+      quizId: 'quiz-a', score: 60, attemptedAt: '2026-10-01T18:00:00.000Z'
+    });
+    state.problemAttempts.push({
+      problemId: 'two-sum', usedHint: true, attemptedAt: '2026-10-02T18:00:00.000Z'
+    });
+    state.designAttempts.push({
+      caseId: 'case-a',
+      durationMinutes: 40,
+      scores: { requirements: 4, metrics: 2 },
+      attemptedAt: '2026-10-03T18:00:00.000Z'
     });
 
     const beforeRecommendation = structuredClone(state);
@@ -1710,7 +1713,7 @@ describe('weak-area recommendation', () => {
     expect(getWeakAreaRecommendation(state, context)).toEqual(quizRecommendation);
     expect(state).toEqual(beforeRecommendation);
 
-    state.quizAttempts.push({ quizId: 'quiz-a', score: 90, attemptedAt: '2026-07-30T18:00:00.000Z' });
+    state.quizAttempts.push({ quizId: 'quiz-a', score: 90, attemptedAt: '2026-10-04T18:00:00.000Z' });
     expect(getWeakAreaRecommendation(state, context)).toMatchObject({
       kind: 'problem',
       action: 'repeat-problem-cold',
@@ -1723,7 +1726,7 @@ describe('weak-area recommendation', () => {
       solvedIndependently: true,
       explainedAloud: true,
       complexityCorrect: true,
-      attemptedAt: '2026-07-31T18:00:00.000Z'
+      attemptedAt: '2026-10-05T18:00:00.000Z'
     });
     expect(getWeakAreaRecommendation(state, context)).toMatchObject({
       kind: 'design',
@@ -1737,7 +1740,7 @@ describe('weak-area recommendation', () => {
       caseId: 'case-a',
       durationMinutes: 38,
       scores: { requirements: 4, metrics: 4 },
-      attemptedAt: '2026-08-01T18:00:00.000Z'
+      attemptedAt: '2026-10-06T18:00:00.000Z'
     });
     expect(getWeakAreaRecommendation(state, context)).toMatchObject({
       kind: 'stage',
@@ -1753,6 +1756,96 @@ describe('weak-area recommendation', () => {
       sessionId: 'session-b'
     });
   });
+  test('recommends a timed random medium before the schedule fallback from zero or insufficient distinct evidence', () => {
+    const context = {
+      currentGuide: {
+        sessionId: 'fallback-session',
+        stages: [makeStage('schedule-fallback', 'reflect', { type: 'instruction' })]
+      },
+      content: evidenceContent
+    };
+    const emptyRecommendation = getWeakAreaRecommendation(createInitialState(), context);
+    expect(emptyRecommendation).toMatchObject({ kind: 'problem', route: 'coding' });
+    expect(emptyRecommendation.title).toMatch(/random.*medium|medium.*random/i);
+
+    const repeatedEvidence = makeReadyState();
+    repeatedEvidence.problemAttempts = repeatedEvidence.problemAttempts.map((attempt, index) => ({
+      ...attempt,
+      problemId: 'repeated-medium',
+      solvedIndependently: true,
+      minutes: 20 + index
+    }));
+    const repeatedRecommendation = getWeakAreaRecommendation(repeatedEvidence, context);
+    expect(repeatedRecommendation).toMatchObject({ kind: 'problem', route: 'coding' });
+    expect(repeatedRecommendation.title).toMatch(/random.*medium|medium.*random/i);
+  });
+
+  test('recommends uncovered prompt coverage or a distinct no-notes rehearsal before the schedule fallback', () => {
+    const context = {
+      currentGuide: {
+        sessionId: 'fallback-session',
+        stages: [makeStage('schedule-fallback', 'reflect', { type: 'instruction' })]
+      },
+      content: evidenceContent
+    };
+    const noCoverage = makeReadyState();
+    noCoverage.starStories = [];
+    expect(getWeakAreaRecommendation(noCoverage, context)).toMatchObject({
+      route: 'behavioral',
+      promptId: 'behavior-1'
+    });
+
+    const missingCoverage = makeReadyState();
+    missingCoverage.starStories = missingCoverage.starStories.slice(0, 7);
+
+    const coverageRecommendation = getWeakAreaRecommendation(missingCoverage, context);
+    expect(coverageRecommendation).toMatchObject({
+      route: 'behavioral',
+      promptId: 'behavior-8'
+    });
+    expect(coverageRecommendation.title).toMatch(/prompt|story/i);
+
+    const duplicateRehearsal = makeReadyState();
+    duplicateRehearsal.rehearsals = [
+      { kind: 'story', refId: 'behavior-1', withoutNotes: true },
+      { kind: 'story', refId: 'behavior-1', withoutNotes: true }
+    ];
+    const rehearsalRecommendation = getWeakAreaRecommendation(duplicateRehearsal, context);
+    expect(rehearsalRecommendation).toMatchObject({
+      route: 'behavioral',
+      promptId: 'behavior-2'
+    });
+    expect(rehearsalRecommendation.title).toMatch(/rehears|without notes/i);
+  });
+
+  test('recommends the latest affected counted mock before the schedule fallback', () => {
+    const context = {
+      currentGuide: {
+        sessionId: 'fallback-session',
+        stages: [makeStage('schedule-fallback', 'reflect', { type: 'instruction' })]
+      },
+      content: evidenceContent
+    };
+    const undebriefed = makeReadyState();
+    undebriefed.mocks[0].debrief = null;
+    undebriefed.mocks[3].debrief = null;
+
+    const debriefRecommendation = getWeakAreaRecommendation(undebriefed, context);
+    expect(debriefRecommendation).toMatchObject({ route: 'mocks', mockIndex: 3 });
+    expect(debriefRecommendation.title).toMatch(/debrief/i);
+
+    const failedWithoutRemediation = makeReadyState();
+    failedWithoutRemediation.mocks[0].wouldAdvance = false;
+    failedWithoutRemediation.mocks[0].debrief = {
+      weaknesses: [],
+      noMaterialWeakness: true,
+      reviewedAt: '2026-09-20T18:00:00.000Z'
+    };
+    const remediationRecommendation = getWeakAreaRecommendation(failedWithoutRemediation, context);
+    expect(remediationRecommendation).toMatchObject({ route: 'mocks', mockIndex: 0 });
+    expect(remediationRecommendation.title).toMatch(/debrief|remediat|weakness/i);
+  });
+
 
   test('breaks recommendation ties deterministically', () => {
     const state = makeV2State({
@@ -1783,9 +1876,22 @@ function makeReadyState() {
     attemptedAt: `2026-09-${10 + index}T18:00:00.000Z`
   }));
   state.quizAttempts = [
-    { kind: 'core', score: 86, attemptedAt: '2026-09-10T18:00:00.000Z' },
-    { kind: 'task-metric', score: 90, attemptedAt: '2026-09-11T18:00:00.000Z' },
-    { kind: 'rapid-fire', score: 84, noNotes: true, attemptedAt: '2026-09-12T18:00:00.000Z' }
+    {
+      quizId: 'foundation-core', kind: 'core', score: 86,
+      attemptedAt: '2026-09-10T18:00:00.000Z'
+    },
+    {
+      quizId: 'task-metric-readiness', kind: 'task-metric', score: 90,
+      attemptedAt: '2026-09-11T18:00:00.000Z'
+    },
+    {
+      quizId: 'rapid-fire-readiness', kind: 'rapid-fire', score: 84, noNotes: true,
+      attemptedAt: '2026-09-12T18:00:00.000Z'
+    },
+    {
+      quizId: 'modern-cv-judgment', kind: 'modern-cv', score: 88,
+      attemptedAt: '2026-09-13T18:00:00.000Z'
+    }
   ];
   const designScores = {
     requirements: 4,
@@ -1800,8 +1906,14 @@ function makeReadyState() {
     communication: 4
   };
   state.designAttempts = [
-    { phase: 'attempt', durationMinutes: 40, scores: designScores, attemptedAt: '2026-09-13T18:00:00.000Z' },
-    { phase: 'attempt', durationMinutes: 38, scores: designScores, attemptedAt: '2026-09-14T18:00:00.000Z' }
+    {
+      caseId: 'case-a', phase: 'attempt', durationMinutes: 40, scores: designScores,
+      attemptedAt: '2026-09-14T18:00:00.000Z'
+    },
+    {
+      caseId: 'case-b', phase: 'attempt', durationMinutes: 38, scores: designScores,
+      attemptedAt: '2026-09-15T18:00:00.000Z'
+    }
   ];
   state.storyInventory = Array.from({ length: 10 }, (_, index) => ({
     id: `inventory-${index + 1}`,
@@ -1819,30 +1931,43 @@ function makeReadyState() {
     leadership: index < 2
   }));
   state.rehearsals = [
-    { kind: 'story', withoutNotes: true },
-    { kind: 'story', withoutNotes: true },
+    {
+      kind: 'story', refId: 'behavior-1', withoutNotes: true,
+      rehearsedAt: '2026-09-14T18:00:00.000Z'
+    },
+    {
+      kind: 'story', refId: 'behavior-2', withoutNotes: true,
+      rehearsedAt: '2026-09-15T18:00:00.000Z'
+    },
     { kind: 'intro', withoutNotes: true },
     { kind: 'full-round', withoutNotes: true }
   ];
-  const reviewedAt = '2026-09-15T18:00:00.000Z';
-  const remediatedWeakness = {
-    text: 'Skipped a tradeoff',
-    remediation: 'Repeat the answer with the tradeoff first',
-    remediationComplete: true
-  };
+  const completeDebrief = (index) => ({
+    weaknesses: [{
+      text: `Mock ${index + 1} skipped a tradeoff`,
+      remediation: 'Repeat the answer with the tradeoff first',
+      remediationComplete: true
+    }],
+    noMaterialWeakness: false,
+    reviewedAt: `2026-09-${16 + index}T19:00:00.000Z`
+  });
   state.mocks = [
     {
-      type: 'coding',
-      wouldAdvance: true,
-      debrief: {
-        weaknesses: [remediatedWeakness],
-        noMaterialWeakness: false,
-        reviewedAt
-      }
+      type: 'coding', source: 'Coding mock 1', wouldAdvance: true,
+      debrief: completeDebrief(0), createdAt: '2026-09-16T18:00:00.000Z'
     },
-    { type: 'coding', wouldAdvance: true, debrief: null },
-    { type: 'ml-system', wouldAdvance: true, debrief: null },
-    { type: 'ml-system', wouldAdvance: true, debrief: null }
+    {
+      type: 'coding', source: 'Coding mock 2', wouldAdvance: true,
+      debrief: completeDebrief(1), createdAt: '2026-09-17T18:00:00.000Z'
+    },
+    {
+      type: 'ml-system', source: 'ML/system mock 1', wouldAdvance: true,
+      debrief: completeDebrief(2), createdAt: '2026-09-18T18:00:00.000Z'
+    },
+    {
+      type: 'ml-system', source: 'ML/system mock 2', wouldAdvance: true,
+      debrief: completeDebrief(3), createdAt: '2026-09-19T18:00:00.000Z'
+    }
   ];
 
   return state;
@@ -1864,6 +1989,7 @@ describe('evidence-based readiness', () => {
     const readiness = calculateReadiness(makeReadyState(), criteria);
     expect(readiness.overall).toBe('green');
     expect(Object.values(readiness.gates).every((gate) => gate.status === 'green')).toBe(true);
+    expect(readiness.gates.foundations.detail).toMatch(/modern[- ]CV/i);
     expect(isApplicationUnlocked(makeReadyState(), readiness)).toBe(true);
   });
 
@@ -1883,30 +2009,175 @@ describe('evidence-based readiness', () => {
 
     expect(calculateReadiness(makeReadyState(), criteria).gates.behavioral.status).toBe('green');
   });
+  test('requires five distinct random-medium problem ids', () => {
+    const state = makeReadyState();
+    state.problemAttempts = state.problemAttempts.map((attempt) => ({
+      ...attempt,
+      problemId: 'same-random-medium',
+      solvedIndependently: true
+    }));
 
-  test('requires 2+2 mocks and at least one complete debrief, not one debrief per mock', () => {
-    const withoutMocks = makeReadyState();
-    withoutMocks.mocks = [];
-    expect(calculateReadiness(withoutMocks, criteria).gates.mocks.status).toBe('red');
+    expect(calculateReadiness(state, criteria).gates.coding.status).toBe('red');
+  });
 
-    const countedButUndebriefed = makeReadyState();
-    countedButUndebriefed.mocks[0].debrief = null;
-    countedButUndebriefed.mocks[1].debrief = {
-      weaknesses: [{ text: '   ', remediation: 'Repeat it', remediationComplete: true }],
-      noMaterialWeakness: false,
-      reviewedAt: '2026-09-15T18:00:00.000Z'
-    };
-    expect(countedButUndebriefed.mocks.filter((mock) => mock.type === 'coding')).toHaveLength(2);
-    expect(countedButUndebriefed.mocks.filter((mock) => mock.type === 'ml-system')).toHaveLength(2);
-    expect(calculateReadiness(countedButUndebriefed, criteria).gates.mocks.status).not.toBe('green');
+  test('does not let repeated quiz ids satisfy the three-quiz minimum', () => {
+    const state = makeReadyState();
+    state.quizAttempts = [
+      { quizId: 'shared-a', kind: 'core', score: 90, attemptedAt: '2026-09-10T18:00:00.000Z' },
+      { quizId: 'shared-a', kind: 'task-metric', score: 90, attemptedAt: '2026-09-11T18:00:00.000Z' },
+      {
+        quizId: 'shared-b', kind: 'rapid-fire', score: 90, noNotes: true,
+        attemptedAt: '2026-09-12T18:00:00.000Z'
+      },
+      { quizId: 'shared-b', kind: 'modern-cv', score: 90, attemptedAt: '2026-09-13T18:00:00.000Z' }
+    ];
 
-    const exactlyOneComplete = structuredClone(countedButUndebriefed);
-    exactlyOneComplete.mocks[1].debrief = {
+    expect(calculateReadiness(state, criteria).gates.foundations.status).toBe('red');
+  });
+
+  test('requires three distinct non-modern-CV quizzes before the separate modern-CV pass', () => {
+    const state = makeReadyState();
+    state.quizAttempts = state.quizAttempts.filter((attempt) => attempt.quizId !== 'foundation-core');
+
+    expect(calculateReadiness(state, criteria).gates.foundations.status).toBe('red');
+  });
+
+  test('uses event timestamps for the latest rapid-fire and task-metric attempts', () => {
+    const failedRetakes = [
+      { quizId: 'rapid-fire-readiness', kind: 'rapid-fire', score: 60, noNotes: true },
+      { quizId: 'rapid-fire-readiness', kind: 'rapid-fire', score: 90, noNotes: false },
+      { quizId: 'task-metric-readiness', kind: 'task-metric', score: 60 }
+    ];
+
+    for (const retake of failedRetakes) {
+      const state = makeReadyState();
+      state.quizAttempts.unshift({ ...retake, attemptedAt: '2026-09-20T18:00:00.000Z' });
+      expect(calculateReadiness(state, criteria).gates.foundations.status).toBe('red');
+    }
+  });
+
+  test('uses the latest distinct generic quiz by timestamp in the foundation average', () => {
+    const state = makeReadyState();
+    state.quizAttempts.unshift({
+      quizId: 'foundation-core',
+      kind: 'core',
+      score: 60,
+      attemptedAt: '2026-09-20T18:00:00.000Z'
+    });
+
+    expect(calculateReadiness(state, criteria).gates.foundations).toMatchObject({
+      status: 'amber',
+      current: 78
+    });
+  });
+
+  test('requires a passing latest modern-CV judgment attempt', () => {
+    const withoutPass = makeReadyState();
+    withoutPass.quizAttempts = withoutPass.quizAttempts.map((attempt) => (
+      attempt.kind === 'modern-cv' ? { ...attempt, score: 79 } : attempt
+    ));
+    expect(calculateReadiness(withoutPass, criteria).gates.foundations.status).toBe('red');
+
+    const failedRetake = makeReadyState();
+    failedRetake.quizAttempts.push({
+      quizId: 'modern-cv-judgment',
+      kind: 'modern-cv',
+      score: 79,
+      attemptedAt: '2026-09-20T18:00:00.000Z'
+    });
+    expect(calculateReadiness(failedRetake, criteria).gates.foundations.status).toBe('red');
+  });
+
+  test('requires two distinct passing system-design cases', () => {
+    const state = makeReadyState();
+    state.designAttempts[1].caseId = state.designAttempts[0].caseId;
+
+    expect(calculateReadiness(state, criteria).gates.systemDesign.status).toBe('red');
+  });
+
+  test('requires distinct no-notes rehearsals linked to known qualifying story prompts', () => {
+    const duplicate = makeReadyState();
+    duplicate.rehearsals = [
+      { kind: 'story', refId: 'behavior-1', withoutNotes: true },
+      { kind: 'story', refId: 'behavior-1', withoutNotes: true }
+    ];
+    expect(calculateReadiness(duplicate, criteria).gates.behavioral.status).toBe('red');
+
+    const unknown = makeReadyState();
+    unknown.starStories.push(
+      { ...unknown.starStories[0], title: 'Imported unknown story 1', promptId: 'not-a-prompt-1' },
+      { ...unknown.starStories[0], title: 'Imported unknown story 2', promptId: 'not-a-prompt-2' }
+    );
+    unknown.rehearsals = [
+      { kind: 'story', refId: 'not-a-prompt-1', withoutNotes: true },
+      { kind: 'story', refId: 'not-a-prompt-2', withoutNotes: true }
+    ];
+    expect(calculateReadiness(unknown, criteria).gates.behavioral.status).toBe('red');
+
+    const nonQualifying = makeReadyState();
+    nonQualifying.starStories[1].complete = false;
+    nonQualifying.starStories.push({
+      ...nonQualifying.starStories[1],
+      title: 'Replacement qualifying story',
+      promptId: 'behavior-9',
+      complete: true
+    });
+    nonQualifying.rehearsals = [
+      { kind: 'story', refId: 'behavior-1', withoutNotes: true },
+      { kind: 'story', refId: 'behavior-2', withoutNotes: true }
+    ];
+    expect(calculateReadiness(nonQualifying, criteria).gates.behavioral.status).toBe('red');
+  });
+
+  test('requires concrete completed remediation for every failed counted mock', () => {
+    const state = makeReadyState();
+    state.mocks[0].wouldAdvance = false;
+    state.mocks[0].debrief = {
       weaknesses: [],
       noMaterialWeakness: true,
-      reviewedAt: '2026-09-16T18:00:00.000Z'
+      reviewedAt: '2026-09-20T18:00:00.000Z'
     };
-    expect(calculateReadiness(exactlyOneComplete, criteria).gates.mocks.status).toBe('green');
+    expect(calculateReadiness(state, criteria).gates.mocks.status).toBe('red');
+
+    state.mocks[0].debrief = structuredClone(makeReadyState().mocks[0].debrief);
+    expect(calculateReadiness(state, criteria).gates.mocks.status).toBe('green');
+  });
+
+
+  test('requires complete debriefs on the latest two mocks of each type by event time', () => {
+    const oneMissingDebrief = makeReadyState();
+    oneMissingDebrief.mocks[0].debrief = null;
+    expect(oneMissingDebrief.mocks.filter((mock) => mock.type === 'coding')).toHaveLength(2);
+    expect(oneMissingDebrief.mocks.filter((mock) => mock.type === 'ml-system')).toHaveLength(2);
+    expect(calculateReadiness(oneMissingDebrief, criteria).gates.mocks.status).toBe('red');
+
+    expect(calculateReadiness(makeReadyState(), criteria).gates.mocks.status).toBe('green');
+
+    const olderIncompleteAppended = makeReadyState();
+    olderIncompleteAppended.mocks.push(
+      {
+        type: 'coding', source: 'Older coding mock', wouldAdvance: false,
+        debrief: null, createdAt: '2026-09-01T18:00:00.000Z'
+      },
+      {
+        type: 'ml-system', source: 'Older ML/system mock', wouldAdvance: false,
+        debrief: null, createdAt: '2026-09-02T18:00:00.000Z'
+      }
+    );
+    expect(calculateReadiness(olderIncompleteAppended, criteria).gates.mocks.status).toBe('green');
+
+    const newerIncompletePrepended = makeReadyState();
+    newerIncompletePrepended.mocks.unshift(
+      {
+        type: 'coding', source: 'Newest coding mock', wouldAdvance: false,
+        debrief: null, createdAt: '2026-09-25T18:00:00.000Z'
+      },
+      {
+        type: 'ml-system', source: 'Newest ML/system mock', wouldAdvance: false,
+        debrief: null, createdAt: '2026-09-26T18:00:00.000Z'
+      }
+    );
+    expect(calculateReadiness(newerIncompletePrepended, criteria).gates.mocks.status).toBe('red');
   });
 
   test('allows a reasoned manual override without changing readiness evidence', () => {

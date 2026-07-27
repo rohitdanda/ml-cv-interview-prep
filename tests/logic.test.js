@@ -259,6 +259,11 @@ describe('progress import validation', () => {
       remediation: null,
       remediationComplete: 'yes'
     };
+    const unsafeBooleanWeakness = {
+      text: 'Capacity estimate was incomplete',
+      remediation: 'Repeat the estimate at peak traffic',
+      remediationComplete: 'yes'
+    };
     const state = makeV3State({
       storyInventory: [null, { id: 17, title: [], note: {}, createdAt: false }, inventoryItem],
       mocks: [
@@ -266,8 +271,8 @@ describe('progress import validation', () => {
         {
           type: 'ml-system',
           debrief: {
-            weaknesses: [null, malformedWeakness, weakness],
-            noMaterialWeakness: false,
+            weaknesses: [null, malformedWeakness, unsafeBooleanWeakness, weakness],
+            noMaterialWeakness: 'yes',
             reviewedAt: '2026-07-27T19:00:00.000Z'
           }
         }
@@ -286,6 +291,11 @@ describe('progress import validation', () => {
     expect(result.value.mocks[0].debrief).toBeNull();
     expect(result.value.mocks[1].debrief.weaknesses).toContainEqual(weakness);
     expect(result.value.mocks[1].debrief.weaknesses).not.toContainEqual(malformedWeakness);
+    expect(result.value.mocks[1].debrief).toMatchObject({ noMaterialWeakness: false });
+    expect(result.value.mocks[1].debrief.weaknesses).toContainEqual({
+      ...unsafeBooleanWeakness,
+      remediationComplete: false
+    });
     expect(result.value.mocks[1].debrief.weaknesses.every((entry) => (
       entry && typeof entry.text === 'string'
       && typeof entry.remediation === 'string'
@@ -801,6 +811,34 @@ describe('guided stage evidence', () => {
     expect(status).not.toHaveProperty('mastered');
   });
 
+  test('defaults missing design stage and record phases to attempt', () => {
+    const scores = { requirements: 4, metrics: 3 };
+    const stageWithoutPhase = makeStage('default-design-stage', 'practice', {
+      type: 'design-case',
+      caseId: 'case-a'
+    });
+    const explicitAttemptStage = makeStage('explicit-design-stage', 'practice', {
+      type: 'design-case',
+      caseId: 'case-a',
+      phase: 'attempt'
+    });
+    const requirementsStage = makeStage('requirements-design-stage', 'learn', {
+      type: 'design-case',
+      caseId: 'case-a',
+      phase: 'requirements'
+    });
+    const explicitAttempt = makeV2State({
+      designAttempts: [{ caseId: 'case-a', phase: 'attempt', durationMinutes: 38, scores }]
+    });
+    const recordWithoutPhase = makeV2State({
+      designAttempts: [{ caseId: 'case-a', durationMinutes: 38, scores }]
+    });
+
+    expect(calculateStageStatus(stageWithoutPhase, explicitAttempt, evidenceContent).complete).toBe(true);
+    expect(calculateStageStatus(explicitAttemptStage, recordWithoutPhase, evidenceContent).complete).toBe(true);
+    expect(calculateStageStatus(requirementsStage, recordWithoutPhase, evidenceContent).complete).toBe(false);
+  });
+
   test('keeps requirements, timed attempts, and debriefs as distinct design evidence', () => {
     const stage = (phase, type) => makeStage(`design-${phase}`, type, {
       type: 'design-case',
@@ -897,6 +935,37 @@ describe('guided stage evidence', () => {
     expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
   });
 
+  test('counts only complete STAR artifacts with impact, contribution, and a valid two-minute duration', () => {
+    const stage = makeStage('complete-story', 'reflect', {
+      type: 'story',
+      requirements: { completedStoryCount: 1 }
+    });
+    const validStory = {
+      title: 'Recovered a failed launch',
+      complete: true,
+      durationMinutes: 1.8,
+      measurableImpact: true,
+      individualContribution: true
+    };
+    const invalidStories = [
+      { ...validStory, measurableImpact: undefined },
+      { ...validStory, individualContribution: undefined },
+      { ...validStory, durationMinutes: undefined },
+      { ...validStory, durationMinutes: 0 },
+      { ...validStory, durationMinutes: 2.1 }
+    ];
+
+    for (const story of invalidStories) {
+      const state = makeV2State({ starStories: [story] });
+      expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(false);
+    }
+    expect(calculateStageStatus(
+      stage,
+      makeV2State({ starStories: [validStory] }),
+      evidenceContent
+    ).complete).toBe(true);
+  });
+
   test('requires cumulative no-notes records for the actual rehearsal stages without parsing prose', () => {
     const firstStage = {
       ...actualStageForTask('w8-story-rehearsal-a'),
@@ -945,6 +1014,25 @@ describe('guided stage evidence', () => {
     expect(calculateStageStatus(introStage, state, evidenceContent).complete).toBe(true);
   });
 
+  test('filters rehearsal evidence to the requested reference IDs', () => {
+    const stage = makeStage('referenced-story-rehearsal', 'verify', {
+      type: 'story',
+      requirements: {
+        rehearsalCount: 1,
+        rehearsalKind: 'story',
+        withoutNotes: true,
+        refIds: ['story-a']
+      }
+    });
+    const state = makeV2State({
+      rehearsals: [{ kind: 'story', refId: 'story-b', withoutNotes: true }]
+    });
+
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(false);
+    state.rehearsals.push({ kind: 'story', refId: 'story-a', withoutNotes: true });
+    expect(calculateStageStatus(stage, state, evidenceContent).complete).toBe(true);
+  });
+
   test('requires cumulative mocks of the actual guide type for Mock II and III', () => {
     const codingI = actualStageForTask('w6-coding-mock');
     const codingII = actualStageForTask('w8-coding-mock');
@@ -970,6 +1058,10 @@ describe('guided stage evidence', () => {
   });
 
   test('requires a complete debrief artifact separately from a mock attempt', () => {
+    const defaultAttemptStage = makeStage('default-mock-attempt', 'verify', {
+      type: 'mock',
+      requirements: { mockType: 'coding', requiredCount: 1 }
+    });
     const attemptStage = makeStage('mock-attempt', 'verify', {
       type: 'mock',
       requirements: { mockType: 'coding', requiredCount: 1, phase: 'attempt' }
@@ -981,17 +1073,52 @@ describe('guided stage evidence', () => {
     const state = makeV2State({
       mocks: [{ type: 'coding', debrief: null }]
     });
+    const weakness = (text, remediation, remediationComplete) => ({
+      text,
+      remediation,
+      remediationComplete
+    });
+    const debrief = (candidate) => ({
+      weaknesses: [candidate],
+      noMaterialWeakness: false,
+      reviewedAt: '2026-07-27T19:00:00.000Z'
+    });
 
+    expect(calculateStageStatus(defaultAttemptStage, state, evidenceContent).complete).toBe(true);
     expect(calculateStageStatus(attemptStage, state, evidenceContent).complete).toBe(true);
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
 
+    state.mocks[0].debrief = debrief(weakness(
+      '   ',
+      'Repeat the solution and state both bounds',
+      true
+    ));
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
+
+    state.mocks[0].debrief = debrief(weakness(
+      'Skipped the complexity discussion',
+      '   ',
+      true
+    ));
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
+
+    state.mocks[0].debrief = debrief(weakness(
+      'Skipped the complexity discussion',
+      'Repeat the solution and state both bounds',
+      false
+    ));
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(false);
+
+    state.mocks[0].debrief = debrief(weakness(
+      'Skipped the complexity discussion',
+      'Repeat the solution and state both bounds',
+      true
+    ));
+    expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(true);
+
     state.mocks[0].debrief = {
-      weaknesses: [{
-        text: 'Skipped the complexity discussion',
-        remediation: 'Repeat the solution and state both bounds',
-        remediationComplete: true
-      }],
-      noMaterialWeakness: false,
+      weaknesses: [],
+      noMaterialWeakness: true,
       reviewedAt: '2026-07-27T19:00:00.000Z'
     };
     expect(calculateStageStatus(debriefStage, state, evidenceContent).complete).toBe(true);
@@ -1225,23 +1352,11 @@ function makeReadyState() {
     {
       type: 'coding',
       wouldAdvance: true,
-      debrief: { weaknesses: [], noMaterialWeakness: true, reviewedAt }
-    },
-    {
-      type: 'coding',
-      wouldAdvance: true,
       debrief: { weaknesses: [remediatedWeakness], noMaterialWeakness: false, reviewedAt }
     },
-    {
-      type: 'ml-system',
-      wouldAdvance: true,
-      debrief: { weaknesses: [], noMaterialWeakness: true, reviewedAt }
-    },
-    {
-      type: 'ml-system',
-      wouldAdvance: true,
-      debrief: { weaknesses: [remediatedWeakness], noMaterialWeakness: false, reviewedAt }
-    }
+    { type: 'coding', wouldAdvance: true, debrief: null },
+    { type: 'ml-system', wouldAdvance: true, debrief: null },
+    { type: 'ml-system', wouldAdvance: true, debrief: null }
   ];
   return state;
 }
@@ -1276,14 +1391,29 @@ describe('evidence-based readiness', () => {
     expect(calculateReadiness(state, criteria).gates.behavioral.status).toBe('green');
   });
 
-  test('keeps weakness remediation non-green without a complete mock debrief', () => {
+  test('requires 2+2 mocks and at least one complete debrief, not one debrief per mock', () => {
     const withoutMocks = makeReadyState();
     withoutMocks.mocks = [];
     expect(calculateReadiness(withoutMocks, criteria).gates.mocks.status).toBe('red');
 
-    const missingDebrief = makeReadyState();
-    missingDebrief.mocks[0].debrief = null;
-    expect(calculateReadiness(missingDebrief, criteria).gates.mocks.status).not.toBe('green');
+    const countedButUndebriefed = makeReadyState();
+    countedButUndebriefed.mocks[0].debrief = null;
+    countedButUndebriefed.mocks[1].debrief = {
+      weaknesses: [{ text: '   ', remediation: 'Repeat it', remediationComplete: true }],
+      noMaterialWeakness: false,
+      reviewedAt: '2026-09-15T18:00:00.000Z'
+    };
+    expect(countedButUndebriefed.mocks.filter((mock) => mock.type === 'coding')).toHaveLength(2);
+    expect(countedButUndebriefed.mocks.filter((mock) => mock.type === 'ml-system')).toHaveLength(2);
+    expect(calculateReadiness(countedButUndebriefed, criteria).gates.mocks.status).not.toBe('green');
+
+    const exactlyOneComplete = structuredClone(countedButUndebriefed);
+    exactlyOneComplete.mocks[3].debrief = {
+      weaknesses: [],
+      noMaterialWeakness: true,
+      reviewedAt: '2026-09-16T18:00:00.000Z'
+    };
+    expect(calculateReadiness(exactlyOneComplete, criteria).gates.mocks.status).toBe('green');
   });
 
   test('allows a reasoned manual override without changing readiness evidence', () => {

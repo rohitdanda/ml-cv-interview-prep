@@ -221,18 +221,33 @@ describe('session guide graph', () => {
     expect(requirementsForTask('w7-story-finish')).toEqual({ completedStoryCount: 8 });
 
     const expectedRehearsals = [
-      ['w1-baseline-intro', 1, false, 'intro'],
-      ['w6-story-rehearse', 2, false, 'story'],
-      ['w8-story-rehearsal-a', 1, true, 'story'],
-      ['w9-story-random', 2, true, 'story'],
-      ['w9-intro', 5, false, 'intro'],
-      ['w10-story-cert', 3, true, 'story'],
-      ['w10-intro-cert', 7, false, 'intro'],
-      ['w10-loop-behavior', 8, false, 'full-round']
+      ['w1-baseline-intro', { rehearsalCount: 1, rehearsalKind: 'intro', withoutNotes: false }],
+      ['w6-story-rehearse', { rehearsalCount: 2, rehearsalKind: 'story', withoutNotes: false }],
+      ['w6-design-aloud', {
+        rehearsalCount: 1,
+        rehearsalKind: 'project-deep-dive',
+        withoutNotes: true,
+        refIds: ['segmentation']
+      }],
+      ['w8-story-rehearsal-a', { rehearsalCount: 1, rehearsalKind: 'story', withoutNotes: true }],
+      ['w9-story-random', { rehearsalCount: 2, rehearsalKind: 'story', withoutNotes: true }],
+      ['w9-intro', { rehearsalCount: 5, rehearsalKind: 'intro', withoutNotes: false }],
+      ['w10-story-cert', { rehearsalCount: 3, rehearsalKind: 'story', withoutNotes: true }],
+      ['w10-intro-cert', { rehearsalCount: 7, rehearsalKind: 'intro', withoutNotes: false }],
+      ['w10-loop-behavior', { rehearsalCount: 8, rehearsalKind: 'full-round', withoutNotes: false }]
     ];
-    for (const [taskId, rehearsalCount, withoutNotes, rehearsalKind] of expectedRehearsals) {
-      expect(requirementsForTask(taskId)).toEqual({ rehearsalCount, rehearsalKind, withoutNotes });
+    for (const [taskId, requirements] of expectedRehearsals) {
+      expect(requirementsForTask(taskId)).toEqual(requirements);
     }
+    expect(stageForTask('w6-design-aloud').reference).toEqual({
+      type: 'story',
+      requirements: {
+        rehearsalCount: 1,
+        rehearsalKind: 'project-deep-dive',
+        withoutNotes: true,
+        refIds: ['segmentation']
+      }
+    });
 
     const expectedMocks = [
       ['w6-coding-mock', 'coding', 1, 'attempt'],
@@ -267,6 +282,16 @@ describe('session guide graph', () => {
     for (const stage of designStages) {
       expect(stage.reference.phase).toBe(expectedPhaseByStageType[stage.type]);
     }
+  });
+
+  test('uses each design case and lifecycle phase at most once', () => {
+    const designKeys = Object.values(sessionGuides)
+      .flatMap((guide) => guide.stages)
+      .filter((stage) => stage.reference.type === 'design-case')
+      .map((stage) => `${stage.reference.caseId}:${stage.reference.phase}`);
+    const duplicateKeys = designKeys.filter((key, index) => designKeys.indexOf(key) !== index);
+
+    expect(duplicateKeys).toEqual([]);
   });
 
   test('resolves every typed content and resource reference', () => {

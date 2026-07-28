@@ -255,7 +255,7 @@ p { line-height: 1.6; }
 
 .session-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(270px, .5fr);
+  grid-template-columns: 1fr;
   gap: 20px;
   padding: clamp(22px, 4vw, 36px);
   background: var(--surface);
@@ -264,6 +264,9 @@ p { line-height: 1.6; }
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
 }
+.today-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; grid-template-areas: "main rail"; gap: 24px; align-items: start; }
+.today-main { grid-area: main; min-width: 0; }
+.today-rail { grid-area: rail; position: sticky; top: 96px; align-self: start; }
 .session-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 20px; }
 .timer-panel { display: flex; flex-direction: column; justify-content: center; padding: 22px; background: var(--accent-soft); border-radius: var(--radius); }
 .timer-display { margin: 9px 0 16px; font-variant-numeric: tabular-nums; font-size: 38px; font-weight: 800; letter-spacing: -.04em; }
@@ -354,6 +357,8 @@ input:focus, select:focus, textarea:focus, button:focus-visible, summary:focus-v
   .grid-5 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .notes-layout { grid-template-columns: 1fr; }
   .sticky-index { position: static; }
+  .today-layout { grid-template-columns: 1fr; grid-template-areas: "rail" "main"; }
+  .today-rail { position: static; }
 }
 
 @media (max-width: 800px) {

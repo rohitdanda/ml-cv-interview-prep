@@ -289,7 +289,10 @@
   function relevantSession() {
     const sessions = allSessions();
     const today = todayIso();
-    return sessions.find((session) => session.date === today)
+    const isComplete = (session) => session.tasks.every((task) => (
+      logic.isTaskComplete(task.id, state, currentSessionGuides || {}, data)
+    ));
+    return sessions.find((session) => session.date <= today && !isComplete(session))
       || sessions.find((session) => session.date > today)
       || sessions.at(-1)
       || null;
@@ -1051,7 +1054,13 @@
     const session = relevantSession();
     if (!session) return pageHeader('Study now', 'No sessions found', 'The curriculum did not load.');
     const guide = currentSessionGuides?.[session.id];
-    const exactToday = session.date === todayIso();
+    const today = todayIso();
+    const complete = session.tasks.every((task) => (
+      logic.isTaskComplete(task.id, state, currentSessionGuides || {}, data)
+    ));
+    const dayStatus = session.date === today ? 'today'
+      : session.date < today ? (complete ? 'caught-up' : 'overdue')
+      : 'future';
     const dueReviews = logic.getDueReviews(state, new Date().toISOString(), 5);
     const firstIncomplete = guide ? logic.getFirstIncompleteStage(guide, state, data) : null;
     const focus = state.studyProgress?.activeFocus;
@@ -1102,24 +1111,37 @@
     return `
       ${pageHeader(
         'Study now',
-        exactToday ? 'Today’s learning path' : 'Your next learning path',
-        exactToday
-          ? 'Retrieve first, work the scheduled path, then act on one evidence-based correction.'
-          : `The next scheduled session is ${formatDate(session.date)}. Every stage remains freely browsable.`
+        dayStatus === 'overdue' ? 'Unfinished scheduled session'
+          : dayStatus === 'caught-up' ? 'You’re all caught up'
+          : dayStatus === 'today' ? 'Today’s learning path'
+          : 'Your next learning path',
+        dayStatus === 'overdue'
+          ? `This session was scheduled for ${formatDate(session.date)} and is not finished. Complete it before moving on.`
+          : dayStatus === 'caught-up'
+            ? 'Every scheduled session is complete. Keep your skills fresh with review and targeted practice.'
+            : dayStatus === 'today'
+              ? 'Retrieve first, work the scheduled path, then act on one evidence-based correction.'
+              : `The next scheduled session is ${formatDate(session.date)}. Every stage remains freely browsable.`
       )}
-      <section class="session-hero">
-        <div>
-          <p class="eyebrow">${exactToday ? 'Today' : 'Next session'} · ${escapeHtml(session.category.replace('-', ' '))}</p>
-          <h2>${escapeHtml(session.title)}</h2>
-          <p class="lede">${escapeHtml(session.outcome)}</p>
-          <div class="session-meta"><span class="pill">${formatDate(session.date)}</span><span class="pill">${formatMinutes(session.duration)}</span><span class="pill">${guide?.stages?.length || 0} stages</span></div>
+      <div class="today-layout">
+        <aside class="today-rail">
+          ${renderTimerPanel(session)}
+        </aside>
+        <div class="today-main">
+          <section class="session-hero">
+            <div>
+              <p class="eyebrow">${dayStatus === 'overdue' ? 'Overdue' : dayStatus === 'caught-up' ? 'Caught up' : dayStatus === 'today' ? 'Today' : 'Next session'} · ${escapeHtml(session.category.replace('-', ' '))}</p>
+              <h2>${escapeHtml(session.title)}</h2>
+              <p class="lede">${escapeHtml(session.outcome)}</p>
+              <div class="session-meta">${dayStatus === 'overdue' ? '<span class="pill pill-accent">Overdue</span>' : ''}<span class="pill">${formatDate(session.date)}</span><span class="pill">${formatMinutes(session.duration)}</span><span class="pill">${guide?.stages?.length || 0} stages</span></div>
+            </div>
+          </section>
+          <div class="daily-agenda">
+            ${reviewSection}
+            ${sessionSection}
+            ${followUpSection}
+          </div>
         </div>
-        ${renderTimerPanel(session)}
-      </section>
-      <div class="daily-agenda">
-        ${reviewSection}
-        ${sessionSection}
-        ${followUpSection}
       </div>`;
   }
 
